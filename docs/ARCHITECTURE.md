@@ -12,9 +12,11 @@ The **AULA F108 Pro is the first complete implementation**. It is intentionally 
 Cargo workspace
 │
 ├── crates/
+│   ├── config/               desired-state domain model
 │   ├── core/                 registry, lifecycle, serialization, diagnostics
 │   ├── driver-api/           device/capability/driver contracts
-│   └── hid/                  HID discovery + transport abstraction
+│   ├── hid/                  HID discovery + transport abstraction
+│   └── persistence/          SQLite storage + migrations
 │
 ├── drivers/
 │   └── aula-f108pro/         first device driver
@@ -241,3 +243,70 @@ For high-risk features, packet generation and media conversion must be testable 
 ## Ecosystem rule
 
 > MechKeyMesh does not support a new keyboard by adding device-specific branches to the application. It supports a new keyboard by adding or extending a driver that implements standardized capabilities.
+
+
+## Desired-state persistence
+
+MechKeyMesh treats the local database as the source of truth for configuration that cannot be reliably reconstructed from the keyboard.
+
+```text
+SQLite desired state
+        |
+        v
+configuration scope
+(device model + profile + capability)
+        |
+        v
+driver translation
+        |
+        v
+keyboard
+```
+
+Configuration is never scoped merely to whichever keyboard happens to be connected at the moment.
+
+A stable `device_model_id` is separate from a connection-specific `driver_id`. For example:
+
+```text
+device model   aula.f108pro
+USB driver     aula.f108pro.usb
+future 2.4G    can share aula.f108pro
+```
+
+This allows USB and future wireless drivers for the same physical keyboard model to share profiles and desired configuration.
+
+### SQLite policy
+
+The persistence layer uses:
+
+- foreign keys enabled
+- WAL journal mode
+- `synchronous = FULL`
+- bounded busy timeout
+- transactional schema migrations
+- `PRAGMA quick_check` integrity validation
+
+Schema changes are versioned. A newer database is refused by an older MechKeyMesh build instead of being silently modified.
+
+### Current schemas
+
+```text
+schema 1  devices, profiles, lighting, device_settings, application_rules
+schema 2  key_mappings, layer_mappings, macros, macro_events
+schema 3  per_key_lighting, live_lighting, music_presets, lcd_projects
+```
+
+The tables exist before their higher-level feature editors are implemented so later runs can add functionality without repeatedly redesigning persistence ownership.
+
+### Desired lighting behavior
+
+The first end-to-end persisted feature is onboard lighting.
+
+When the user saves a lighting configuration:
+
+1. MechKeyMesh writes the desired state to SQLite.
+2. If the keyboard is Ready, the configuration is then sent through the device manager.
+3. If the keyboard is unavailable, the desired state remains safely stored.
+4. On the next application start, the editor reloads the saved desired state.
+
+Automatic reconciliation of all desired state after reconnect will be expanded in later feature runs rather than guessed prematurely.
