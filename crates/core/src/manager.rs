@@ -269,19 +269,19 @@ fn worker(
                 let _ = reply.send(result);
             }
             Err(RecvTimeoutError::Timeout) => {
-                if let Some(device) = active.as_mut() {
-                    if !active_device_present(device, &log, &config) {
-                        let descriptor = device.session.descriptor();
-                        set_status(
-                            &status,
-                            DeviceState::Recovery,
-                            Some(descriptor),
-                            Some((ErrorClass::Disconnected, "device removal detected".into())),
-                            None,
-                            0,
-                        );
-                        close_active(&mut active, &log);
-                    }
+                if let Some(device) = active.as_mut()
+                    && !active_device_present(device, &log, &config)
+                {
+                    let descriptor = device.session.descriptor();
+                    set_status(
+                        &status,
+                        DeviceState::Recovery,
+                        Some(descriptor),
+                        Some((ErrorClass::Disconnected, "device removal detected".into())),
+                        None,
+                        0,
+                    );
+                    close_active(&mut active, &log);
                 }
             }
             Err(RecvTimeoutError::Disconnected) => {
@@ -619,10 +619,10 @@ fn active_device_present(active: &mut ActiveDevice, log: &LogRing, config: &Mana
 }
 
 fn close_active(active: &mut Option<ActiveDevice>, log: &LogRing) {
-    if let Some(mut device) = active.take() {
-        if let Err(error) = device.session.close() {
-            log.push("warning", format!("device close failed: {error}"));
-        }
+    if let Some(mut device) = active.take()
+        && let Err(error) = device.session.close()
+    {
+        log.push("warning", format!("device close failed: {error}"));
     }
 }
 
