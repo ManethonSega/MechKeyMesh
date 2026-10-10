@@ -6,5 +6,6 @@ rust-version.workspace = true
 repository.workspace = true
 
 [dependencies]
+mechkeymesh-layout = { path = "../layout" }
 serde.workspace = true
 thiserror.workspace = true
