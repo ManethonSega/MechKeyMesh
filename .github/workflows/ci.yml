@@ -46,3 +46,15 @@ jobs:
             throw "MechKeyMesh.exe was not produced"
           }
           Get-Item "target/release/MechKeyMesh.exe" | Format-List Name,Length,LastWriteTime
+          $hash = (Get-FileHash "target/release/MechKeyMesh.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  MechKeyMesh.exe" | Set-Content -NoNewline "target/release/MechKeyMesh.exe.sha256"
+          Write-Host "SHA-256: $hash"
+      - name: Upload Windows test build
+        uses: actions/upload-artifact@v4
+        with:
+          name: MechKeyMesh-Windows-v0.5.0-alpha.1
+          path: |
+            target/release/MechKeyMesh.exe
+            target/release/MechKeyMesh.exe.sha256
+          if-no-files-found: error
+          retention-days: 14
