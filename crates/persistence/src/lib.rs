@@ -796,11 +796,8 @@ mod tests {
             assert_eq!(store.status().unwrap().schema_version, 1);
             store.ensure_device_model(&model()).unwrap();
             let profile = store.ensure_default_profile("aula.f108pro").unwrap();
-            let scope = ConfigurationScope::new(
-                "aula.f108pro",
-                profile.id,
-                Capability::HardwareRgb,
-            );
+            let scope =
+                ConfigurationScope::new("aula.f108pro", profile.id, Capability::HardwareRgb);
             expected = lighting(scope);
             store.save_lighting(&expected).unwrap();
         }
