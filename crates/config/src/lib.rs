@@ -10,11 +10,7 @@ pub struct DeviceModel {
 }
 
 impl DeviceModel {
-    pub fn new(
-        id: impl Into<String>,
-        vendor: impl Into<String>,
-        name: impl Into<String>,
-    ) -> Self {
+    pub fn new(id: impl Into<String>, vendor: impl Into<String>, name: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             vendor: vendor.into(),
@@ -73,11 +69,7 @@ mod tests {
 
     #[test]
     fn scope_keeps_device_profile_and_capability_together() {
-        let scope = ConfigurationScope::new(
-            "aula.f108pro",
-            "default",
-            Capability::HardwareRgb,
-        );
+        let scope = ConfigurationScope::new("aula.f108pro", "default", Capability::HardwareRgb);
 
         assert_eq!(scope.device_model_id, "aula.f108pro");
         assert_eq!(scope.profile_id, "default");
