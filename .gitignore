@@ -1,6 +1,8 @@
-/build/bin/
-/frontend/node_modules/
-/frontend/wailsjs/
+/target/
+**/node_modules/
 *.log
 .DS_Store
 Thumbs.db
+
+# Generated Tauri files
+apps/desktop/src-tauri/gen/
