@@ -1,3 +1,7 @@
+mod layout;
+
+pub use layout::f108pro_layout;
+
 use mechkeymesh_driver_api::{
     Capability, Connection, DeviceCandidate, DeviceDescriptor, DeviceMatch, DeviceSession,
     DriverError, DriverManifest, KeyboardDriver, LightingConfig, OperationContext, TransportKind,
