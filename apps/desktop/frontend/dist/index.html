@@ -24,7 +24,7 @@
     </div>
     <nav id="nav">
       <button class="active" data-page="home">Home</button>
-      <button data-page="keys">Keys <b>R4</b></button>
+      <button data-page="keys">Keys <b>R6</b></button>
       <button data-page="macros" disabled>Macros <b>Soon</b></button>
       <button data-page="lighting">Lighting</button>
       <button data-page="lcd" disabled>LCD <b>Soon</b></button>
@@ -32,7 +32,7 @@
       <button data-page="settings" disabled>Device Settings <b>Soon</b></button>
       <button data-page="diagnostics">Diagnostics</button>
     </nav>
-    <div class="version">v0.6.0-alpha.1 · F108 Hardware RGB</div>
+    <div class="version">v0.7.0-alpha.1 · Normal Remapping</div>
   </aside>
 
   <main>
@@ -83,11 +83,12 @@
       <article class="card layout-card">
         <div class="sectiontitle">
           <div>
-            <span class="eyebrow">UNIVERSAL LAYOUT ENGINE</span>
+            <span class="eyebrow">NORMAL-LAYER REMAPPING</span>
             <h3 id="layoutName">Loading layout...</h3>
-            <p id="layoutSummary" class="muted">Physical geometry is supplied by layout data, not hard-coded HTML.</p>
+            <p id="layoutSummary" class="muted">Select one key, or Ctrl/Cmd-click several keys, then assign an action.</p>
           </div>
           <div class="layout-badges">
+            <span id="keymapVerification" class="verification pending">Physical verification pending</span>
             <span id="layoutKind" class="tag">—</span>
             <span id="layoutKeyCount" class="tag neutral">— keys</span>
           </div>
@@ -98,11 +99,25 @@
           <button class="layer-tab" type="button" disabled>Fn <span>R7</span></button>
         </div>
 
+        <div class="keymap-toolbar" role="toolbar" aria-label="Normal keymap editing">
+          <div class="toolbar-group">
+            <button id="undoKeymap" class="secondary compact" type="button" disabled>Undo</button>
+            <button id="redoKeymap" class="secondary compact" type="button" disabled>Redo</button>
+            <button id="copyKeyAction" class="secondary compact" type="button" disabled>Copy</button>
+            <button id="pasteKeyAction" class="secondary compact" type="button" disabled>Paste</button>
+            <button id="resetSelectedKeys" class="secondary compact" type="button" disabled>Reset selected</button>
+          </div>
+          <div class="toolbar-save">
+            <span id="keymapStatus" class="muted">Loading desired normal layer...</span>
+            <button id="saveNormalKeymap" class="primary" type="button">Save desired normal layer</button>
+          </div>
+        </div>
+
         <div id="keyboardViewport" class="keyboard-viewport">
           <div class="layout-loading">Loading keyboard geometry...</div>
         </div>
         <p class="layout-note">
-          OEM <code>row_col</code> is kept as source grid information. It is not labelled as the electrical matrix until independently verified.
+          Mapped keys have a blue marker. The complete 576-byte normal-layer table is regenerated and written atomically. OEM <code>row_col</code> remains source-grid information, not an assumed electrical matrix.
         </p>
       </article>
 
@@ -110,6 +125,7 @@
         <article class="card key-inspector">
           <span class="eyebrow">SELECTED KEY</span>
           <h3 id="selectedKeyName">Select a key</h3>
+          <p id="currentAssignment" class="current-assignment">Assigned action: Default</p>
           <dl id="selectedKeyDetails" class="details-list">
             <div><dt>Physical position</dt><dd>—</dd></div>
             <div><dt>Electrical matrix</dt><dd>—</dd></div>
@@ -119,17 +135,75 @@
           </dl>
         </article>
 
-        <article class="card action-catalog">
-          <span class="eyebrow">UNIVERSAL KEYACTION MODEL</span>
-          <h3>Action families</h3>
-          <p class="muted">The action model is independent of physical keyboard geometry and of any vendor protocol.</p>
-          <div class="action-chips">
-            <span>Default</span><span>Disabled</span><span>Keyboard</span><span>Modified key</span>
-            <span>Media</span><span>Mouse</span><span>Windows</span><span>Application</span>
-            <span>File</span><span>URL</span><span>Text</span><span>Macro</span>
-            <span>Layer</span><span>Vendor-specific</span>
+        <article class="card action-editor">
+          <span class="eyebrow">ASSIGN ACTION</span>
+          <h3>Normal-layer action</h3>
+          <p class="muted">Only F108 encodings supported by current protocol evidence are enabled.</p>
+
+          <label class="editor-field">Action family
+            <select id="keyActionType">
+              <option value="default">Default</option>
+              <option value="keyboard-key">Keyboard key</option>
+              <option value="modifier">Modifier</option>
+              <option value="shortcut">Shortcut</option>
+              <option value="media">Media</option>
+              <option value="mouse">Mouse</option>
+              <option value="windows">Windows / system</option>
+              <option value="disabled">Disable key</option>
+              <option value="open-application" disabled>Open application (not verified)</option>
+              <option value="open-file" disabled>Open file (not verified)</option>
+              <option value="open-url" disabled>Open website (not verified)</option>
+              <option value="send-text" disabled>Send text (not verified)</option>
+              <option value="macro" disabled>Macro (R9/R10)</option>
+            </select>
+          </label>
+
+          <div id="keyboardKeyFields" class="action-fields hidden-control">
+            <label class="editor-field">Target key<select id="keyboardKeyTarget"></select></label>
           </div>
-          <p class="future-actions">Designed to extend later with TapHold, Transparent, OneShot, Chord and TapDance without changing the physical layout model.</p>
+
+          <div id="modifierFields" class="action-fields hidden-control">
+            <label class="editor-field">Modifier<select id="modifierTarget">
+              <option value="224">Left Ctrl</option><option value="225">Left Shift</option>
+              <option value="226">Left Alt</option><option value="227">Left Win</option>
+              <option value="228">Right Ctrl</option><option value="229">Right Shift</option>
+              <option value="230">Right Alt</option><option value="231">Right Win</option>
+            </select></label>
+          </div>
+
+          <div id="shortcutFields" class="action-fields hidden-control">
+            <fieldset class="modifier-grid">
+              <legend>Modifiers</legend>
+              <label><input type="checkbox" value="left-ctrl"/>LCtrl</label>
+              <label><input type="checkbox" value="left-shift"/>LShift</label>
+              <label><input type="checkbox" value="left-alt"/>LAlt</label>
+              <label><input type="checkbox" value="left-meta"/>LWin</label>
+              <label><input type="checkbox" value="right-ctrl"/>RCtrl</label>
+              <label><input type="checkbox" value="right-shift"/>RShift</label>
+              <label><input type="checkbox" value="right-alt"/>RAlt</label>
+              <label><input type="checkbox" value="right-meta"/>RWin</label>
+            </fieldset>
+            <label class="editor-field">Target key<select id="shortcutKeyTarget"></select></label>
+          </div>
+
+          <div id="mediaFields" class="action-fields hidden-control">
+            <label class="editor-field">Media action<select id="mediaTarget"></select></label>
+          </div>
+          <div id="mouseFields" class="action-fields hidden-control">
+            <label class="editor-field">Mouse action<select id="mouseTarget"></select></label>
+          </div>
+          <div id="windowsFields" class="action-fields hidden-control">
+            <label class="editor-field">Windows action<select id="windowsTarget"></select></label>
+          </div>
+
+          <div id="hostActionNotice" class="protocol-notice">
+            Open application, file, URL and send-text assignments in the OEM software depend on an indexed host-side handler. They stay disabled until MechKeyMesh verifies that event channel rather than pretending the four-byte mapping alone is sufficient.
+          </div>
+
+          <div class="editor-actions">
+            <span id="selectedKeyCount" class="muted">No keys selected</span>
+            <button id="applyKeyAction" class="primary" type="button" disabled>Apply to selected</button>
+          </div>
         </article>
       </div>
     </section>
@@ -143,7 +217,7 @@
         <div class="lighting-effect-summary">
           <strong id="lightingEffectTitle">Mode 0 · Off</strong>
           <span id="lightingEffectParams" class="muted">No adjustable parameters.</span>
-          <span id="lightingVerification" class="verification pending">Physical verification pending</span>
+          <span id="lightingVerification" class="verification pending">Physical verification deferred</span>
         </div>
         <div class="formgrid">
           <label id="effectControl">Effect<select id="lightingMode"></select></label>
@@ -176,5 +250,6 @@
   </main>
 </div>
 <script src="app.js"></script>
+<script src="keymap.js"></script>
 </body>
 </html>
