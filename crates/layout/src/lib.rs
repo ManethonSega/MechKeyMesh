@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -257,6 +257,43 @@ impl Layout {
     }
 }
 
+
+#[derive(Debug, Error, PartialEq)]
+pub enum LayoutRegistryError {
+    #[error(transparent)]
+    InvalidLayout(#[from] LayoutError),
+    #[error("layout already registered: {0}")]
+    DuplicateLayoutId(String),
+}
+
+#[derive(Default)]
+pub struct LayoutRegistry {
+    layouts: BTreeMap<String, Layout>,
+}
+
+impl LayoutRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn register(&mut self, layout: Layout) -> Result<(), LayoutRegistryError> {
+        layout.validate()?;
+        if self.layouts.contains_key(&layout.id) {
+            return Err(LayoutRegistryError::DuplicateLayoutId(layout.id));
+        }
+        self.layouts.insert(layout.id.clone(), layout);
+        Ok(())
+    }
+
+    pub fn get(&self, id: &str) -> Option<&Layout> {
+        self.layouts.get(id)
+    }
+
+    pub fn list(&self) -> Vec<Layout> {
+        self.layouts.values().cloned().collect()
+    }
+}
+
 const fn default_true() -> bool {
     true
 }
@@ -323,6 +360,30 @@ mod tests {
         assert_eq!(
             layout.validate(),
             Err(LayoutError::DuplicateDeviceKeyIndex(1))
+        );
+    }
+
+    #[test]
+    fn registry_rejects_duplicate_layout_ids() {
+        let layout = Layout {
+            schema_version: 1,
+            id: "test.layout".into(),
+            device_model_id: "test.device".into(),
+            name: "Test".into(),
+            kind: LayoutKind::Custom,
+            coordinate_space: CoordinateSpace {
+                width: 10.0,
+                height: 4.0,
+            },
+            keys: vec![key("a", 1)],
+            source_notes: vec![],
+        };
+
+        let mut registry = LayoutRegistry::new();
+        registry.register(layout.clone()).unwrap();
+        assert_eq!(
+            registry.register(layout),
+            Err(LayoutRegistryError::DuplicateLayoutId("test.layout".into()))
         );
     }
 
