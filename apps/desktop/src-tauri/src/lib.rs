@@ -40,7 +40,10 @@ fn get_driver_registry(state: State<'_, AppState>) -> Vec<DriverManifest> {
 
 #[tauri::command]
 fn get_persistence_status(state: State<'_, AppState>) -> Result<PersistenceStatus, String> {
-    state.persistence.status().map_err(|error| error.to_string())
+    state
+        .persistence
+        .status()
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
