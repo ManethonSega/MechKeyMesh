@@ -28,8 +28,7 @@
       "ledIndex": 1,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 41
+        "type": "default"
       }
     },
     {
@@ -51,8 +50,7 @@
       "ledIndex": 2,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 58
+        "type": "default"
       }
     },
     {
@@ -74,8 +72,7 @@
       "ledIndex": 3,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 59
+        "type": "default"
       }
     },
     {
@@ -97,8 +94,7 @@
       "ledIndex": 4,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 60
+        "type": "default"
       }
     },
     {
@@ -120,8 +116,7 @@
       "ledIndex": 5,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 61
+        "type": "default"
       }
     },
     {
@@ -143,8 +138,7 @@
       "ledIndex": 6,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 62
+        "type": "default"
       }
     },
     {
@@ -166,8 +160,7 @@
       "ledIndex": 7,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 63
+        "type": "default"
       }
     },
     {
@@ -189,8 +182,7 @@
       "ledIndex": 8,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 64
+        "type": "default"
       }
     },
     {
@@ -212,8 +204,7 @@
       "ledIndex": 9,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 65
+        "type": "default"
       }
     },
     {
@@ -235,8 +226,7 @@
       "ledIndex": 10,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 66
+        "type": "default"
       }
     },
     {
@@ -258,8 +248,7 @@
       "ledIndex": 11,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 67
+        "type": "default"
       }
     },
     {
@@ -281,8 +270,7 @@
       "ledIndex": 12,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 68
+        "type": "default"
       }
     },
     {
@@ -304,8 +292,7 @@
       "ledIndex": 13,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 69
+        "type": "default"
       }
     },
     {
@@ -327,8 +314,7 @@
       "ledIndex": 112,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 70
+        "type": "default"
       }
     },
     {
@@ -350,8 +336,7 @@
       "ledIndex": 113,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 71
+        "type": "default"
       }
     },
     {
@@ -373,8 +358,7 @@
       "ledIndex": 115,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 72
+        "type": "default"
       }
     },
     {
@@ -396,8 +380,7 @@
       "ledIndex": 19,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 53
+        "type": "default"
       }
     },
     {
@@ -419,8 +402,7 @@
       "ledIndex": 20,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 30
+        "type": "default"
       }
     },
     {
@@ -442,8 +424,7 @@
       "ledIndex": 21,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 31
+        "type": "default"
       }
     },
     {
@@ -465,8 +446,7 @@
       "ledIndex": 22,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 32
+        "type": "default"
       }
     },
     {
@@ -488,8 +468,7 @@
       "ledIndex": 23,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 33
+        "type": "default"
       }
     },
     {
@@ -511,8 +490,7 @@
       "ledIndex": 24,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 34
+        "type": "default"
       }
     },
     {
@@ -534,8 +512,7 @@
       "ledIndex": 25,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 35
+        "type": "default"
       }
     },
     {
@@ -557,8 +534,7 @@
       "ledIndex": 26,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 36
+        "type": "default"
       }
     },
     {
@@ -580,8 +556,7 @@
       "ledIndex": 27,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 37
+        "type": "default"
       }
     },
     {
@@ -603,8 +578,7 @@
       "ledIndex": 28,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 38
+        "type": "default"
       }
     },
     {
@@ -626,8 +600,7 @@
       "ledIndex": 29,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 39
+        "type": "default"
       }
     },
     {
@@ -649,8 +622,7 @@
       "ledIndex": 30,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 45
+        "type": "default"
       }
     },
     {
@@ -672,8 +644,7 @@
       "ledIndex": 31,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 46
+        "type": "default"
       }
     },
     {
@@ -695,8 +666,7 @@
       "ledIndex": 103,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 42
+        "type": "default"
       }
     },
     {
@@ -718,8 +688,7 @@
       "ledIndex": 116,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 73
+        "type": "default"
       }
     },
     {
@@ -741,8 +710,7 @@
       "ledIndex": 117,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 74
+        "type": "default"
       }
     },
     {
@@ -764,8 +732,7 @@
       "ledIndex": 118,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 75
+        "type": "default"
       }
     },
     {
@@ -787,8 +754,7 @@
       "ledIndex": 32,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 83
+        "type": "default"
       }
     },
     {
@@ -810,8 +776,7 @@
       "ledIndex": 33,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 84
+        "type": "default"
       }
     },
     {
@@ -833,8 +798,7 @@
       "ledIndex": 34,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 85
+        "type": "default"
       }
     },
     {
@@ -856,8 +820,7 @@
       "ledIndex": 122,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 86
+        "type": "default"
       }
     },
     {
@@ -879,8 +842,7 @@
       "ledIndex": 37,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 43
+        "type": "default"
       }
     },
     {
@@ -902,8 +864,7 @@
       "ledIndex": 38,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 20
+        "type": "default"
       }
     },
     {
@@ -925,8 +886,7 @@
       "ledIndex": 39,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 26
+        "type": "default"
       }
     },
     {
@@ -948,8 +908,7 @@
       "ledIndex": 40,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 8
+        "type": "default"
       }
     },
     {
@@ -971,8 +930,7 @@
       "ledIndex": 41,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 21
+        "type": "default"
       }
     },
     {
@@ -994,8 +952,7 @@
       "ledIndex": 42,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 23
+        "type": "default"
       }
     },
     {
@@ -1017,8 +974,7 @@
       "ledIndex": 43,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 28
+        "type": "default"
       }
     },
     {
@@ -1040,8 +996,7 @@
       "ledIndex": 44,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 24
+        "type": "default"
       }
     },
     {
@@ -1063,8 +1018,7 @@
       "ledIndex": 45,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 12
+        "type": "default"
       }
     },
     {
@@ -1086,8 +1040,7 @@
       "ledIndex": 46,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 18
+        "type": "default"
       }
     },
     {
@@ -1109,8 +1062,7 @@
       "ledIndex": 47,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 19
+        "type": "default"
       }
     },
     {
@@ -1132,8 +1084,7 @@
       "ledIndex": 48,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 47
+        "type": "default"
       }
     },
     {
@@ -1155,8 +1106,7 @@
       "ledIndex": 49,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 48
+        "type": "default"
       }
     },
     {
@@ -1178,8 +1128,7 @@
       "ledIndex": 67,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 49
+        "type": "default"
       }
     },
     {
@@ -1201,8 +1150,7 @@
       "ledIndex": 119,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 76
+        "type": "default"
       }
     },
     {
@@ -1224,8 +1172,7 @@
       "ledIndex": 120,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 77
+        "type": "default"
       }
     },
     {
@@ -1247,8 +1194,7 @@
       "ledIndex": 121,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 78
+        "type": "default"
       }
     },
     {
@@ -1270,8 +1216,7 @@
       "ledIndex": 50,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 95
+        "type": "default"
       }
     },
     {
@@ -1293,8 +1238,7 @@
       "ledIndex": 51,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 96
+        "type": "default"
       }
     },
     {
@@ -1316,8 +1260,7 @@
       "ledIndex": 52,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 97
+        "type": "default"
       }
     },
     {
@@ -1339,8 +1282,7 @@
       "ledIndex": 123,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 87
+        "type": "default"
       }
     },
     {
@@ -1362,8 +1304,7 @@
       "ledIndex": 55,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 57
+        "type": "default"
       }
     },
     {
@@ -1385,8 +1326,7 @@
       "ledIndex": 56,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 4
+        "type": "default"
       }
     },
     {
@@ -1408,8 +1348,7 @@
       "ledIndex": 57,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 22
+        "type": "default"
       }
     },
     {
@@ -1431,8 +1370,7 @@
       "ledIndex": 58,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 7
+        "type": "default"
       }
     },
     {
@@ -1454,8 +1392,7 @@
       "ledIndex": 59,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 9
+        "type": "default"
       }
     },
     {
@@ -1477,8 +1414,7 @@
       "ledIndex": 60,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 10
+        "type": "default"
       }
     },
     {
@@ -1500,8 +1436,7 @@
       "ledIndex": 61,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 11
+        "type": "default"
       }
     },
     {
@@ -1523,8 +1458,7 @@
       "ledIndex": 62,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 13
+        "type": "default"
       }
     },
     {
@@ -1546,8 +1480,7 @@
       "ledIndex": 63,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 14
+        "type": "default"
       }
     },
     {
@@ -1569,8 +1502,7 @@
       "ledIndex": 64,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 15
+        "type": "default"
       }
     },
     {
@@ -1592,8 +1524,7 @@
       "ledIndex": 65,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 51
+        "type": "default"
       }
     },
     {
@@ -1615,8 +1546,7 @@
       "ledIndex": 66,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 52
+        "type": "default"
       }
     },
     {
@@ -1638,8 +1568,7 @@
       "ledIndex": 85,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 40
+        "type": "default"
       }
     },
     {
@@ -1661,8 +1590,7 @@
       "ledIndex": 68,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 92
+        "type": "default"
       }
     },
     {
@@ -1684,8 +1612,7 @@
       "ledIndex": 69,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 93
+        "type": "default"
       }
     },
     {
@@ -1707,8 +1634,7 @@
       "ledIndex": 70,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 94
+        "type": "default"
       }
     },
     {
@@ -1730,8 +1656,7 @@
       "ledIndex": 73,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 225
+        "type": "default"
       }
     },
     {
@@ -1753,8 +1678,7 @@
       "ledIndex": 74,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 29
+        "type": "default"
       }
     },
     {
@@ -1776,8 +1700,7 @@
       "ledIndex": 75,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 27
+        "type": "default"
       }
     },
     {
@@ -1799,8 +1722,7 @@
       "ledIndex": 76,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 6
+        "type": "default"
       }
     },
     {
@@ -1822,8 +1744,7 @@
       "ledIndex": 77,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 25
+        "type": "default"
       }
     },
     {
@@ -1845,8 +1766,7 @@
       "ledIndex": 78,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 5
+        "type": "default"
       }
     },
     {
@@ -1868,8 +1788,7 @@
       "ledIndex": 79,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 17
+        "type": "default"
       }
     },
     {
@@ -1891,8 +1810,7 @@
       "ledIndex": 80,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 16
+        "type": "default"
       }
     },
     {
@@ -1914,8 +1832,7 @@
       "ledIndex": 81,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 54
+        "type": "default"
       }
     },
     {
@@ -1937,8 +1854,7 @@
       "ledIndex": 82,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 55
+        "type": "default"
       }
     },
     {
@@ -1960,8 +1876,7 @@
       "ledIndex": 83,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 56
+        "type": "default"
       }
     },
     {
@@ -1983,8 +1898,7 @@
       "ledIndex": 84,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 229
+        "type": "default"
       }
     },
     {
@@ -2006,8 +1920,7 @@
       "ledIndex": 101,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 82
+        "type": "default"
       }
     },
     {
@@ -2029,8 +1942,7 @@
       "ledIndex": 86,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 89
+        "type": "default"
       }
     },
     {
@@ -2052,8 +1964,7 @@
       "ledIndex": 87,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 90
+        "type": "default"
       }
     },
     {
@@ -2075,8 +1986,7 @@
       "ledIndex": 88,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 91
+        "type": "default"
       }
     },
     {
@@ -2098,8 +2008,7 @@
       "ledIndex": 106,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 88
+        "type": "default"
       }
     },
     {
@@ -2121,8 +2030,7 @@
       "ledIndex": 91,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 224
+        "type": "default"
       }
     },
     {
@@ -2144,8 +2052,7 @@
       "ledIndex": 92,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 227
+        "type": "default"
       }
     },
     {
@@ -2167,8 +2074,7 @@
       "ledIndex": 93,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 226
+        "type": "default"
       }
     },
     {
@@ -2190,8 +2096,7 @@
       "ledIndex": 94,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 44
+        "type": "default"
       }
     },
     {
@@ -2213,8 +2118,7 @@
       "ledIndex": 95,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 230
+        "type": "default"
       }
     },
     {
@@ -2236,8 +2140,7 @@
       "ledIndex": 96,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 175
+        "type": "default"
       }
     },
     {
@@ -2259,8 +2162,7 @@
       "ledIndex": 97,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 101
+        "type": "default"
       }
     },
     {
@@ -2282,8 +2184,7 @@
       "ledIndex": 98,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 228
+        "type": "default"
       }
     },
     {
@@ -2305,8 +2206,7 @@
       "ledIndex": 99,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 80
+        "type": "default"
       }
     },
     {
@@ -2328,8 +2228,7 @@
       "ledIndex": 100,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 81
+        "type": "default"
       }
     },
     {
@@ -2351,8 +2250,7 @@
       "ledIndex": 102,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 79
+        "type": "default"
       }
     },
     {
@@ -2374,8 +2272,7 @@
       "ledIndex": 104,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 98
+        "type": "default"
       }
     },
     {
@@ -2397,8 +2294,7 @@
       "ledIndex": 105,
       "fnProgrammable": true,
       "defaultAction": {
-        "type": "keyboard-key",
-        "usage": 99
+        "type": "default"
       }
     }
   ],
