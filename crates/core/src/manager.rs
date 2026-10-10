@@ -5,8 +5,8 @@ use mechkeymesh_driver_api::{
 use serde::{Deserialize, Serialize};
 use std::{
     sync::{
-        mpsc::{self, Receiver, RecvTimeoutError, Sender},
         Arc, RwLock,
+        mpsc::{self, Receiver, RecvTimeoutError, Sender},
     },
     thread,
     time::Duration,
@@ -145,21 +145,11 @@ fn worker(
             Ok(Command::SetLighting { config, reply }) => {
                 let result = if let Some(device) = session.as_mut() {
                     let descriptor = device.descriptor();
-                    update_status(
-                        &status,
-                        DeviceState::Busy,
-                        Some(descriptor.clone()),
-                        None,
-                    );
+                    update_status(&status, DeviceState::Busy, Some(descriptor.clone()), None);
                     log.push("info", "applying onboard lighting");
                     match device.set_lighting(config) {
                         Ok(()) => {
-                            update_status(
-                                &status,
-                                DeviceState::Ready,
-                                Some(descriptor),
-                                None,
-                            );
+                            update_status(&status, DeviceState::Ready, Some(descriptor), None);
                             log.push("info", "onboard lighting applied");
                             Ok(())
                         }
@@ -211,12 +201,7 @@ fn discover(
                         driver.id()
                     ),
                 );
-                update_status(
-                    status,
-                    DeviceState::Ready,
-                    Some(descriptor),
-                    None,
-                );
+                update_status(status, DeviceState::Ready, Some(descriptor), None);
                 *session = Some(opened);
                 return;
             }
