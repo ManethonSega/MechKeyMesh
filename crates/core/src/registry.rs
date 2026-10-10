@@ -14,6 +14,8 @@ pub enum RegistryError {
     EmptyDriverId,
     #[error("driver already registered: {0}")]
     DuplicateDriverId(String),
+    #[error("driver layout declaration mismatch: {0}")]
+    LayoutDeclarationMismatch(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,6 +58,23 @@ impl DriverRegistry {
         if self.drivers.contains_key(&manifest.driver_id) {
             return Err(RegistryError::DuplicateDriverId(manifest.driver_id));
         }
+
+        let mut declared = manifest.layout_ids.clone();
+        declared.sort();
+        let mut provided: Vec<String> = driver
+            .layouts()
+            .into_iter()
+            .map(|layout| layout.id)
+            .collect();
+        provided.sort();
+
+        if declared != provided {
+            return Err(RegistryError::LayoutDeclarationMismatch(format!(
+                "{} declares {:?} but provides {:?}",
+                manifest.driver_id, declared, provided
+            )));
+        }
+
         self.drivers.insert(manifest.driver_id, driver);
         Ok(())
     }
@@ -169,7 +188,7 @@ mod tests {
                 device_name: "Fake Keyboard".into(),
                 supported_connections: vec![Connection::Usb],
                 capabilities: vec![Capability::HardwareRgb],
-                layout_ids: vec!["fake.layout".into()],
+                layout_ids: vec![],
                 matchers: vec![DeviceMatch {
                     vendor_id: 1,
                     product_id: 2,
@@ -232,6 +251,46 @@ mod tests {
             .unwrap_err();
 
         assert!(matches!(error, RegistryError::DuplicateDriverId(_)));
+    }
+
+    #[test]
+    fn rejects_layout_manifest_mismatch() {
+        struct BadLayoutDriver;
+
+        impl KeyboardDriver for BadLayoutDriver {
+            fn manifest(&self) -> DriverManifest {
+                DriverManifest {
+                    driver_id: "bad.layout.driver".into(),
+                    device_model_id: "bad.keyboard".into(),
+                    vendor: "Bad".into(),
+                    device_name: "Bad Keyboard".into(),
+                    supported_connections: vec![Connection::Usb],
+                    capabilities: vec![],
+                    layout_ids: vec!["missing.layout".into()],
+                    matchers: vec![],
+                    transport_requirements: vec![],
+                }
+            }
+
+            fn discover(
+                &self,
+                _context: &OperationContext,
+            ) -> Result<Vec<DeviceCandidate>, DriverError> {
+                Ok(vec![])
+            }
+
+            fn open(
+                &self,
+                _context: &OperationContext,
+                _candidate: &DeviceCandidate,
+            ) -> Result<Box<dyn DeviceSession>, DriverError> {
+                Err(DriverError::NotFound)
+            }
+        }
+
+        let mut registry = DriverRegistry::new();
+        let error = registry.register(Arc::new(BadLayoutDriver)).unwrap_err();
+        assert!(matches!(error, RegistryError::LayoutDeclarationMismatch(_)));
     }
 
     #[test]
