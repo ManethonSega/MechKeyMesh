@@ -71,6 +71,13 @@ impl DriverRegistry {
         self.drivers.get(driver_id).cloned()
     }
 
+    pub fn layouts(&self) -> Vec<mechkeymesh_layout::Layout> {
+        self.drivers
+            .values()
+            .flat_map(|driver| driver.layouts())
+            .collect()
+    }
+
     pub fn is_empty(&self) -> bool {
         self.drivers.is_empty()
     }
