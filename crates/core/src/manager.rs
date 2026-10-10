@@ -713,7 +713,7 @@ mod tests {
                 device_name: "Fake Keyboard".into(),
                 supported_connections: vec![Connection::Usb],
                 capabilities: vec![Capability::HardwareRgb],
-                layout_ids: vec!["fake.layout".into()],
+                layout_ids: vec![],
                 matchers: vec![DeviceMatch {
                     vendor_id: 0x1234,
                     product_id: 0x5678,
