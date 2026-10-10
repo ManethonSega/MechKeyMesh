@@ -59,6 +59,10 @@ impl KeyboardDriver for AulaF108ProDriver {
         }
     }
 
+    fn layouts(&self) -> Vec<mechkeymesh_layout::Layout> {
+        vec![f108pro_layout()]
+    }
+
     fn discover(&self, context: &OperationContext) -> Result<Vec<DeviceCandidate>, DriverError> {
         context.check()?;
         let devices = enumerate_feature_devices(VENDOR_ID, PRODUCT_ID, CONFIG_USAGE_PAGE)
