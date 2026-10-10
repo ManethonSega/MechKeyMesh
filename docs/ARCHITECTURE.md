@@ -397,3 +397,53 @@ Future variants such as TapHold, Transparent, OneShot, Chord and TapDance can be
 Drivers declare supported `layout_ids` in their manifest. Layouts are validated and registered independently from device sessions.
 
 The desktop requests a registered layout from the Tauri backend and renders it from data. No F108 key positions are hard-coded in HTML or JavaScript.
+
+
+## Hardware lighting effect metadata
+
+R5 moves built-in lighting mode behavior out of UI assumptions and into driver-provided metadata.
+
+A driver can expose `LightingEffectDescriptor` records describing:
+
+- numeric mode ID
+- display name
+- color behavior: none, color-or-rainbow, or built-in-rainbow-only
+- brightness support
+- speed support
+- optional direction axis
+
+The desktop builds the lighting controls from this metadata. It does not maintain an AULA-specific switch statement for which controls appear.
+
+For the AULA F108 Pro, the 20 effect definitions are based on the OEM-derived `config_func` mode table documented by the existing F108 reverse-engineering work. Direction axis is stored explicitly per mode because the recovered bit labels and the mode table must not be conflated.
+
+The F108 packet builder also normalizes unused fields to zero. Hidden/stale UI values therefore cannot leak into parameters that an effect does not use.
+
+Examples:
+
+```text
+Off
+  no adjustable parameters
+
+Static
+  color or rainbow
+  brightness
+
+Colourful / Spectrum
+  built-in rainbow
+  brightness
+  speed
+
+Scrolling
+  color or rainbow
+  brightness
+  speed
+  left/right direction
+
+Rolling / Rotating / Flowing / Tilt
+  color or rainbow
+  brightness
+  speed
+  up/down direction
+```
+
+Physical effect behavior remains a separate evidence level. Software metadata and successful HID ACKs do not make an effect physically verified.
