@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -13,7 +13,7 @@
   <h1>Mech<span>Key</span>Mesh</h1>
   <p>UNIVERSAL KEYBOARD STUDIO</p>
   <div class="splashline"><i></i></div>
-  <small>Loading keyboard drivers...</small>
+  <small>Loading keyboard platform...</small>
 </div>
 
 <div id="app" class="app hidden">
@@ -24,7 +24,7 @@
     </div>
     <nav id="nav">
       <button class="active" data-page="home">Home</button>
-      <button data-page="keys" disabled>Keys <b>Soon</b></button>
+      <button data-page="keys">Keys <b>R4</b></button>
       <button data-page="macros" disabled>Macros <b>Soon</b></button>
       <button data-page="lighting">Lighting</button>
       <button data-page="lcd" disabled>LCD <b>Soon</b></button>
@@ -32,7 +32,7 @@
       <button data-page="settings" disabled>Device Settings <b>Soon</b></button>
       <button data-page="diagnostics">Diagnostics</button>
     </nav>
-    <div class="version">v0.4.0-alpha.1 · Persistence</div>
+    <div class="version">v0.5.0-alpha.1 · Layout Engine</div>
   </aside>
 
   <main>
@@ -41,7 +41,10 @@
         <h2 id="pageTitle">Home</h2>
         <p id="pageSubtitle">Device overview and connection health</p>
       </div>
-      <div id="connectionPill" class="pill disconnected">Disconnected</div>
+      <div class="header-actions">
+        <button id="themeToggle" class="theme-toggle secondary" type="button">Light mode</button>
+        <div id="connectionPill" class="pill disconnected">Disconnected</div>
+      </div>
     </header>
 
     <section id="page-home" class="page active">
@@ -71,9 +74,64 @@
           <div><span class="eyebrow">ECOSYSTEM FOUNDATION</span><h3>Device-specific drivers, shared platform</h3></div>
         </div>
         <p class="muted">
-          MechKeyMesh is now structured as a multi-vendor platform. The AULA F108 Pro is the first complete implementation and validation target. Future keyboard support is added as independent drivers rather than hard-coded into the desktop application.
+          MechKeyMesh is structured as a multi-vendor platform. The AULA F108 Pro is the first complete implementation and validation target. Future keyboards add independent drivers and data-driven layouts instead of keyboard-specific UI code.
         </p>
       </article>
+    </section>
+
+    <section id="page-keys" class="page">
+      <article class="card layout-card">
+        <div class="sectiontitle">
+          <div>
+            <span class="eyebrow">UNIVERSAL LAYOUT ENGINE</span>
+            <h3 id="layoutName">Loading layout...</h3>
+            <p id="layoutSummary" class="muted">Physical geometry is supplied by layout data, not hard-coded HTML.</p>
+          </div>
+          <div class="layout-badges">
+            <span id="layoutKind" class="tag">—</span>
+            <span id="layoutKeyCount" class="tag neutral">— keys</span>
+          </div>
+        </div>
+
+        <div class="layer-tabs" role="tablist" aria-label="Keyboard layer">
+          <button class="layer-tab active" type="button">Normal</button>
+          <button class="layer-tab" type="button" disabled>Fn <span>R7</span></button>
+        </div>
+
+        <div id="keyboardViewport" class="keyboard-viewport">
+          <div class="layout-loading">Loading keyboard geometry...</div>
+        </div>
+        <p class="layout-note">
+          OEM <code>row_col</code> is kept as source grid information. It is not labelled as the electrical matrix until independently verified.
+        </p>
+      </article>
+
+      <div class="keys-bottom-grid">
+        <article class="card key-inspector">
+          <span class="eyebrow">SELECTED KEY</span>
+          <h3 id="selectedKeyName">Select a key</h3>
+          <dl id="selectedKeyDetails" class="details-list">
+            <div><dt>Physical position</dt><dd>—</dd></div>
+            <div><dt>Electrical matrix</dt><dd>—</dd></div>
+            <div><dt>Device key index</dt><dd>—</dd></div>
+            <div><dt>LED index</dt><dd>—</dd></div>
+            <div><dt>Default action</dt><dd>—</dd></div>
+          </dl>
+        </article>
+
+        <article class="card action-catalog">
+          <span class="eyebrow">UNIVERSAL KEYACTION MODEL</span>
+          <h3>Action families</h3>
+          <p class="muted">The action model is independent of physical keyboard geometry and of any vendor protocol.</p>
+          <div class="action-chips">
+            <span>Default</span><span>Disabled</span><span>Keyboard</span><span>Modified key</span>
+            <span>Media</span><span>Mouse</span><span>Windows</span><span>Application</span>
+            <span>File</span><span>URL</span><span>Text</span><span>Macro</span>
+            <span>Layer</span><span>Vendor-specific</span>
+          </div>
+          <p class="future-actions">Designed to extend later with TapHold, Transparent, OneShot, Chord and TapDance without changing the physical layout model.</p>
+        </article>
+      </div>
     </section>
 
     <section id="page-lighting" class="page">
