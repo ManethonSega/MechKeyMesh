@@ -2,8 +2,10 @@ use mechkeymesh_config::{ConfigurationScope, DesiredLighting, DeviceModel};
 use mechkeymesh_core::{
     DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LogEntry, ManagerConfig,
 };
-use mechkeymesh_driver_api::{Capability, DriverManifest, LightingConfig};
-use mechkeymesh_driver_aula_f108pro::{AulaF108ProDriver, LIGHTING_MODES};
+use mechkeymesh_driver_api::{
+    Capability, DriverManifest, LightingConfig, LightingEffectDescriptor,
+};
+use mechkeymesh_driver_aula_f108pro::AulaF108ProDriver;
 use mechkeymesh_layout::{Layout, LayoutRegistry};
 use mechkeymesh_persistence::{PersistenceStatus, PersistenceStore};
 use serde::Serialize;
@@ -14,6 +16,7 @@ struct AppState {
     manager: DeviceManagerHandle,
     persistence: PersistenceStore,
     layouts: LayoutRegistry,
+    lighting_effects: Vec<LightingEffectDescriptor>,
     primary_device_model_id: String,
     primary_layout_id: String,
 }
@@ -84,11 +87,8 @@ fn cancel_active_operation(state: State<'_, AppState>) -> bool {
 }
 
 #[tauri::command]
-fn get_lighting_modes() -> Vec<String> {
-    LIGHTING_MODES
-        .iter()
-        .map(|mode| (*mode).to_string())
-        .collect()
+fn get_lighting_effects(state: State<'_, AppState>) -> Vec<LightingEffectDescriptor> {
+    state.lighting_effects.clone()
 }
 
 #[tauri::command]
@@ -173,6 +173,10 @@ pub fn run() {
                 .first()
                 .expect("the primary driver must declare at least one layout")
                 .clone();
+            let lighting_effects = registry
+                .get(&primary_manifest.driver_id)
+                .expect("primary driver must remain registered")
+                .hardware_lighting_effects();
 
             let manager = DeviceManager::start(registry, ManagerConfig::default());
 
@@ -180,6 +184,7 @@ pub fn run() {
                 manager,
                 persistence,
                 layouts,
+                lighting_effects,
                 primary_device_model_id,
                 primary_layout_id,
             });
@@ -195,7 +200,7 @@ pub fn run() {
             get_primary_layout,
             reconnect,
             cancel_active_operation,
-            get_lighting_modes,
+            get_lighting_effects,
             apply_lighting
         ])
         .build(tauri::generate_context!())

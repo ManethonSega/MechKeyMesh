@@ -216,6 +216,32 @@ impl DriverError {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LightingColorControl {
+    None,
+    ColorOrRainbow,
+    RainbowOnly,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LightingDirectionControl {
+    LeftRight,
+    UpDown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LightingEffectDescriptor {
+    pub mode: u8,
+    pub name: String,
+    pub color: LightingColorControl,
+    pub brightness: bool,
+    pub speed: bool,
+    pub direction: Option<LightingDirectionControl>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LightingConfig {
     pub mode: u8,
@@ -335,6 +361,10 @@ pub trait KeyboardDriver: Send + Sync {
         Vec::new()
     }
 
+    fn hardware_lighting_effects(&self) -> Vec<LightingEffectDescriptor> {
+        Vec::new()
+    }
+
     fn discover(&self, context: &OperationContext) -> Result<Vec<DeviceCandidate>, DriverError>;
 
     fn open(
@@ -380,6 +410,22 @@ mod tests {
         assert_eq!(Capability::HardwareRgb.storage_key(), "hardware-rgb");
         assert_eq!(Capability::FnLayer.storage_key(), "fn-layer");
         assert_eq!(Capability::DeviceSettings.storage_key(), "device-settings");
+    }
+
+    #[test]
+    fn lighting_effect_descriptor_serializes_direction_and_color_mode() {
+        let effect = LightingEffectDescriptor {
+            mode: 10,
+            name: "Scrolling".into(),
+            color: LightingColorControl::ColorOrRainbow,
+            brightness: true,
+            speed: true,
+            direction: Some(LightingDirectionControl::LeftRight),
+        };
+
+        let json = serde_json::to_string(&effect).unwrap();
+        assert!(json.contains("\"color\":\"color-or-rainbow\""));
+        assert!(json.contains("\"direction\":\"left-right\""));
     }
 
     #[test]

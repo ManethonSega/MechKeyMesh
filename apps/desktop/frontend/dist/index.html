@@ -32,7 +32,7 @@
       <button data-page="settings" disabled>Device Settings <b>Soon</b></button>
       <button data-page="diagnostics">Diagnostics</button>
     </nav>
-    <div class="version">v0.5.0-alpha.1 · Layout Engine</div>
+    <div class="version">v0.6.0-alpha.1 · F108 Hardware RGB</div>
   </aside>
 
   <main>
@@ -140,13 +140,19 @@
           <div><span class="eyebrow">AULA F108 PRO</span><h3>Onboard lighting</h3></div>
           <span class="tag">Hardware effect</span>
         </div>
+        <div class="lighting-effect-summary">
+          <strong id="lightingEffectTitle">Mode 0 · Off</strong>
+          <span id="lightingEffectParams" class="muted">No adjustable parameters.</span>
+          <span id="lightingVerification" class="verification pending">Physical verification pending</span>
+        </div>
         <div class="formgrid">
-          <label>Effect<select id="lightingMode"></select></label>
-          <label>Color<input id="lightingColor" type="color" value="#21e6e8"/></label>
-          <label>Brightness<input id="brightness" type="range" min="0" max="5" value="5"/><output id="brightnessOut">5</output></label>
-          <label>Speed<input id="speed" type="range" min="0" max="5" value="3"/><output id="speedOut">3</output></label>
-          <label>Direction<select id="direction"><option value="0">Default / Forward</option><option value="1">Reverse</option></select></label>
-          <label class="check"><input id="colorful" type="checkbox"/> Rainbow / Colorful</label>
+          <label id="effectControl">Effect<select id="lightingMode"></select></label>
+          <label id="colorControl">Color<input id="lightingColor" type="color" value="#21e6e8"/></label>
+          <label id="brightnessControl">Brightness<input id="brightness" type="range" min="0" max="5" value="5"/><output id="brightnessOut">5</output></label>
+          <label id="speedControl">Speed<input id="speed" type="range" min="0" max="5" value="3"/><output id="speedOut">3</output></label>
+          <label id="directionControl">Direction<select id="direction"><option value="0">Default / Forward</option><option value="1">Reverse</option></select></label>
+          <label id="colorfulControl" class="check"><input id="colorful" type="checkbox"/> Rainbow / Colorful</label>
+          <div id="rainbowOnlyControl" class="rainbow-only hidden-control">This effect uses its built-in rainbow palette.</div>
         </div>
         <div class="actions">
           <span id="lightingResult" class="muted"></span>

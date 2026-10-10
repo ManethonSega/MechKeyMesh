@@ -3,12 +3,13 @@ const invoke = (command, args = {}) => window.__TAURI__.core.invoke(command, arg
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 let activeLayout = null;
+let lightingEffects = [];
 const selectedKeyIds = new Set();
 
 const pages = {
   home: ["Home", "Device overview and connection health"],
   keys: ["Keys", "Data-driven physical layout and universal key actions"],
-  lighting: ["Lighting", "Verified onboard effects for the active keyboard"],
+  lighting: ["Lighting", "AULA F108 Pro onboard effects and physical verification"],
   diagnostics: ["Diagnostics", "Connection, command and recovery log"]
 };
 
@@ -54,12 +55,58 @@ $("#brightness").addEventListener("input", (event) => {
 $("#speed").addEventListener("input", (event) => {
   $("#speedOut").value = event.target.value;
 });
+$("#lightingMode").addEventListener("change", updateLightingControls);
 
-async function loadModes() {
-  const modes = await invoke("get_lighting_modes");
-  $("#lightingMode").innerHTML = modes
-    .map((mode, index) => `<option value="${index}">${index}. ${mode}</option>`)
+async function loadLightingEffects() {
+  lightingEffects = await invoke("get_lighting_effects");
+  $("#lightingMode").innerHTML = lightingEffects
+    .map((effect) => `<option value="${effect.mode}">${effect.mode}. ${effect.name}</option>`)
     .join("");
+  updateLightingControls();
+}
+
+function currentLightingEffect() {
+  const mode = Number($("#lightingMode").value);
+  return lightingEffects.find((effect) => effect.mode === mode) || null;
+}
+
+function setControlVisible(selector, visible) {
+  document.querySelector(selector)?.classList.toggle("hidden-control", !visible);
+}
+
+function updateLightingControls() {
+  const effect = currentLightingEffect();
+  if (!effect) return;
+
+  const hasColor = effect.color === "color-or-rainbow";
+  const rainbowOnly = effect.color === "rainbow-only";
+
+  setControlVisible("#colorControl", hasColor);
+  setControlVisible("#colorfulControl", hasColor);
+  setControlVisible("#rainbowOnlyControl", rainbowOnly);
+  setControlVisible("#brightnessControl", effect.brightness);
+  setControlVisible("#speedControl", effect.speed);
+  setControlVisible("#directionControl", effect.direction != null);
+
+  if (effect.direction === "left-right") {
+    $("#direction").innerHTML =
+      '<option value="0">Left → Right</option><option value="1">Right → Left</option>';
+  } else if (effect.direction === "up-down") {
+    $("#direction").innerHTML =
+      '<option value="0">Up → Down</option><option value="1">Down → Up</option>';
+  }
+
+  const params = [];
+  if (hasColor) params.push("color", "rainbow");
+  if (rainbowOnly) params.push("built-in rainbow");
+  if (effect.brightness) params.push("brightness");
+  if (effect.speed) params.push("speed");
+  if (effect.direction === "left-right") params.push("left/right direction");
+  if (effect.direction === "up-down") params.push("up/down direction");
+
+  $("#lightingEffectTitle").textContent = `Mode ${effect.mode} · ${effect.name}`;
+  $("#lightingEffectParams").textContent =
+    params.length ? "Controls: " + params.join(", ") : "No adjustable parameters.";
 }
 
 function stateClass(state) {
@@ -142,6 +189,7 @@ async function loadDesiredLighting() {
   $("#direction").value = String(config.direction);
   $("#colorful").checked = Boolean(config.colorful);
   $("#desiredProfile").textContent = desired.scope.profileId;
+  updateLightingControls();
 }
 
 function layoutKindLabel(kind) {
@@ -413,7 +461,7 @@ $("#refreshLogs").addEventListener("click", refreshLogs);
 (async function boot() {
   applyTheme(initialTheme());
   await Promise.all([
-    loadModes(),
+    loadLightingEffects(),
     loadPersistence(),
     loadDesiredLighting(),
     loadPrimaryLayout()
