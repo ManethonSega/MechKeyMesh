@@ -69,7 +69,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.5.0-alpha.1`, **R4 Universal Layout and Action Engine in progress** on branch `r4/layout-action-engine`. R3 remains authoritative on `main` until the data-driven F108 renderer and universal action model pass CI and review.
+`v0.5.0-alpha.1`, **R4 Universal Layout and Action Engine complete**. The data-driven F108 renderer, generic layout registry and universal action model have passed Linux core tests, full Windows workspace tests, strict Clippy checks and the Windows release build. The CI desktop job retains a checksum-verified Windows test executable for hands-on review.
 
 The previous Go/Wails prototype is preserved in the branch:
 
