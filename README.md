@@ -22,6 +22,8 @@ Current Rust implementation:
 - 20 verified onboard lighting effects
 - strict lighting parameter validation
 - runtime diagnostics
+- SQLite desired-state database with versioned migrations
+- stable device-model/profile/capability configuration scope
 - hardware-risk features gated until their protocol safety tests exist
 
 ## Architecture
@@ -65,7 +67,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.3.0-alpha.1`, **R2 Device Manager 2.0 complete**. The production-oriented driver registry, lifecycle, timeout/cancellation, recovery and diagnostics foundation is ready for `main`. Physical F108 hot-plug acceptance remains explicitly deferred until the keyboard is available.
+`v0.4.0-alpha.1`, **R3 Persistence and Desired State in progress** on branch `r3/persistence`. R2 remains authoritative on `main` until R3 passes migration, persistence and Windows build validation.
 
 The previous Go/Wails prototype is preserved in the branch:
 
