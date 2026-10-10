@@ -228,26 +228,146 @@ struct F108LightingEffect {
 }
 
 const F108_LIGHTING_EFFECTS: [F108LightingEffect; 20] = [
-    F108LightingEffect { mode: 0, name: "Off",        config_func: 0x00, color: LightingColorControl::None,           direction: None },
-    F108LightingEffect { mode: 1, name: "Static",     config_func: 0x31, color: LightingColorControl::ColorOrRainbow, direction: None },
-    F108LightingEffect { mode: 2, name: "SingleOn",   config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
-    F108LightingEffect { mode: 3, name: "SingleOff",  config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
-    F108LightingEffect { mode: 4, name: "Glittering", config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
-    F108LightingEffect { mode: 5, name: "Falling",    config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
-    F108LightingEffect { mode: 6, name: "Colourful",  config_func: 0x03, color: LightingColorControl::RainbowOnly,    direction: None },
-    F108LightingEffect { mode: 7, name: "Breath",     config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
-    F108LightingEffect { mode: 8, name: "Spectrum",   config_func: 0x03, color: LightingColorControl::RainbowOnly,    direction: None },
-    F108LightingEffect { mode: 9, name: "Outward",    config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
-    F108LightingEffect { mode: 10, name: "Scrolling", config_func: 0x3B, color: LightingColorControl::ColorOrRainbow, direction: Some(LightingDirectionControl::LeftRight) },
-    F108LightingEffect { mode: 11, name: "Rolling",   config_func: 0x37, color: LightingColorControl::ColorOrRainbow, direction: Some(LightingDirectionControl::UpDown) },
-    F108LightingEffect { mode: 12, name: "Rotating",  config_func: 0x37, color: LightingColorControl::ColorOrRainbow, direction: Some(LightingDirectionControl::UpDown) },
-    F108LightingEffect { mode: 13, name: "Explode",   config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
-    F108LightingEffect { mode: 14, name: "Launch",    config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
-    F108LightingEffect { mode: 15, name: "Ripples",   config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
-    F108LightingEffect { mode: 16, name: "Flowing",   config_func: 0x37, color: LightingColorControl::ColorOrRainbow, direction: Some(LightingDirectionControl::UpDown) },
-    F108LightingEffect { mode: 17, name: "Pulsating", config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
-    F108LightingEffect { mode: 18, name: "Tilt",      config_func: 0x37, color: LightingColorControl::ColorOrRainbow, direction: Some(LightingDirectionControl::UpDown) },
-    F108LightingEffect { mode: 19, name: "Shuttle",   config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
+    F108LightingEffect {
+        mode: 0,
+        name: "Off",
+        config_func: 0x00,
+        color: LightingColorControl::None,
+        direction: None,
+    },
+    F108LightingEffect {
+        mode: 1,
+        name: "Static",
+        config_func: 0x31,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: None,
+    },
+    F108LightingEffect {
+        mode: 2,
+        name: "SingleOn",
+        config_func: 0x33,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: None,
+    },
+    F108LightingEffect {
+        mode: 3,
+        name: "SingleOff",
+        config_func: 0x33,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: None,
+    },
+    F108LightingEffect {
+        mode: 4,
+        name: "Glittering",
+        config_func: 0x33,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: None,
+    },
+    F108LightingEffect {
+        mode: 5,
+        name: "Falling",
+        config_func: 0x33,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: None,
+    },
+    F108LightingEffect {
+        mode: 6,
+        name: "Colourful",
+        config_func: 0x03,
+        color: LightingColorControl::RainbowOnly,
+        direction: None,
+    },
+    F108LightingEffect {
+        mode: 7,
+        name: "Breath",
+        config_func: 0x33,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: None,
+    },
+    F108LightingEffect {
+        mode: 8,
+        name: "Spectrum",
+        config_func: 0x03,
+        color: LightingColorControl::RainbowOnly,
+        direction: None,
+    },
+    F108LightingEffect {
+        mode: 9,
+        name: "Outward",
+        config_func: 0x33,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: None,
+    },
+    F108LightingEffect {
+        mode: 10,
+        name: "Scrolling",
+        config_func: 0x3B,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: Some(LightingDirectionControl::LeftRight),
+    },
+    F108LightingEffect {
+        mode: 11,
+        name: "Rolling",
+        config_func: 0x37,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: Some(LightingDirectionControl::UpDown),
+    },
+    F108LightingEffect {
+        mode: 12,
+        name: "Rotating",
+        config_func: 0x37,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: Some(LightingDirectionControl::UpDown),
+    },
+    F108LightingEffect {
+        mode: 13,
+        name: "Explode",
+        config_func: 0x33,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: None,
+    },
+    F108LightingEffect {
+        mode: 14,
+        name: "Launch",
+        config_func: 0x33,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: None,
+    },
+    F108LightingEffect {
+        mode: 15,
+        name: "Ripples",
+        config_func: 0x33,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: None,
+    },
+    F108LightingEffect {
+        mode: 16,
+        name: "Flowing",
+        config_func: 0x37,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: Some(LightingDirectionControl::UpDown),
+    },
+    F108LightingEffect {
+        mode: 17,
+        name: "Pulsating",
+        config_func: 0x33,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: None,
+    },
+    F108LightingEffect {
+        mode: 18,
+        name: "Tilt",
+        config_func: 0x37,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: Some(LightingDirectionControl::UpDown),
+    },
+    F108LightingEffect {
+        mode: 19,
+        name: "Shuttle",
+        config_func: 0x33,
+        color: LightingColorControl::ColorOrRainbow,
+        direction: None,
+    },
 ];
 
 const CONFIG_BRIGHTNESS: u8 = 0x01;
@@ -291,10 +411,7 @@ fn build_lighting_payload(
     config: LightingConfig,
 ) -> Result<[u8; FEATURE_REPORT_SIZE], DriverError> {
     let effect = effect_for_mode(config.mode).ok_or_else(|| {
-        DriverError::InvalidConfiguration(format!(
-            "lighting mode {} is outside 0..19",
-            config.mode
-        ))
+        DriverError::InvalidConfiguration(format!("lighting mode {} is outside 0..19", config.mode))
     })?;
 
     if config.brightness > 5 {
