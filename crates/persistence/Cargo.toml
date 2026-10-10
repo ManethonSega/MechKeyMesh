@@ -1,0 +1,16 @@
+[package]
+name = "mechkeymesh-persistence"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+mechkeymesh-config = { path = "../config" }
+mechkeymesh-driver-api = { path = "../driver-api" }
+rusqlite = { version = "0.37", features = ["bundled"] }
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
