@@ -207,16 +207,7 @@ impl DeviceManager {
 
         thread::Builder::new()
             .name("mechkeymesh-device-manager".into())
-            .spawn(move || {
-                worker(
-                    rx,
-                    status,
-                    log,
-                    registry,
-                    active_cancellation,
-                    config,
-                )
-            })
+            .spawn(move || worker(rx, status, log, registry, active_cancellation, config))
             .expect("failed to start device manager");
 
         handle
@@ -254,14 +245,7 @@ fn worker(
             }
             Ok(Command::Reconnect) => {
                 close_active(&mut active, &log);
-                set_status(
-                    &status,
-                    DeviceState::Disconnected,
-                    None,
-                    None,
-                    None,
-                    0,
-                );
+                set_status(&status, DeviceState::Disconnected, None, None, None, 0);
                 log.push("info", "manual reconnect requested");
             }
             Ok(Command::SetLighting {
@@ -292,10 +276,7 @@ fn worker(
                             &status,
                             DeviceState::Recovery,
                             Some(descriptor),
-                            Some((
-                                ErrorClass::Disconnected,
-                                "device removal detected".into(),
-                            )),
+                            Some((ErrorClass::Disconnected, "device removal detected".into())),
                             None,
                             0,
                         );
@@ -428,8 +409,7 @@ fn discover_and_open(
                     1,
                 );
 
-                let initialization_context =
-                    OperationContext::new(config.initialization_timeout);
+                let initialization_context = OperationContext::new(config.initialization_timeout);
                 match session.initialize(&initialization_context) {
                     Ok(()) => {
                         if *ever_connected {
@@ -462,10 +442,7 @@ fn discover_and_open(
                     }
                     Err(error) => {
                         let _ = session.close();
-                        log.push(
-                            "warning",
-                            format!("device initialization failed: {error}"),
-                        );
+                        log.push("warning", format!("device initialization failed: {error}"));
                         set_status(
                             status,
                             DeviceState::Recovery,
@@ -564,7 +541,10 @@ fn execute_lighting(
         Some(operation),
         1,
     );
-    log.push("info", format!("operation {id} started: apply built-in lighting"));
+    log.push(
+        "info",
+        format!("operation {id} started: apply built-in lighting"),
+    );
 
     let context = OperationContext::with_token(remaining, cancellation);
     let result = device.session.set_lighting(&context, lighting);
@@ -577,14 +557,7 @@ fn execute_lighting(
 
     match result {
         Ok(()) => {
-            set_status(
-                status,
-                DeviceState::Ready,
-                Some(descriptor),
-                None,
-                None,
-                1,
-            );
+            set_status(status, DeviceState::Ready, Some(descriptor), None, None, 1);
             log.push(
                 "info",
                 format!("operation {id} completed: apply built-in lighting"),
@@ -625,11 +598,7 @@ fn execute_lighting(
     }
 }
 
-fn active_device_present(
-    active: &mut ActiveDevice,
-    log: &LogRing,
-    config: &ManagerConfig,
-) -> bool {
+fn active_device_present(active: &mut ActiveDevice, log: &LogRing, config: &ManagerConfig) -> bool {
     let context = OperationContext::new(config.health_timeout);
 
     match active.driver.is_present(&context, &active.candidate) {
@@ -638,18 +607,12 @@ fn active_device_present(
             Ok(()) => true,
             Err(DriverError::Cancelled) => true,
             Err(error) => {
-                log.push(
-                    "warning",
-                    format!("device health check failed: {error}"),
-                );
+                log.push("warning", format!("device health check failed: {error}"));
                 !error.requires_recovery()
             }
         },
         Err(error) => {
-            log.push(
-                "warning",
-                format!("device presence check failed: {error}"),
-            );
+            log.push("warning", format!("device presence check failed: {error}"));
             !error.requires_recovery()
         }
     }
