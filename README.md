@@ -67,7 +67,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.4.0-alpha.1`, **R3 Persistence and Desired State in progress** on branch `r3/persistence`. R2 remains authoritative on `main` until R3 passes migration, persistence and Windows build validation.
+`v0.4.0-alpha.1`, **R3 Persistence and Desired State complete**. SQLite is now the authoritative local source of truth for desired configuration, with versioned migrations and stable device-model/profile/capability scoping.
 
 The previous Go/Wails prototype is preserved in the branch:
 
