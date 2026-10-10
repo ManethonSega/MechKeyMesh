@@ -1,10 +1,6 @@
-use mechkeymesh_config::{
-    ConfigurationScope, DesiredLighting, DeviceModel, Profile,
-};
+use mechkeymesh_config::{ConfigurationScope, DesiredLighting, DeviceModel, Profile};
 use mechkeymesh_driver_api::{Capability, LightingConfig};
-use rusqlite::{
-    Connection, OptionalExtension, TransactionBehavior, params,
-};
+use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -304,9 +300,7 @@ pub enum PersistenceError {
     Io(#[from] std::io::Error),
     #[error("SQLite error: {0}")]
     Sqlite(#[from] rusqlite::Error),
-    #[error(
-        "database schema {found} is newer than this MechKeyMesh build supports ({supported})"
-    )]
+    #[error("database schema {found} is newer than this MechKeyMesh build supports ({supported})")]
     NewerSchema { found: i64, supported: i64 },
     #[error("database integrity check failed: {0}")]
     Integrity(String),
@@ -359,11 +353,8 @@ impl PersistenceStore {
     pub fn status(&self) -> Result<PersistenceStatus, PersistenceError> {
         let connection = self.connection.lock().expect("database lock poisoned");
         let schema_version = schema_version(&connection)?;
-        let journal_mode = connection.query_row(
-            "PRAGMA journal_mode",
-            [],
-            |row| row.get::<_, String>(0),
-        )?;
+        let journal_mode =
+            connection.query_row("PRAGMA journal_mode", [], |row| row.get::<_, String>(0))?;
         verify_integrity(&connection)?;
 
         Ok(PersistenceStatus {
@@ -374,10 +365,7 @@ impl PersistenceStore {
         })
     }
 
-    pub fn ensure_device_model(
-        &self,
-        model: &DeviceModel,
-    ) -> Result<(), PersistenceError> {
+    pub fn ensure_device_model(&self, model: &DeviceModel) -> Result<(), PersistenceError> {
         let now = unix_millis();
         let connection = self.connection.lock().expect("database lock poisoned");
         connection.execute(
@@ -405,8 +393,7 @@ impl PersistenceStore {
         device_model_id: &str,
     ) -> Result<Profile, PersistenceError> {
         let mut connection = self.connection.lock().expect("database lock poisoned");
-        let transaction =
-            connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
         let existing = transaction
             .query_row(
@@ -487,10 +474,7 @@ impl PersistenceStore {
             .map_err(PersistenceError::from)
     }
 
-    pub fn save_lighting(
-        &self,
-        desired: &DesiredLighting,
-    ) -> Result<(), PersistenceError> {
+    pub fn save_lighting(&self, desired: &DesiredLighting) -> Result<(), PersistenceError> {
         validate_lighting_scope(&desired.scope)?;
         let now = unix_millis();
         let capability = desired.scope.capability.storage_key();
@@ -619,18 +603,11 @@ fn configure_connection(connection: &Connection) -> Result<(), PersistenceError>
             PRAGMA synchronous = FULL;
         "#,
     )?;
-    let _: String = connection.query_row(
-        "PRAGMA journal_mode = WAL",
-        [],
-        |row| row.get(0),
-    )?;
+    let _: String = connection.query_row("PRAGMA journal_mode = WAL", [], |row| row.get(0))?;
     Ok(())
 }
 
-fn migrate(
-    connection: &mut Connection,
-    target_schema: i64,
-) -> Result<(), PersistenceError> {
+fn migrate(connection: &mut Connection, target_schema: i64) -> Result<(), PersistenceError> {
     connection.execute_batch(
         r#"
             CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -651,12 +628,9 @@ fn migrate(
 
     for migration in MIGRATIONS
         .iter()
-        .filter(|migration| {
-            migration.version > current && migration.version <= target_schema
-        })
+        .filter(|migration| migration.version > current && migration.version <= target_schema)
     {
-        let transaction =
-            connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         transaction.execute_batch(migration.sql)?;
         transaction.execute(
             r#"
@@ -683,11 +657,7 @@ fn schema_version(connection: &Connection) -> Result<i64, PersistenceError> {
 }
 
 fn verify_integrity(connection: &Connection) -> Result<(), PersistenceError> {
-    let result: String = connection.query_row(
-        "PRAGMA quick_check",
-        [],
-        |row| row.get(0),
-    )?;
+    let result: String = connection.query_row("PRAGMA quick_check", [], |row| row.get(0))?;
 
     if result.eq_ignore_ascii_case("ok") {
         Ok(())
@@ -696,9 +666,7 @@ fn verify_integrity(connection: &Connection) -> Result<(), PersistenceError> {
     }
 }
 
-fn validate_lighting_scope(
-    scope: &ConfigurationScope,
-) -> Result<(), PersistenceError> {
+fn validate_lighting_scope(scope: &ConfigurationScope) -> Result<(), PersistenceError> {
     if scope.capability != Capability::HardwareRgb {
         return Err(PersistenceError::InvalidScope(format!(
             "lighting records require capability {}, got {}",
@@ -769,7 +737,10 @@ mod tests {
         let path = dir.path().join("mechkeymesh.sqlite3");
         let store = PersistenceStore::open(&path).unwrap();
 
-        assert_eq!(store.status().unwrap().schema_version, CURRENT_SCHEMA_VERSION);
+        assert_eq!(
+            store.status().unwrap().schema_version,
+            CURRENT_SCHEMA_VERSION
+        );
 
         let connection = store.connection.lock().unwrap();
         for table in EXPECTED_TABLES {
@@ -799,17 +770,11 @@ mod tests {
             let store = PersistenceStore::open(&path).unwrap();
             store.ensure_device_model(&model()).unwrap();
             let profile = store.ensure_default_profile("aula.f108pro").unwrap();
-            let scope = ConfigurationScope::new(
-                "aula.f108pro",
-                profile.id,
-                Capability::HardwareRgb,
-            );
+            let scope =
+                ConfigurationScope::new("aula.f108pro", profile.id, Capability::HardwareRgb);
             expected = lighting(scope.clone());
             store.save_lighting(&expected).unwrap();
-            assert_eq!(
-                store.load_lighting(&scope).unwrap(),
-                Some(expected.clone())
-            );
+            assert_eq!(store.load_lighting(&scope).unwrap(), Some(expected.clone()));
         }
 
         let reopened = PersistenceStore::open(&path).unwrap();
@@ -857,8 +822,7 @@ mod tests {
         let path = dir.path().join("mechkeymesh.sqlite3");
         let store = PersistenceStore::open(path).unwrap();
 
-        let scope =
-            ConfigurationScope::new("aula.f108pro", "default", Capability::Macros);
+        let scope = ConfigurationScope::new("aula.f108pro", "default", Capability::Macros);
         let error = store.save_lighting(&lighting(scope)).unwrap_err();
         assert!(matches!(error, PersistenceError::InvalidScope(_)));
     }
@@ -870,15 +834,9 @@ mod tests {
         let store = PersistenceStore::open(path).unwrap();
         store.ensure_device_model(&model()).unwrap();
 
-        let scope = ConfigurationScope::new(
-            "aula.f108pro",
-            "does-not-exist",
-            Capability::HardwareRgb,
-        );
+        let scope =
+            ConfigurationScope::new("aula.f108pro", "does-not-exist", Capability::HardwareRgb);
         let error = store.save_lighting(&lighting(scope)).unwrap_err();
-        assert!(matches!(
-            error,
-            PersistenceError::ProfileNotFound { .. }
-        ));
+        assert!(matches!(error, PersistenceError::ProfileNotFound { .. }));
     }
 }
