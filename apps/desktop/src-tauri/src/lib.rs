@@ -39,16 +39,12 @@ fn get_driver_registry(state: State<'_, AppState>) -> Vec<DriverManifest> {
 }
 
 #[tauri::command]
-fn get_persistence_status(
-    state: State<'_, AppState>,
-) -> Result<PersistenceStatus, String> {
+fn get_persistence_status(state: State<'_, AppState>) -> Result<PersistenceStatus, String> {
     state.persistence.status().map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-fn get_desired_lighting(
-    state: State<'_, AppState>,
-) -> Result<Option<DesiredLighting>, String> {
+fn get_desired_lighting(state: State<'_, AppState>) -> Result<Option<DesiredLighting>, String> {
     let scope = lighting_scope(&state)?;
     state
         .persistence
@@ -131,8 +127,7 @@ pub fn run() {
             let manifests = registry.manifests();
 
             let data_dir = app.path().app_data_dir()?;
-            let persistence =
-                PersistenceStore::open(data_dir.join("mechkeymesh.sqlite3"))?;
+            let persistence = PersistenceStore::open(data_dir.join("mechkeymesh.sqlite3"))?;
 
             for manifest in &manifests {
                 persistence.ensure_device_model(&DeviceModel::new(
