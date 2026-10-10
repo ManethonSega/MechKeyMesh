@@ -1,27 +1,59 @@
 const $ = (selector) => document.querySelector(selector);
 const invoke = (command, args = {}) => window.__TAURI__.core.invoke(command, args);
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+let activeLayout = null;
+const selectedKeyIds = new Set();
 
 const pages = {
   home: ["Home", "Device overview and connection health"],
+  keys: ["Keys", "Data-driven physical layout and universal key actions"],
   lighting: ["Lighting", "Verified onboard effects for the active keyboard"],
   diagnostics: ["Diagnostics", "Connection, command and recovery log"]
 };
 
 function showPage(name) {
   document.querySelectorAll(".page").forEach((page) => page.classList.remove("active"));
-  document.querySelectorAll("#nav button").forEach((button) => button.classList.toggle("active", button.dataset.page === name));
+  document.querySelectorAll("#nav button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.page === name);
+  });
   document.querySelector("#page-" + name)?.classList.add("active");
   $("#pageTitle").textContent = pages[name]?.[0] || name;
   $("#pageSubtitle").textContent = pages[name]?.[1] || "";
+
   if (name === "diagnostics") refreshLogs();
+  if (name === "keys" && activeLayout) renderKeyboard(activeLayout);
 }
 
 document.querySelectorAll("#nav button:not(:disabled)").forEach((button) => {
   button.addEventListener("click", () => showPage(button.dataset.page));
 });
 
-$("#brightness").addEventListener("input", (event) => $("#brightnessOut").value = event.target.value);
-$("#speed").addEventListener("input", (event) => $("#speedOut").value = event.target.value);
+function initialTheme() {
+  const stored = localStorage.getItem("mechkeymesh-theme");
+  if (stored === "light" || stored === "dark") return stored;
+  return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem("mechkeymesh-theme", theme);
+  $("#themeToggle").textContent = theme === "dark" ? "Light mode" : "Dark mode";
+  document.querySelector('meta[name="theme-color"]')
+    ?.setAttribute("content", theme === "dark" ? "#081327" : "#EDF2F7");
+}
+
+$("#themeToggle").addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  applyTheme(next);
+});
+
+$("#brightness").addEventListener("input", (event) => {
+  $("#brightnessOut").value = event.target.value;
+});
+$("#speed").addEventListener("input", (event) => {
+  $("#speedOut").value = event.target.value;
+});
 
 async function loadModes() {
   const modes = await invoke("get_lighting_modes");
@@ -112,6 +144,196 @@ async function loadDesiredLighting() {
   $("#desiredProfile").textContent = desired.scope.profileId;
 }
 
+function layoutKindLabel(kind) {
+  const labels = {
+    "full-size": "Full-size",
+    "compact1800": "1800 compact",
+    "tkl": "TKL",
+    "percent75": "75%",
+    "percent65": "65%",
+    "percent60": "60%",
+    "percent40": "40%",
+    "alice": "Alice",
+    "split": "Split",
+    "ortholinear": "Ortholinear",
+    "custom": "Custom"
+  };
+  return labels[kind] || kind;
+}
+
+function actionLabel(action) {
+  if (!action) return "Unknown";
+  switch (action.type) {
+    case "default": return "Default";
+    case "disabled": return "Disabled";
+    case "keyboard-key":
+      return "Keyboard usage 0x" + Number(action.usage).toString(16).padStart(2, "0").toUpperCase();
+    case "modified-key":
+      return `${(action.modifiers || []).join(" + ")} + HID ${action.key}`;
+    case "media": return "Media: " + action.action;
+    case "mouse": return "Mouse: " + action.action;
+    case "windows": return "Windows: " + action.action;
+    case "open-application": return "Open application";
+    case "open-file": return "Open file";
+    case "open-url": return "Open URL";
+    case "send-text": return "Send text";
+    case "macro": return "Macro: " + action.macroId;
+    case "layer": return `Layer ${action.action}: ${action.layerId}`;
+    case "vendor-specific": return `Vendor: ${action.namespace}/${action.action}`;
+    default: return action.type || "Unknown";
+  }
+}
+
+function keyTitle(key) {
+  const parts = [
+    key.label,
+    key.hidUsage == null ? null : `HID 0x${Number(key.hidUsage).toString(16).padStart(2, "0").toUpperCase()}`,
+    key.deviceKeyIndex == null ? null : `device index ${key.deviceKeyIndex}`,
+    key.ledIndex == null ? null : `LED ${key.ledIndex}`
+  ].filter(Boolean);
+  return parts.join(" | ");
+}
+
+function renderKeyboard(layout) {
+  activeLayout = layout;
+  $("#layoutName").textContent = layout.name;
+  $("#layoutKind").textContent = layoutKindLabel(layout.kind);
+  $("#layoutKeyCount").textContent = `${layout.keys.length} keys`;
+  $("#layoutSummary").textContent =
+    `${layout.id} · ${layout.coordinateSpace.width} × ${layout.coordinateSpace.height} layout space`;
+
+  const viewport = $("#keyboardViewport");
+  viewport.innerHTML = "";
+
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("class", "keyboard-svg");
+  svg.setAttribute(
+    "viewBox",
+    `0 0 ${layout.coordinateSpace.width} ${layout.coordinateSpace.height}`
+  );
+  svg.setAttribute("role", "group");
+  svg.setAttribute("aria-label", layout.name + " keyboard layout");
+
+  for (const key of layout.keys) {
+    const group = document.createElementNS(SVG_NS, "g");
+    group.setAttribute("class", "keyboard-key");
+    group.setAttribute("data-key-id", key.id);
+    group.setAttribute("tabindex", "0");
+    group.setAttribute("role", "button");
+    group.setAttribute("aria-label", keyTitle(key));
+
+    if (Number(key.rotation || 0) !== 0) {
+      const cx = key.x + key.width / 2;
+      const cy = key.y + key.height / 2;
+      group.setAttribute("transform", `rotate(${key.rotation} ${cx} ${cy})`);
+    }
+
+    const title = document.createElementNS(SVG_NS, "title");
+    title.textContent = keyTitle(key);
+
+    const rect = document.createElementNS(SVG_NS, "rect");
+    rect.setAttribute("x", key.x);
+    rect.setAttribute("y", key.y);
+    rect.setAttribute("width", key.width);
+    rect.setAttribute("height", key.height);
+    rect.setAttribute("rx", Math.min(4, key.width / 7, key.height / 7));
+
+    const text = document.createElementNS(SVG_NS, "text");
+    text.setAttribute("x", key.x + key.width / 2);
+    text.setAttribute("y", key.y + key.height / 2 + 0.5);
+    text.textContent = key.label;
+
+    group.append(title, rect, text);
+    group.addEventListener("click", (event) => selectKey(key, event.ctrlKey || event.metaKey));
+    group.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        selectKey(key, event.ctrlKey || event.metaKey);
+      }
+    });
+    svg.appendChild(group);
+  }
+
+  viewport.appendChild(svg);
+  refreshKeySelection();
+}
+
+function selectKey(key, additive) {
+  if (!additive) selectedKeyIds.clear();
+
+  if (additive && selectedKeyIds.has(key.id)) {
+    selectedKeyIds.delete(key.id);
+  } else {
+    selectedKeyIds.add(key.id);
+  }
+
+  refreshKeySelection();
+
+  const selected = activeLayout.keys.filter((item) => selectedKeyIds.has(item.id));
+  if (selected.length === 0) {
+    clearKeyInspector();
+  } else if (selected.length === 1) {
+    showKeyInspector(selected[0]);
+  } else {
+    $("#selectedKeyName").textContent = `${selected.length} keys selected`;
+    $("#selectedKeyDetails").innerHTML =
+      `<div><dt>Selection</dt><dd>${selected.map((item) => item.label).join(", ")}</dd></div>
+       <div><dt>Action editing</dt><dd>Multi-key assignment arrives with remapping runs.</dd></div>`;
+  }
+}
+
+function refreshKeySelection() {
+  document.querySelectorAll(".keyboard-key").forEach((element) => {
+    element.classList.toggle("selected", selectedKeyIds.has(element.dataset.keyId));
+  });
+}
+
+function clearKeyInspector() {
+  $("#selectedKeyName").textContent = "Select a key";
+  $("#selectedKeyDetails").innerHTML =
+    `<div><dt>Physical position</dt><dd>—</dd></div>
+     <div><dt>Electrical matrix</dt><dd>—</dd></div>
+     <div><dt>Device key index</dt><dd>—</dd></div>
+     <div><dt>LED index</dt><dd>—</dd></div>
+     <div><dt>Default action</dt><dd>—</dd></div>`;
+}
+
+function showKeyInspector(key) {
+  $("#selectedKeyName").textContent = key.label;
+
+  const matrix = key.matrix
+    ? `row ${key.matrix.row}, column ${key.matrix.column}`
+    : "Unverified";
+  const grid = key.gridPosition
+    ? `row ${key.gridPosition.row}, column ${key.gridPosition.column}`
+    : "—";
+  const hid = key.hidUsage == null
+    ? "—"
+    : "0x" + Number(key.hidUsage).toString(16).padStart(2, "0").toUpperCase();
+
+  $("#selectedKeyDetails").innerHTML =
+    `<div><dt>Physical position</dt><dd>x ${key.x}, y ${key.y}, ${key.width} × ${key.height}</dd></div>
+     <div><dt>Source grid</dt><dd>${grid}</dd></div>
+     <div><dt>Electrical matrix</dt><dd>${matrix}</dd></div>
+     <div><dt>HID usage</dt><dd>${hid}</dd></div>
+     <div><dt>Device key index</dt><dd>${key.deviceKeyIndex ?? "—"}</dd></div>
+     <div><dt>LED index</dt><dd>${key.ledIndex ?? "—"}</dd></div>
+     <div><dt>Fn programmable</dt><dd>${key.fnProgrammable ? "Yes" : "No"}</dd></div>
+     <div><dt>Default action</dt><dd>${actionLabel(key.defaultAction)}</dd></div>`;
+}
+
+async function loadPrimaryLayout() {
+  try {
+    const layout = await invoke("get_primary_layout");
+    activeLayout = layout;
+    renderKeyboard(layout);
+  } catch (error) {
+    $("#keyboardViewport").innerHTML =
+      `<div class="layout-loading">Could not load layout: ${String(error)}</div>`;
+    $("#layoutName").textContent = "Layout unavailable";
+  }
+}
+
 $("#applyLighting").addEventListener("click", async () => {
   const [r, g, b] = hexRgb($("#lightingColor").value);
   const config = {
@@ -170,7 +392,8 @@ async function refreshLogs() {
               return `${vid}:${pid} ${usage}`;
             })
             .join(", ");
-          return `${driver.driverId} | ${driver.deviceName} | ${matches}`;
+          const layouts = (driver.layoutIds || []).join(", ") || "no layout";
+          return `${driver.driverId} | ${driver.deviceName} | layouts ${layouts} | ${matches}`;
         }).join("\n")
       : "No drivers registered.";
 
@@ -188,13 +411,19 @@ async function refreshLogs() {
 $("#refreshLogs").addEventListener("click", refreshLogs);
 
 (async function boot() {
-  await loadModes();
-  await loadPersistence();
-  await loadDesiredLighting();
+  applyTheme(initialTheme());
+  await Promise.all([
+    loadModes(),
+    loadPersistence(),
+    loadDesiredLighting(),
+    loadPrimaryLayout()
+  ]);
   await pollStatus();
+
   setTimeout(() => {
     $("#splash").classList.add("hidden");
     $("#app").classList.remove("hidden");
   }, 850);
+
   setInterval(pollStatus, 1200);
 })();
