@@ -12,20 +12,47 @@ The **AULA F108 Pro is the first complete implementation**. It is intentionally 
 Cargo workspace
 │
 ├── crates/
-│   ├── core/                 lifecycle, serialization, shared state
-│   ├── driver-api/           stable device/capability contracts
-│   └── hid/                  transport abstraction
+│   ├── core/                 registry, lifecycle, serialization, diagnostics
+│   ├── driver-api/           device/capability/driver contracts
+│   └── hid/                  HID discovery + transport abstraction
 │
 ├── drivers/
 │   └── aula-f108pro/         first device driver
 │
 └── apps/
     └── desktop/
-        ├── frontend/         static TypeScript/JS-ready UI
-        └── src-tauri/        Tauri 2 application shell
+        ├── frontend/
+        └── src-tauri/
 ```
 
 Future keyboards belong under `drivers/`. A driver may support any subset of standardized capabilities.
+
+## Driver registry
+
+The application does not own a hard-coded active keyboard driver. Drivers register with `DriverRegistry`.
+
+```text
+DriverRegistry
+│
+├── aula.f108pro.usb
+├── future.rmk
+├── future.vendor.x
+└── ...
+```
+
+Every driver exposes a `DriverManifest` containing:
+
+- stable driver ID
+- vendor and device name
+- VID/PID matchers
+- usage page and optional interface constraints
+- supported connection types
+- currently implemented capabilities
+- transport requirements
+
+Discovery returns `DeviceCandidate` values. A candidate contains a stable per-enumeration instance identifier, such as the Windows HID path, so the manager can distinguish one physical device instance from another.
+
+The registry rejects duplicate driver IDs and removes duplicate candidate reports from the same driver.
 
 ## Capability model
 
@@ -47,32 +74,26 @@ Encoder
 Firmware
 ```
 
-The desktop application does not assume that every keyboard supports every capability. Eventually the UI should be generated/enabled from the active device's declared capabilities.
+A driver MUST advertise only capabilities that are actually implemented. A known hardware feature is not automatically an implemented MechKeyMesh capability.
 
 ## First driver: AULA F108 Pro
 
 Current identity:
 
 ```text
-VID        0C45
-PID        800A
-Usage Page FF13
-Connection USB
+Driver ID   aula.f108pro.usb
+VID         0C45
+PID         800A
+Usage Page  FF13
+Connection  USB
+Transport   HID Feature Report, 64-byte payload
 ```
 
-The first safe vertical slice implements:
+Windows discovery is anchored on VID/PID plus Usage Page `FF13`. The actual discovered HID interface number is recorded in the candidate instead of assuming that one interface-number representation is portable across all HID backends.
 
-- HID discovery/open
-- central command serialization
-- reconnect/recovery
-- onboard lighting
-- diagnostics
+## Device Manager 2.0
 
-The next F108 Pro work proceeds through remapping, Fn layer, per-key RGB, macros, device settings and finally the safety-critical LCD path.
-
-## Central device manager
-
-Only the device manager owns an active device session.
+Only the device manager owns an open `DeviceSession`.
 
 ```text
 Frontend
@@ -84,63 +105,128 @@ Tauri commands
 DeviceManagerHandle
    |
    v
-single worker thread / serialized queue
+serialized command queue
    |
    v
-DeviceSession
+active DeviceSession
    |
    v
-Driver
+KeyboardDriver
    |
    v
 Transport
 ```
 
-This prevents future RGB, display, macros and settings modules from writing to HID concurrently.
-
 Lifecycle:
 
 ```text
-Disconnected -> Detecting -> Opening -> Ready
-                                 ^        |
-                                 |        v
-                              Recovery <- Busy
+Disconnected
+     |
+     v
+Detecting
+     |
+     v
+Opening
+     |
+     v
+Initializing
+     |
+     v
+Ready
+     |
+     v
+Busy
 ```
 
-A failed hardware command invalidates the session and returns discovery to a known state rather than keeping stale handles.
+Failure path:
 
-## Driver boundary
+```text
+failure
+   |
+   v
+Recovery
+   |
+   v
+close stale session
+   |
+   v
+Detect
+   |
+   v
+Reconnect
+```
 
-`mechkeymesh-driver-api` defines vendor-neutral identity, capabilities and operations.
+Special non-ready states include:
 
-Device-specific knowledge belongs in the driver:
+- `Unsupported`: no registered driver can operate on the current platform
+- `Ambiguous`: multiple supported keyboard instances exist and automatic selection is intentionally blocked
 
-- VID/PID and interface selection
-- packet formats
-- transaction order
-- device limits
-- mode IDs
-- firmware quirks
+## Timeouts and cancellation
 
-Shared code must not contain AULA magic values.
+Every hardware operation receives an `OperationContext` with:
 
-## Transport boundary
+- a deadline
+- a cooperative cancellation token
 
-`mechkeymesh-hid` handles HID access. The first backend uses the Rust `hidapi` crate with its Windows-native backend.
+The manager enforces a command timeout and exposes the active operation through diagnostics. F108 protocol delays use the operation context instead of unconditional sleeps, so cancellation and timeout are observed between packets.
 
-Future transports may include:
+A timed-out or cancelled operation cannot continue indefinitely through the remaining transaction steps.
 
-- Linux hidraw
-- macOS HID
-- Bluetooth LE GATT
-- vendor-specific USB bulk/interrupt paths
-- serial or network transports
+## Retry policy
 
-Drivers should depend on transport contracts rather than desktop-framework APIs.
+R2 uses bounded retries only for opening a device after transient errors.
+
+It does **not** automatically replay hardware configuration commands after a partial failure. A packet sequence may have partially changed device state, so automatic command replay is unsafe unless that specific protocol is proven idempotent.
+
+## Device removal detection
+
+While a session is Ready, the manager periodically asks the active driver whether the exact discovered device candidate is still present.
+
+For the F108 Pro this is performed by HID rediscovery of the same instance path. MechKeyMesh does not send undocumented probe commands simply to test liveness.
+
+If the instance disappears:
+
+```text
+Ready
+  ↓
+Recovery
+  ↓
+close stale handle
+  ↓
+Disconnected
+  ↓
+rediscovery
+```
+
+When the keyboard returns, the normal discovery/open/initialize path runs again.
+
+## Duplicate-device protection
+
+MechKeyMesh does not silently choose an arbitrary keyboard when more than one supported candidate is visible.
+
+Until explicit multi-device selection is implemented, multiple candidates produce `Ambiguous` state. This protects against writing configuration to the wrong physical keyboard.
+
+## Transport errors
+
+Transport errors are classified into stable categories such as:
+
+- NotFound
+- Disconnected
+- PermissionDenied
+- Busy
+- Timeout
+- Cancelled
+- Unsupported
+- Protocol
+- Transport
+- DuplicateDevice
+- Internal
+
+The manager uses the classification to decide whether an error requires recovery or can leave the current device session open.
 
 ## Safety model
 
-Three levels are distinct:
+Three levels remain distinct:
 
 ```text
 transport succeeded
