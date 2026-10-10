@@ -3,7 +3,7 @@ use mechkeymesh_core::{
     DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LogEntry, ManagerConfig,
 };
 use mechkeymesh_driver_api::{Capability, DriverManifest, LightingConfig};
-use mechkeymesh_driver_aula_f108pro::{f108pro_layout, AulaF108ProDriver, LIGHTING_MODES};
+use mechkeymesh_driver_aula_f108pro::{AulaF108ProDriver, LIGHTING_MODES, f108pro_layout};
 use mechkeymesh_layout::{Layout, LayoutRegistry};
 use mechkeymesh_persistence::{PersistenceStatus, PersistenceStore};
 use serde::Serialize;
