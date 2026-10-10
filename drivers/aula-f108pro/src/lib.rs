@@ -32,6 +32,7 @@ impl KeyboardDriver for AulaF108ProDriver {
     fn manifest(&self) -> DriverManifest {
         DriverManifest {
             driver_id: "aula.f108pro.usb".into(),
+            device_model_id: "aula.f108pro".into(),
             vendor: "AULA".into(),
             device_name: "AULA F108 Pro".into(),
             supported_connections: vec![Connection::Usb],
@@ -102,6 +103,7 @@ impl DeviceSession for AulaF108ProSession {
     fn descriptor(&self) -> DeviceDescriptor {
         DeviceDescriptor {
             driver_id: self.candidate.driver_id.clone(),
+            device_model_id: "aula.f108pro".into(),
             instance_id: self.candidate.instance_id.clone(),
             vendor: "AULA".into(),
             name: self.candidate.name.clone(),
@@ -327,6 +329,7 @@ mod tests {
     fn manifest_declares_f108_transport_requirements() {
         let manifest = AulaF108ProDriver::new().manifest();
         assert_eq!(manifest.driver_id, "aula.f108pro.usb");
+        assert_eq!(manifest.device_model_id, "aula.f108pro");
         assert_eq!(manifest.supported_connections, vec![Connection::Usb]);
         assert_eq!(manifest.capabilities, vec![Capability::HardwareRgb]);
         assert_eq!(manifest.matchers[0].vendor_id, VENDOR_ID);
