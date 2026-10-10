@@ -1,13 +1,26 @@
+use mechkeymesh_config::{ConfigurationScope, DesiredLighting, DeviceModel};
 use mechkeymesh_core::{
     DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LogEntry, ManagerConfig,
 };
-use mechkeymesh_driver_api::{DriverManifest, LightingConfig};
+use mechkeymesh_driver_api::{Capability, DriverManifest, LightingConfig};
 use mechkeymesh_driver_aula_f108pro::{AulaF108ProDriver, LIGHTING_MODES};
+use mechkeymesh_persistence::{PersistenceStatus, PersistenceStore};
+use serde::Serialize;
 use std::sync::Arc;
-use tauri::State;
+use tauri::{Manager, State};
 
 struct AppState {
     manager: DeviceManagerHandle,
+    persistence: PersistenceStore,
+    primary_device_model_id: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LightingApplyResult {
+    stored: bool,
+    applied: bool,
+    message: Option<String>,
 }
 
 #[tauri::command]
@@ -23,6 +36,24 @@ fn get_logs(state: State<'_, AppState>) -> Vec<LogEntry> {
 #[tauri::command]
 fn get_driver_registry(state: State<'_, AppState>) -> Vec<DriverManifest> {
     state.manager.drivers()
+}
+
+#[tauri::command]
+fn get_persistence_status(
+    state: State<'_, AppState>,
+) -> Result<PersistenceStatus, String> {
+    state.persistence.status().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn get_desired_lighting(
+    state: State<'_, AppState>,
+) -> Result<Option<DesiredLighting>, String> {
+    let scope = lighting_scope(&state)?;
+    state
+        .persistence
+        .load_lighting(&scope)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -44,26 +75,94 @@ fn get_lighting_modes() -> Vec<String> {
 }
 
 #[tauri::command]
-fn apply_lighting(state: State<'_, AppState>, config: LightingConfig) -> Result<(), String> {
-    state.manager.set_lighting(config)
+fn apply_lighting(
+    state: State<'_, AppState>,
+    config: LightingConfig,
+) -> Result<LightingApplyResult, String> {
+    let scope = lighting_scope(&state)?;
+    let desired = DesiredLighting::new(scope, config);
+
+    state
+        .persistence
+        .save_lighting(&desired)
+        .map_err(|error| error.to_string())?;
+
+    match state.manager.set_lighting(config) {
+        Ok(()) => Ok(LightingApplyResult {
+            stored: true,
+            applied: true,
+            message: None,
+        }),
+        Err(error) => Ok(LightingApplyResult {
+            stored: true,
+            applied: false,
+            message: Some(error),
+        }),
+    }
+}
+
+fn lighting_scope(state: &AppState) -> Result<ConfigurationScope, String> {
+    let device_model_id = state
+        .manager
+        .status()
+        .device
+        .map(|device| device.device_model_id)
+        .unwrap_or_else(|| state.primary_device_model_id.clone());
+
+    let profile = state
+        .persistence
+        .default_profile(&device_model_id)
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| format!("no default profile exists for {device_model_id}"))?;
+
+    Ok(ConfigurationScope::new(
+        device_model_id,
+        profile.id,
+        Capability::HardwareRgb,
+    ))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let mut registry = DriverRegistry::new();
-    registry
-        .register(Arc::new(AulaF108ProDriver::new()))
-        .expect("failed to register AULA F108 Pro driver");
-
-    let manager = DeviceManager::start(registry, ManagerConfig::default());
-    let manager_for_shutdown = manager.clone();
-
     tauri::Builder::default()
-        .manage(AppState { manager })
+        .setup(|app| {
+            let mut registry = DriverRegistry::new();
+            registry.register(Arc::new(AulaF108ProDriver::new()))?;
+            let manifests = registry.manifests();
+
+            let data_dir = app.path().app_data_dir()?;
+            let persistence =
+                PersistenceStore::open(data_dir.join("mechkeymesh.sqlite3"))?;
+
+            for manifest in &manifests {
+                persistence.ensure_device_model(&DeviceModel::new(
+                    &manifest.device_model_id,
+                    &manifest.vendor,
+                    &manifest.device_name,
+                ))?;
+                persistence.ensure_default_profile(&manifest.device_model_id)?;
+            }
+
+            let primary_device_model_id = manifests
+                .first()
+                .map(|manifest| manifest.device_model_id.clone())
+                .ok_or("no keyboard drivers are registered")?;
+
+            let manager = DeviceManager::start(registry, ManagerConfig::default());
+
+            app.manage(AppState {
+                manager,
+                persistence,
+                primary_device_model_id,
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_status,
             get_logs,
             get_driver_registry,
+            get_persistence_status,
+            get_desired_lighting,
             reconnect,
             cancel_active_operation,
             get_lighting_modes,
@@ -71,9 +170,9 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building MechKeyMesh")
-        .run(move |_app_handle, event| {
+        .run(|app_handle, event| {
             if matches!(event, tauri::RunEvent::Exit) {
-                manager_for_shutdown.shutdown();
+                app_handle.state::<AppState>().manager.shutdown();
             }
         });
 }
