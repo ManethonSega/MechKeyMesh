@@ -53,10 +53,7 @@ impl KeyboardDriver for AulaF108ProDriver {
         }
     }
 
-    fn discover(
-        &self,
-        context: &OperationContext,
-    ) -> Result<Vec<DeviceCandidate>, DriverError> {
+    fn discover(&self, context: &OperationContext) -> Result<Vec<DeviceCandidate>, DriverError> {
         context.check()?;
         let devices = enumerate_feature_devices(VENDOR_ID, PRODUCT_ID, CONFIG_USAGE_PAGE)
             .map_err(map_transport_error)?;
