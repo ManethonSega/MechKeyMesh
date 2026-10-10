@@ -65,7 +65,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.2.0-alpha.1`, **R1 Rust/Tauri foundation complete**. The Rust/Tauri implementation is now authoritative on `main`. Physical F108 hardware acceptance is recorded as deferred until the keyboard is available for testing.
+`v0.3.0-alpha.1`, **R2 Device Manager 2.0 in progress** on branch `r2/device-manager-2`. R1 remains the stable foundation on `main` until R2 passes review and CI.
 
 The previous Go/Wails prototype is preserved in the branch:
 
