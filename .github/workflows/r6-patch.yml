@@ -1,3 +1,4 @@
+# Temporary one-shot workflow, removed after it commits the corrections.
 name: R6 Final Corrections
 
 on:
