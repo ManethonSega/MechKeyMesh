@@ -30,7 +30,8 @@ pub struct DesiredKeymap {
 }
 
 impl DesiredKeymap {
-    pub fn normal(scope: ConfigurationScope, mappings: Vec<KeyMapping>) -> Self {
+    pub fn normal(scope: ConfigurationScope, mut mappings: Vec<KeyMapping>) -> Self {
+        mappings.sort_by(|left, right| left.key_id.cmp(&right.key_id));
         Self {
             scope,
             layer: KeymapLayer::Normal,
@@ -62,5 +63,19 @@ mod tests {
         assert_eq!(desired.layer_id, NORMAL_LAYER_ID);
         assert_eq!(desired.scope.capability, Capability::Keys);
         assert_eq!(desired.mappings.len(), 1);
+    }
+
+    #[test]
+    fn normal_keymap_is_canonicalized_by_key_id() {
+        let desired = DesiredKeymap::normal(
+            ConfigurationScope::new("aula.f108pro", "default", Capability::Keys),
+            vec![
+                KeyMapping::new("key-055", KeyAction::Disabled),
+                KeyMapping::new("key-002", KeyAction::Default),
+            ],
+        );
+
+        assert_eq!(desired.mappings[0].key_id, "key-002");
+        assert_eq!(desired.mappings[1].key_id, "key-055");
     }
 }
