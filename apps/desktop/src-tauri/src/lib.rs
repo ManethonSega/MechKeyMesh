@@ -134,17 +134,18 @@ pub fn run() {
 
             for manifest in &manifests {
                 persistence.ensure_device_model(&DeviceModel::new(
-                    &manifest.device_model_id,
-                    &manifest.vendor,
-                    &manifest.device_name,
+                    manifest.device_model_id.clone(),
+                    manifest.vendor.clone(),
+                    manifest.device_name.clone(),
                 ))?;
                 persistence.ensure_default_profile(&manifest.device_model_id)?;
             }
 
             let primary_device_model_id = manifests
                 .first()
-                .map(|manifest| manifest.device_model_id.clone())
-                .ok_or("no keyboard drivers are registered")?;
+                .expect("at least the AULA F108 Pro driver must be registered")
+                .device_model_id
+                .clone();
 
             let manager = DeviceManager::start(registry, ManagerConfig::default());
 
