@@ -1,3 +1,4 @@
+pub use mechkeymesh_layout::Layout;
 use serde::{Deserialize, Serialize};
 use std::{
     sync::{
@@ -94,6 +95,7 @@ pub struct DriverManifest {
     pub device_name: String,
     pub supported_connections: Vec<Connection>,
     pub capabilities: Vec<Capability>,
+    pub layout_ids: Vec<String>,
     pub matchers: Vec<DeviceMatch>,
     pub transport_requirements: Vec<TransportRequirement>,
 }
@@ -328,6 +330,10 @@ pub trait DeviceSession: Send {
 
 pub trait KeyboardDriver: Send + Sync {
     fn manifest(&self) -> DriverManifest;
+
+    fn layouts(&self) -> Vec<Layout> {
+        Vec::new()
+    }
 
     fn discover(&self, context: &OperationContext) -> Result<Vec<DeviceCandidate>, DriverError>;
 

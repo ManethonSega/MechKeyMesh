@@ -8,3 +8,5 @@ repository.workspace = true
 [dependencies]
 mechkeymesh-driver-api = { path = "../../crates/driver-api" }
 mechkeymesh-hid = { path = "../../crates/hid" }
+mechkeymesh-layout = { path = "../../crates/layout" }
+serde_json.workspace = true

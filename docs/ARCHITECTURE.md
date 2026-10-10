@@ -16,6 +16,7 @@ Cargo workspace
 │   ├── core/                 registry, lifecycle, serialization, diagnostics
 │   ├── driver-api/           device/capability/driver contracts
 │   ├── hid/                  HID discovery + transport abstraction
+│   ├── layout/               physical geometry + logical action model
 │   └── persistence/          SQLite storage + migrations
 │
 ├── drivers/
@@ -310,3 +311,89 @@ When the user saves a lighting configuration:
 4. On the next application start, the editor reloads the saved desired state.
 
 Automatic reconciliation of all desired state after reconnect will be expanded in later feature runs rather than guessed prematurely.
+
+
+## Universal layout and action engine
+
+R4 makes three concepts independent:
+
+```text
+electrical matrix / device addressing
+                !=
+physical key geometry
+                !=
+logical key action
+```
+
+A `Layout` owns physical geometry and device-facing identifiers. A `KeyAction` describes behavior. Drivers translate actions into vendor protocols in later remapping runs.
+
+### PhysicalKey
+
+The generic model supports:
+
+- stable key ID
+- display label
+- x/y position
+- width/height
+- rotation
+- optional verified electrical matrix position
+- optional source/grid position
+- HID/source usage
+- device key index
+- LED index
+- Fn-programmable flag
+- logical default action
+
+The coordinate system is arbitrary per layout. The desktop renderer scales an SVG from the layout's declared coordinate space, so the UI does not assume full-size key spacing or a fixed row count.
+
+This is sufficient for full-size, 1800, TKL, 75%, 65%, 60%, 40%, Alice, split, ortholinear and custom layouts without changing the renderer.
+
+### F108 layout evidence
+
+The first layout file is `drivers/aula-f108pro/layouts/f108pro-ansi.json`.
+
+It contains 104 physical key records derived from the analyzed OEM layout definition:
+
+- physical rectangles
+- HID/source codes
+- `key_index`
+- `light_index`
+- `fnlayer_disable`
+- OEM `row_col`
+
+Important evidence boundary:
+
+> OEM `row_col` is stored as `grid_position`. MechKeyMesh does not claim that it is the electrical switch matrix.
+
+Therefore every F108 `matrix` value remains null until the real electrical matrix is independently verified.
+
+The original proprietary OEM XML and artwork are not redistributed. The repository stores only the interoperability facts needed for our independent layout implementation.
+
+### KeyAction
+
+The first universal action schema includes:
+
+```text
+Default
+Disabled
+KeyboardKey
+ModifiedKey
+Media
+Mouse
+Windows
+OpenApplication
+OpenFile
+OpenUrl
+SendText
+Macro
+Layer
+VendorSpecific
+```
+
+Future variants such as TapHold, Transparent, OneShot, Chord and TapDance can be added without changing physical layout geometry.
+
+### Layout registry
+
+Drivers declare supported `layout_ids` in their manifest. Layouts are validated and registered independently from device sessions.
+
+The desktop requests a registered layout from the Tauri backend and renders it from data. No F108 key positions are hard-coded in HTML or JavaScript.

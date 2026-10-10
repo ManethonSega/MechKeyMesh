@@ -1,0 +1,2307 @@
+{
+  "schemaVersion": 1,
+  "id": "aula.f108pro.ansi",
+  "deviceModelId": "aula.f108pro",
+  "name": "AULA F108 Pro",
+  "kind": "full-size",
+  "coordinateSpace": {
+    "width": 800,
+    "height": 300
+  },
+  "keys": [
+    {
+      "id": "key-001",
+      "label": "Esc",
+      "sourceLabel": "Esc",
+      "x": 27,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 0
+      },
+      "hidUsage": 41,
+      "deviceKeyIndex": 1,
+      "ledIndex": 1,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-002",
+      "label": "F1",
+      "sourceLabel": "F1",
+      "x": 95,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 2
+      },
+      "hidUsage": 58,
+      "deviceKeyIndex": 2,
+      "ledIndex": 2,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-003",
+      "label": "F2",
+      "sourceLabel": "F2",
+      "x": 129,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 3
+      },
+      "hidUsage": 59,
+      "deviceKeyIndex": 3,
+      "ledIndex": 3,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-004",
+      "label": "F3",
+      "sourceLabel": "F3",
+      "x": 162,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 4
+      },
+      "hidUsage": 60,
+      "deviceKeyIndex": 4,
+      "ledIndex": 4,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-005",
+      "label": "F4",
+      "sourceLabel": "F4",
+      "x": 196,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 5
+      },
+      "hidUsage": 61,
+      "deviceKeyIndex": 5,
+      "ledIndex": 5,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-006",
+      "label": "F5",
+      "sourceLabel": "F5",
+      "x": 246,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 6
+      },
+      "hidUsage": 62,
+      "deviceKeyIndex": 6,
+      "ledIndex": 6,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-007",
+      "label": "F6",
+      "sourceLabel": "F6",
+      "x": 280,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 7
+      },
+      "hidUsage": 63,
+      "deviceKeyIndex": 7,
+      "ledIndex": 7,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-008",
+      "label": "F7",
+      "sourceLabel": "F7",
+      "x": 314,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 8
+      },
+      "hidUsage": 64,
+      "deviceKeyIndex": 8,
+      "ledIndex": 8,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-009",
+      "label": "F8",
+      "sourceLabel": "F8",
+      "x": 348,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 9
+      },
+      "hidUsage": 65,
+      "deviceKeyIndex": 9,
+      "ledIndex": 9,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-010",
+      "label": "F9",
+      "sourceLabel": "F9",
+      "x": 398,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 10
+      },
+      "hidUsage": 66,
+      "deviceKeyIndex": 10,
+      "ledIndex": 10,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-011",
+      "label": "F10",
+      "sourceLabel": "F10",
+      "x": 432,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 11
+      },
+      "hidUsage": 67,
+      "deviceKeyIndex": 11,
+      "ledIndex": 11,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-012",
+      "label": "F11",
+      "sourceLabel": "F11",
+      "x": 465,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 12
+      },
+      "hidUsage": 68,
+      "deviceKeyIndex": 12,
+      "ledIndex": 12,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-013",
+      "label": "F12",
+      "sourceLabel": "F12",
+      "x": 499,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 13
+      },
+      "hidUsage": 69,
+      "deviceKeyIndex": 13,
+      "ledIndex": 13,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-112",
+      "label": "PrtSc",
+      "sourceLabel": "PRINT",
+      "x": 539,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 14
+      },
+      "hidUsage": 70,
+      "deviceKeyIndex": 112,
+      "ledIndex": 112,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-113",
+      "label": "ScrLk",
+      "sourceLabel": "SCROOL",
+      "x": 572,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 15
+      },
+      "hidUsage": 71,
+      "deviceKeyIndex": 113,
+      "ledIndex": 113,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-115",
+      "label": "Pause",
+      "sourceLabel": "pause",
+      "x": 606,
+      "y": 52,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 0,
+        "column": 16
+      },
+      "hidUsage": 72,
+      "deviceKeyIndex": 115,
+      "ledIndex": 115,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-019",
+      "label": "`",
+      "sourceLabel": "~`",
+      "x": 27,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 0
+      },
+      "hidUsage": 53,
+      "deviceKeyIndex": 19,
+      "ledIndex": 19,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-020",
+      "label": "1",
+      "sourceLabel": "!1",
+      "x": 61,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 1
+      },
+      "hidUsage": 30,
+      "deviceKeyIndex": 20,
+      "ledIndex": 20,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-021",
+      "label": "2",
+      "sourceLabel": "@2",
+      "x": 95,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 2
+      },
+      "hidUsage": 31,
+      "deviceKeyIndex": 21,
+      "ledIndex": 21,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-022",
+      "label": "3",
+      "sourceLabel": "#3",
+      "x": 129,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 3
+      },
+      "hidUsage": 32,
+      "deviceKeyIndex": 22,
+      "ledIndex": 22,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-023",
+      "label": "4",
+      "sourceLabel": "$4",
+      "x": 163,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 4
+      },
+      "hidUsage": 33,
+      "deviceKeyIndex": 23,
+      "ledIndex": 23,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-024",
+      "label": "5",
+      "sourceLabel": "%5",
+      "x": 196,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 5
+      },
+      "hidUsage": 34,
+      "deviceKeyIndex": 24,
+      "ledIndex": 24,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-025",
+      "label": "6",
+      "sourceLabel": "^6",
+      "x": 230,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 6
+      },
+      "hidUsage": 35,
+      "deviceKeyIndex": 25,
+      "ledIndex": 25,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-026",
+      "label": "7",
+      "sourceLabel": "&7",
+      "x": 263,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 7
+      },
+      "hidUsage": 36,
+      "deviceKeyIndex": 26,
+      "ledIndex": 26,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-027",
+      "label": "8",
+      "sourceLabel": "*8",
+      "x": 297,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 8
+      },
+      "hidUsage": 37,
+      "deviceKeyIndex": 27,
+      "ledIndex": 27,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-028",
+      "label": "9",
+      "sourceLabel": "(9",
+      "x": 330,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 9
+      },
+      "hidUsage": 38,
+      "deviceKeyIndex": 28,
+      "ledIndex": 28,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-029",
+      "label": "0",
+      "sourceLabel": ")0",
+      "x": 364,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 10
+      },
+      "hidUsage": 39,
+      "deviceKeyIndex": 29,
+      "ledIndex": 29,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-030",
+      "label": "-",
+      "sourceLabel": "_-",
+      "x": 398,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 11
+      },
+      "hidUsage": 45,
+      "deviceKeyIndex": 30,
+      "ledIndex": 30,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-031",
+      "label": "=",
+      "sourceLabel": "+=",
+      "x": 432,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 12
+      },
+      "hidUsage": 46,
+      "deviceKeyIndex": 31,
+      "ledIndex": 31,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-103",
+      "label": "Backspace",
+      "sourceLabel": "Backspace",
+      "x": 465,
+      "y": 91,
+      "width": 60,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 13
+      },
+      "hidUsage": 42,
+      "deviceKeyIndex": 103,
+      "ledIndex": 103,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-116",
+      "label": "Ins",
+      "sourceLabel": "insert",
+      "x": 539,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 14
+      },
+      "hidUsage": 73,
+      "deviceKeyIndex": 116,
+      "ledIndex": 116,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-117",
+      "label": "Home",
+      "sourceLabel": "home",
+      "x": 572,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 15
+      },
+      "hidUsage": 74,
+      "deviceKeyIndex": 117,
+      "ledIndex": 117,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-118",
+      "label": "PgUp",
+      "sourceLabel": "page up",
+      "x": 606,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 16
+      },
+      "hidUsage": 75,
+      "deviceKeyIndex": 118,
+      "ledIndex": 118,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-032",
+      "label": "Num",
+      "sourceLabel": "Num",
+      "x": 645,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 17
+      },
+      "hidUsage": 83,
+      "deviceKeyIndex": 32,
+      "ledIndex": 32,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-033",
+      "label": "/",
+      "sourceLabel": "//",
+      "x": 679,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 18
+      },
+      "hidUsage": 84,
+      "deviceKeyIndex": 33,
+      "ledIndex": 33,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-034",
+      "label": "*",
+      "sourceLabel": "*",
+      "x": 713,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 19
+      },
+      "hidUsage": 85,
+      "deviceKeyIndex": 34,
+      "ledIndex": 34,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-122",
+      "label": "-",
+      "sourceLabel": "-",
+      "x": 747,
+      "y": 91,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 1,
+        "column": 20
+      },
+      "hidUsage": 86,
+      "deviceKeyIndex": 122,
+      "ledIndex": 122,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-037",
+      "label": "Tab",
+      "sourceLabel": "Tab",
+      "x": 27,
+      "y": 126,
+      "width": 45,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 0
+      },
+      "hidUsage": 43,
+      "deviceKeyIndex": 37,
+      "ledIndex": 37,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-038",
+      "label": "Q",
+      "sourceLabel": "Q",
+      "x": 78,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 1
+      },
+      "hidUsage": 20,
+      "deviceKeyIndex": 38,
+      "ledIndex": 38,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-039",
+      "label": "W",
+      "sourceLabel": "W",
+      "x": 111,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 2
+      },
+      "hidUsage": 26,
+      "deviceKeyIndex": 39,
+      "ledIndex": 39,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-040",
+      "label": "E",
+      "sourceLabel": "E",
+      "x": 145,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 3
+      },
+      "hidUsage": 8,
+      "deviceKeyIndex": 40,
+      "ledIndex": 40,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-041",
+      "label": "R",
+      "sourceLabel": "R",
+      "x": 179,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 4
+      },
+      "hidUsage": 21,
+      "deviceKeyIndex": 41,
+      "ledIndex": 41,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-042",
+      "label": "T",
+      "sourceLabel": "T",
+      "x": 212,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 5
+      },
+      "hidUsage": 23,
+      "deviceKeyIndex": 42,
+      "ledIndex": 42,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-043",
+      "label": "Y",
+      "sourceLabel": "Y",
+      "x": 246,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 6
+      },
+      "hidUsage": 28,
+      "deviceKeyIndex": 43,
+      "ledIndex": 43,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-044",
+      "label": "U",
+      "sourceLabel": "U",
+      "x": 280,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 7
+      },
+      "hidUsage": 24,
+      "deviceKeyIndex": 44,
+      "ledIndex": 44,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-045",
+      "label": "I",
+      "sourceLabel": "I",
+      "x": 314,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 8
+      },
+      "hidUsage": 12,
+      "deviceKeyIndex": 45,
+      "ledIndex": 45,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-046",
+      "label": "O",
+      "sourceLabel": "O",
+      "x": 348,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 9
+      },
+      "hidUsage": 18,
+      "deviceKeyIndex": 46,
+      "ledIndex": 46,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-047",
+      "label": "P",
+      "sourceLabel": "P",
+      "x": 381,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 10
+      },
+      "hidUsage": 19,
+      "deviceKeyIndex": 47,
+      "ledIndex": 47,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-048",
+      "label": "[",
+      "sourceLabel": "{[",
+      "x": 415,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 11
+      },
+      "hidUsage": 47,
+      "deviceKeyIndex": 48,
+      "ledIndex": 48,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-049",
+      "label": "]",
+      "sourceLabel": "}}",
+      "x": 448,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 12
+      },
+      "hidUsage": 48,
+      "deviceKeyIndex": 49,
+      "ledIndex": 49,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-067",
+      "label": "\\",
+      "sourceLabel": "|\\",
+      "x": 482,
+      "y": 126,
+      "width": 43,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 13
+      },
+      "hidUsage": 49,
+      "deviceKeyIndex": 67,
+      "ledIndex": 67,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-119",
+      "label": "Del",
+      "sourceLabel": "del",
+      "x": 539,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 14
+      },
+      "hidUsage": 76,
+      "deviceKeyIndex": 119,
+      "ledIndex": 119,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-120",
+      "label": "End",
+      "sourceLabel": "end",
+      "x": 572,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 15
+      },
+      "hidUsage": 77,
+      "deviceKeyIndex": 120,
+      "ledIndex": 120,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-121",
+      "label": "PgDn",
+      "sourceLabel": "page down",
+      "x": 606,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 16
+      },
+      "hidUsage": 78,
+      "deviceKeyIndex": 121,
+      "ledIndex": 121,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-050",
+      "label": "7",
+      "sourceLabel": "7",
+      "x": 645,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 17
+      },
+      "hidUsage": 95,
+      "deviceKeyIndex": 50,
+      "ledIndex": 50,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-051",
+      "label": "8",
+      "sourceLabel": "8",
+      "x": 679,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 18
+      },
+      "hidUsage": 96,
+      "deviceKeyIndex": 51,
+      "ledIndex": 51,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-052",
+      "label": "9",
+      "sourceLabel": "9",
+      "x": 713,
+      "y": 126,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 19
+      },
+      "hidUsage": 97,
+      "deviceKeyIndex": 52,
+      "ledIndex": 52,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-123",
+      "label": "+",
+      "sourceLabel": "+",
+      "x": 747,
+      "y": 126,
+      "width": 26,
+      "height": 57,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 2,
+        "column": 20
+      },
+      "hidUsage": 87,
+      "deviceKeyIndex": 123,
+      "ledIndex": 123,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-055",
+      "label": "CapsLock",
+      "sourceLabel": "CapsLock",
+      "x": 27,
+      "y": 157,
+      "width": 52,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 0
+      },
+      "hidUsage": 57,
+      "deviceKeyIndex": 55,
+      "ledIndex": 55,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-056",
+      "label": "A",
+      "sourceLabel": "A",
+      "x": 86,
+      "y": 157,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 1
+      },
+      "hidUsage": 4,
+      "deviceKeyIndex": 56,
+      "ledIndex": 56,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-057",
+      "label": "S",
+      "sourceLabel": "S",
+      "x": 120,
+      "y": 157,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 2
+      },
+      "hidUsage": 22,
+      "deviceKeyIndex": 57,
+      "ledIndex": 57,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-058",
+      "label": "D",
+      "sourceLabel": "D",
+      "x": 154,
+      "y": 157,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 3
+      },
+      "hidUsage": 7,
+      "deviceKeyIndex": 58,
+      "ledIndex": 58,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-059",
+      "label": "F",
+      "sourceLabel": "F",
+      "x": 187,
+      "y": 157,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 4
+      },
+      "hidUsage": 9,
+      "deviceKeyIndex": 59,
+      "ledIndex": 59,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-060",
+      "label": "G",
+      "sourceLabel": "G",
+      "x": 221,
+      "y": 157,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 5
+      },
+      "hidUsage": 10,
+      "deviceKeyIndex": 60,
+      "ledIndex": 60,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-061",
+      "label": "H",
+      "sourceLabel": "H",
+      "x": 254,
+      "y": 157,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 6
+      },
+      "hidUsage": 11,
+      "deviceKeyIndex": 61,
+      "ledIndex": 61,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-062",
+      "label": "J",
+      "sourceLabel": "J",
+      "x": 288,
+      "y": 157,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 7
+      },
+      "hidUsage": 13,
+      "deviceKeyIndex": 62,
+      "ledIndex": 62,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-063",
+      "label": "K",
+      "sourceLabel": "K",
+      "x": 322,
+      "y": 157,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 8
+      },
+      "hidUsage": 14,
+      "deviceKeyIndex": 63,
+      "ledIndex": 63,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-064",
+      "label": "L",
+      "sourceLabel": "L",
+      "x": 355,
+      "y": 157,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 9
+      },
+      "hidUsage": 15,
+      "deviceKeyIndex": 64,
+      "ledIndex": 64,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-065",
+      "label": ";",
+      "sourceLabel": ":;",
+      "x": 389,
+      "y": 157,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 10
+      },
+      "hidUsage": 51,
+      "deviceKeyIndex": 65,
+      "ledIndex": 65,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-066",
+      "label": "'",
+      "sourceLabel": "\"'",
+      "x": 422,
+      "y": 157,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 11
+      },
+      "hidUsage": 52,
+      "deviceKeyIndex": 66,
+      "ledIndex": 66,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-085",
+      "label": "Enter",
+      "sourceLabel": "Enter",
+      "x": 456,
+      "y": 157,
+      "width": 69,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 13
+      },
+      "hidUsage": 40,
+      "deviceKeyIndex": 85,
+      "ledIndex": 85,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-068",
+      "label": "4",
+      "sourceLabel": "4",
+      "x": 645,
+      "y": 157,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 17
+      },
+      "hidUsage": 92,
+      "deviceKeyIndex": 68,
+      "ledIndex": 68,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-069",
+      "label": "5",
+      "sourceLabel": "5",
+      "x": 679,
+      "y": 157,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 18
+      },
+      "hidUsage": 93,
+      "deviceKeyIndex": 69,
+      "ledIndex": 69,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-070",
+      "label": "6",
+      "sourceLabel": "6",
+      "x": 713,
+      "y": 157,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 3,
+        "column": 19
+      },
+      "hidUsage": 94,
+      "deviceKeyIndex": 70,
+      "ledIndex": 70,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-073",
+      "label": "Shift",
+      "sourceLabel": "Shift_L",
+      "x": 27,
+      "y": 192,
+      "width": 68,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 0
+      },
+      "hidUsage": 225,
+      "deviceKeyIndex": 73,
+      "ledIndex": 73,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-074",
+      "label": "Z",
+      "sourceLabel": "Z",
+      "x": 102,
+      "y": 192,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 2
+      },
+      "hidUsage": 29,
+      "deviceKeyIndex": 74,
+      "ledIndex": 74,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-075",
+      "label": "X",
+      "sourceLabel": "X",
+      "x": 136,
+      "y": 192,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 3
+      },
+      "hidUsage": 27,
+      "deviceKeyIndex": 75,
+      "ledIndex": 75,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-076",
+      "label": "C",
+      "sourceLabel": "C",
+      "x": 170,
+      "y": 192,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 4
+      },
+      "hidUsage": 6,
+      "deviceKeyIndex": 76,
+      "ledIndex": 76,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-077",
+      "label": "V",
+      "sourceLabel": "V",
+      "x": 204,
+      "y": 192,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 5
+      },
+      "hidUsage": 25,
+      "deviceKeyIndex": 77,
+      "ledIndex": 77,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-078",
+      "label": "B",
+      "sourceLabel": "B",
+      "x": 237,
+      "y": 192,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 6
+      },
+      "hidUsage": 5,
+      "deviceKeyIndex": 78,
+      "ledIndex": 78,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-079",
+      "label": "N",
+      "sourceLabel": "N",
+      "x": 271,
+      "y": 192,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 7
+      },
+      "hidUsage": 17,
+      "deviceKeyIndex": 79,
+      "ledIndex": 79,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-080",
+      "label": "M",
+      "sourceLabel": "M",
+      "x": 305,
+      "y": 192,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 8
+      },
+      "hidUsage": 16,
+      "deviceKeyIndex": 80,
+      "ledIndex": 80,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-081",
+      "label": ",",
+      "sourceLabel": ",<",
+      "x": 339,
+      "y": 192,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 9
+      },
+      "hidUsage": 54,
+      "deviceKeyIndex": 81,
+      "ledIndex": 81,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-082",
+      "label": ".",
+      "sourceLabel": ".>",
+      "x": 373,
+      "y": 192,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 10
+      },
+      "hidUsage": 55,
+      "deviceKeyIndex": 82,
+      "ledIndex": 82,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-083",
+      "label": "/",
+      "sourceLabel": "/?",
+      "x": 406,
+      "y": 192,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 11
+      },
+      "hidUsage": 56,
+      "deviceKeyIndex": 83,
+      "ledIndex": 83,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-084",
+      "label": "Shift",
+      "sourceLabel": "Shift_R",
+      "x": 440,
+      "y": 192,
+      "width": 85,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 13
+      },
+      "hidUsage": 229,
+      "deviceKeyIndex": 84,
+      "ledIndex": 84,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-101",
+      "label": "↑",
+      "sourceLabel": "↑",
+      "x": 572,
+      "y": 192,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 15
+      },
+      "hidUsage": 82,
+      "deviceKeyIndex": 101,
+      "ledIndex": 101,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-086",
+      "label": "1",
+      "sourceLabel": "1",
+      "x": 645,
+      "y": 192,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 17
+      },
+      "hidUsage": 89,
+      "deviceKeyIndex": 86,
+      "ledIndex": 86,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-087",
+      "label": "2",
+      "sourceLabel": "2",
+      "x": 679,
+      "y": 192,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 18
+      },
+      "hidUsage": 90,
+      "deviceKeyIndex": 87,
+      "ledIndex": 87,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-088",
+      "label": "3",
+      "sourceLabel": "3",
+      "x": 713,
+      "y": 192,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 19
+      },
+      "hidUsage": 91,
+      "deviceKeyIndex": 88,
+      "ledIndex": 88,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-106",
+      "label": "Enter",
+      "sourceLabel": "Enter",
+      "x": 747,
+      "y": 192,
+      "width": 26,
+      "height": 59,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 4,
+        "column": 20
+      },
+      "hidUsage": 88,
+      "deviceKeyIndex": 106,
+      "ledIndex": 106,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-091",
+      "label": "Ctrl",
+      "sourceLabel": "Ctrl_L",
+      "x": 27,
+      "y": 227,
+      "width": 34,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 5,
+        "column": 0
+      },
+      "hidUsage": 224,
+      "deviceKeyIndex": 91,
+      "ledIndex": 91,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-092",
+      "label": "Win",
+      "sourceLabel": "Win_L",
+      "x": 69,
+      "y": 227,
+      "width": 34,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 5,
+        "column": 1
+      },
+      "hidUsage": 227,
+      "deviceKeyIndex": 92,
+      "ledIndex": 92,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-093",
+      "label": "Alt",
+      "sourceLabel": "Alt_L",
+      "x": 111,
+      "y": 227,
+      "width": 34,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 5,
+        "column": 2
+      },
+      "hidUsage": 226,
+      "deviceKeyIndex": 93,
+      "ledIndex": 93,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-094",
+      "label": "Space",
+      "sourceLabel": "Space",
+      "x": 152,
+      "y": 227,
+      "width": 204,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 5,
+        "column": 6
+      },
+      "hidUsage": 44,
+      "deviceKeyIndex": 94,
+      "ledIndex": 94,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-095",
+      "label": "Alt",
+      "sourceLabel": "Alt_R",
+      "x": 363,
+      "y": 227,
+      "width": 34,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 5,
+        "column": 10
+      },
+      "hidUsage": 230,
+      "deviceKeyIndex": 95,
+      "ledIndex": 95,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-096",
+      "label": "Fn",
+      "sourceLabel": "Fn",
+      "x": 406,
+      "y": 227,
+      "width": 34,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 5,
+        "column": 11
+      },
+      "hidUsage": 175,
+      "deviceKeyIndex": 96,
+      "ledIndex": 96,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-097",
+      "label": "Menu",
+      "sourceLabel": "APP",
+      "x": 448,
+      "y": 227,
+      "width": 34,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 5,
+        "column": 12
+      },
+      "hidUsage": 101,
+      "deviceKeyIndex": 97,
+      "ledIndex": 97,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-098",
+      "label": "Ctrl",
+      "sourceLabel": "Ctrl_R",
+      "x": 490,
+      "y": 227,
+      "width": 34,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 5,
+        "column": 13
+      },
+      "hidUsage": 228,
+      "deviceKeyIndex": 98,
+      "ledIndex": 98,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-099",
+      "label": "←",
+      "sourceLabel": "←",
+      "x": 539,
+      "y": 227,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 5,
+        "column": 14
+      },
+      "hidUsage": 80,
+      "deviceKeyIndex": 99,
+      "ledIndex": 99,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-100",
+      "label": "↓",
+      "sourceLabel": "↓",
+      "x": 572,
+      "y": 227,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 5,
+        "column": 15
+      },
+      "hidUsage": 81,
+      "deviceKeyIndex": 100,
+      "ledIndex": 100,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-102",
+      "label": "→",
+      "sourceLabel": "→",
+      "x": 606,
+      "y": 227,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 5,
+        "column": 16
+      },
+      "hidUsage": 79,
+      "deviceKeyIndex": 102,
+      "ledIndex": 102,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-104",
+      "label": "0",
+      "sourceLabel": "0",
+      "x": 645,
+      "y": 227,
+      "width": 60,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 5,
+        "column": 18
+      },
+      "hidUsage": 98,
+      "deviceKeyIndex": 104,
+      "ledIndex": 104,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "key-105",
+      "label": ".",
+      "sourceLabel": ".",
+      "x": 713,
+      "y": 227,
+      "width": 26,
+      "height": 26,
+      "rotation": 0,
+      "matrix": null,
+      "gridPosition": {
+        "row": 5,
+        "column": 19
+      },
+      "hidUsage": 99,
+      "deviceKeyIndex": 105,
+      "ledIndex": 105,
+      "fnProgrammable": true,
+      "defaultAction": {
+        "type": "default"
+      }
+    }
+  ],
+  "sourceNotes": [
+    "Geometry, HID usages, device key indices, LED indices and Fn flags are derived from the analyzed OEM rgb-keyboard.xml.",
+    "OEM row_col is stored as gridPosition. It is not asserted to be the electrical switch matrix.",
+    "matrix remains null until the electrical matrix is independently verified.",
+    "OEM rgb-keyboard.xml SHA-256: 7c3f0720bfe97b9ef1dd820e86fb1e621ff20a9a0eeaf6d97b4329a3aa3c3c62"
+  ]
+}

@@ -4,6 +4,7 @@ use mechkeymesh_core::{
 };
 use mechkeymesh_driver_api::{Capability, DriverManifest, LightingConfig};
 use mechkeymesh_driver_aula_f108pro::{AulaF108ProDriver, LIGHTING_MODES};
+use mechkeymesh_layout::{Layout, LayoutRegistry};
 use mechkeymesh_persistence::{PersistenceStatus, PersistenceStore};
 use serde::Serialize;
 use std::sync::Arc;
@@ -12,7 +13,9 @@ use tauri::{Manager, State};
 struct AppState {
     manager: DeviceManagerHandle,
     persistence: PersistenceStore,
+    layouts: LayoutRegistry,
     primary_device_model_id: String,
+    primary_layout_id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -53,6 +56,21 @@ fn get_desired_lighting(state: State<'_, AppState>) -> Result<Option<DesiredLigh
         .persistence
         .load_lighting(&scope)
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn get_layout(state: State<'_, AppState>, layout_id: String) -> Result<Layout, String> {
+    state
+        .layouts
+        .get(&layout_id)
+        .cloned()
+        .ok_or_else(|| format!("layout not found: {layout_id}"))
+}
+
+#[tauri::command]
+fn get_primary_layout(state: State<'_, AppState>) -> Result<Layout, String> {
+    let layout_id = state.primary_layout_id.clone();
+    get_layout(state, layout_id)
 }
 
 #[tauri::command]
@@ -129,6 +147,11 @@ pub fn run() {
             registry.register(Arc::new(AulaF108ProDriver::new()))?;
             let manifests = registry.manifests();
 
+            let mut layouts = LayoutRegistry::new();
+            for layout in registry.layouts() {
+                layouts.register(layout)?;
+            }
+
             let data_dir = app.path().app_data_dir()?;
             let persistence = PersistenceStore::open(data_dir.join("mechkeymesh.sqlite3"))?;
 
@@ -141,10 +164,14 @@ pub fn run() {
                 persistence.ensure_default_profile(&manifest.device_model_id)?;
             }
 
-            let primary_device_model_id = manifests
+            let primary_manifest = manifests
                 .first()
-                .expect("at least the AULA F108 Pro driver must be registered")
-                .device_model_id
+                .expect("at least the AULA F108 Pro driver must be registered");
+            let primary_device_model_id = primary_manifest.device_model_id.clone();
+            let primary_layout_id = primary_manifest
+                .layout_ids
+                .first()
+                .expect("the primary driver must declare at least one layout")
                 .clone();
 
             let manager = DeviceManager::start(registry, ManagerConfig::default());
@@ -152,7 +179,9 @@ pub fn run() {
             app.manage(AppState {
                 manager,
                 persistence,
+                layouts,
                 primary_device_model_id,
+                primary_layout_id,
             });
             Ok(())
         })
@@ -162,6 +191,8 @@ pub fn run() {
             get_driver_registry,
             get_persistence_status,
             get_desired_lighting,
+            get_layout,
+            get_primary_layout,
             reconnect,
             cancel_active_operation,
             get_lighting_modes,

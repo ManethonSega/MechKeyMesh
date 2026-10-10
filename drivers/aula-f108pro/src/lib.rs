@@ -1,3 +1,7 @@
+mod layout;
+
+pub use layout::f108pro_layout;
+
 use mechkeymesh_driver_api::{
     Capability, Connection, DeviceCandidate, DeviceDescriptor, DeviceMatch, DeviceSession,
     DriverError, DriverManifest, KeyboardDriver, LightingConfig, OperationContext, TransportKind,
@@ -37,6 +41,7 @@ impl KeyboardDriver for AulaF108ProDriver {
             device_name: "AULA F108 Pro".into(),
             supported_connections: vec![Connection::Usb],
             capabilities: vec![Capability::HardwareRgb],
+            layout_ids: vec!["aula.f108pro.ansi".into()],
             matchers: vec![DeviceMatch {
                 vendor_id: VENDOR_ID,
                 product_id: PRODUCT_ID,
@@ -52,6 +57,10 @@ impl KeyboardDriver for AulaF108ProDriver {
                 report_size: Some(FEATURE_REPORT_SIZE),
             }],
         }
+    }
+
+    fn layouts(&self) -> Vec<mechkeymesh_layout::Layout> {
+        vec![f108pro_layout()]
     }
 
     fn discover(&self, context: &OperationContext) -> Result<Vec<DeviceCandidate>, DriverError> {
@@ -332,6 +341,7 @@ mod tests {
         assert_eq!(manifest.device_model_id, "aula.f108pro");
         assert_eq!(manifest.supported_connections, vec![Connection::Usb]);
         assert_eq!(manifest.capabilities, vec![Capability::HardwareRgb]);
+        assert_eq!(manifest.layout_ids, vec!["aula.f108pro.ansi"]);
         assert_eq!(manifest.matchers[0].vendor_id, VENDOR_ID);
         assert_eq!(manifest.matchers[0].product_id, PRODUCT_ID);
         assert_eq!(manifest.matchers[0].usage_page, Some(CONFIG_USAGE_PAGE));
