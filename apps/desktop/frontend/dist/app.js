@@ -31,7 +31,11 @@ async function loadModes() {
 }
 
 function stateClass(state) {
-  return ["ready", "busy", "recovery", "unsupported"].includes(state) ? state : "disconnected";
+  if (["ready"].includes(state)) return "ready";
+  if (["busy", "detecting", "opening", "initializing"].includes(state)) return "busy";
+  if (["recovery", "ambiguous"].includes(state)) return "recovery";
+  if (state === "unsupported") return "unsupported";
+  return "disconnected";
 }
 
 function updateStatus(status) {
@@ -47,6 +51,12 @@ function updateStatus(status) {
     (state === "ready" ? "Configuration interface ready" : "Waiting for a supported keyboard...");
   $("#connectionType").textContent = device?.connection || "—";
   $("#driverId").textContent = device?.driverId || "aula.f108pro.usb";
+  $("#stateText").textContent = state;
+  $("#candidateCount").textContent = String(status?.candidateCount ?? 0);
+  $("#reconnectCount").textContent = String(status?.reconnectCount ?? 0);
+  $("#activeOperation").textContent = status?.activeOperation
+    ? `Active operation #${status.activeOperation.id}: ${status.activeOperation.name}`
+    : "No active hardware operation.";
   $("#vidpid").textContent =
     device?.vendorId != null
       ? device.vendorId.toString(16).padStart(4, "0").toUpperCase() +
@@ -102,7 +112,26 @@ $("#reconnectButton").addEventListener("click", async () => {
 
 async function refreshLogs() {
   try {
-    const logs = await invoke("get_logs");
+    const [logs, drivers] = await Promise.all([
+      invoke("get_logs"),
+      invoke("get_driver_registry")
+    ]);
+    $("#driverView").textContent = drivers.length
+      ? drivers.map((driver) => {
+          const matches = driver.matchers
+            .map((match) => {
+              const vid = match.vendorId.toString(16).padStart(4, "0").toUpperCase();
+              const pid = match.productId.toString(16).padStart(4, "0").toUpperCase();
+              const usage = match.usagePage == null
+                ? "any usage"
+                : "usage " + match.usagePage.toString(16).padStart(4, "0").toUpperCase();
+              return `${vid}:${pid} ${usage}`;
+            })
+            .join(", ");
+          return `${driver.driverId} | ${driver.deviceName} | ${matches}`;
+        }).join("\n")
+      : "No drivers registered.";
+
     $("#logView").textContent = logs.length
       ? logs.map((entry) => {
           const time = new Date(Number(entry.unixMillis)).toLocaleTimeString();

@@ -1,15 +1,17 @@
 use mechkeymesh_driver_api::{
-    Capability, Connection, DeviceDescriptor, DeviceSession, DriverError, KeyboardDriver,
-    LightingConfig,
+    Capability, Connection, DeviceCandidate, DeviceDescriptor, DeviceMatch, DeviceSession,
+    DriverError, DriverManifest, KeyboardDriver, LightingConfig, OperationContext, TransportKind,
+    TransportRequirement,
 };
 use mechkeymesh_hid::{
-    FEATURE_REPORT_SIZE, FeatureTransport, HidTransportError, open_feature_device,
+    FEATURE_REPORT_SIZE, FeatureTransport, HidTransportError, enumerate_feature_devices,
+    open_feature_path,
 };
-use std::{thread, time::Duration};
+use std::time::Duration;
 
 pub const VENDOR_ID: u16 = 0x0C45;
 pub const PRODUCT_ID: u16 = 0x800A;
-const CONFIG_USAGE_PAGE: u16 = 0xFF13;
+pub const CONFIG_USAGE_PAGE: u16 = 0xFF13;
 const COMMAND_DELAY: Duration = Duration::from_millis(35);
 
 pub struct AulaF108ProDriver;
@@ -27,101 +29,176 @@ impl Default for AulaF108ProDriver {
 }
 
 impl KeyboardDriver for AulaF108ProDriver {
-    fn id(&self) -> &'static str {
-        "aula.f108pro.usb"
+    fn manifest(&self) -> DriverManifest {
+        DriverManifest {
+            driver_id: "aula.f108pro.usb".into(),
+            vendor: "AULA".into(),
+            device_name: "AULA F108 Pro".into(),
+            supported_connections: vec![Connection::Usb],
+            capabilities: vec![Capability::HardwareRgb],
+            matchers: vec![DeviceMatch {
+                vendor_id: VENDOR_ID,
+                product_id: PRODUCT_ID,
+                usage_page: Some(CONFIG_USAGE_PAGE),
+                // The Windows HID path is selected by usage page rather than
+                // assuming a stable interface number across HID backends.
+                interface_number: None,
+            }],
+            transport_requirements: vec![TransportRequirement {
+                kind: TransportKind::HidFeature,
+                usage_page: Some(CONFIG_USAGE_PAGE),
+                interface_number: None,
+                report_size: Some(FEATURE_REPORT_SIZE),
+            }],
+        }
     }
 
-    fn display_name(&self) -> &'static str {
-        "AULA F108 Pro"
-    }
-
-    fn open(&self) -> Result<Box<dyn DeviceSession>, DriverError> {
-        let transport = open_feature_device(VENDOR_ID, PRODUCT_ID, CONFIG_USAGE_PAGE)
+    fn discover(&self, context: &OperationContext) -> Result<Vec<DeviceCandidate>, DriverError> {
+        context.check()?;
+        let devices = enumerate_feature_devices(VENDOR_ID, PRODUCT_ID, CONFIG_USAGE_PAGE)
             .map_err(map_transport_error)?;
 
-        Ok(Box::new(AulaF108ProSession { transport }))
+        context.check()?;
+        Ok(devices
+            .into_iter()
+            .map(|device| DeviceCandidate {
+                driver_id: "aula.f108pro.usb".into(),
+                instance_id: device.path,
+                name: "AULA F108 Pro".into(),
+                connection: Connection::Usb,
+                vendor_id: Some(device.vendor_id),
+                product_id: Some(device.product_id),
+                usage_page: Some(device.usage_page),
+                interface_number: Some(device.interface_number),
+                serial_number: device.serial_number,
+            })
+            .collect())
+    }
+
+    fn open(
+        &self,
+        context: &OperationContext,
+        candidate: &DeviceCandidate,
+    ) -> Result<Box<dyn DeviceSession>, DriverError> {
+        context.check()?;
+        validate_candidate(candidate)?;
+
+        let transport = open_feature_path(&candidate.instance_id).map_err(map_transport_error)?;
+        context.check()?;
+
+        Ok(Box::new(AulaF108ProSession {
+            candidate: candidate.clone(),
+            transport,
+        }))
     }
 }
 
 struct AulaF108ProSession {
+    candidate: DeviceCandidate,
     transport: Box<dyn FeatureTransport>,
 }
 
 impl DeviceSession for AulaF108ProSession {
     fn descriptor(&self) -> DeviceDescriptor {
         DeviceDescriptor {
-            driver_id: "aula.f108pro.usb".into(),
+            driver_id: self.candidate.driver_id.clone(),
+            instance_id: self.candidate.instance_id.clone(),
             vendor: "AULA".into(),
-            name: "AULA F108 Pro".into(),
-            connection: Connection::Usb,
-            vendor_id: Some(VENDOR_ID),
-            product_id: Some(PRODUCT_ID),
-            // Expose only capabilities implemented by this driver today.
-            // Known hardware features are added here only when their protocol
-            // implementation and safety tests are ready.
+            name: self.candidate.name.clone(),
+            connection: self.candidate.connection,
+            vendor_id: self.candidate.vendor_id,
+            product_id: self.candidate.product_id,
+            // Expose only capabilities implemented and testable in the current
+            // driver, not every capability known to exist in the OEM software.
             capabilities: vec![Capability::HardwareRgb],
             firmware: None,
             battery_percent: None,
         }
     }
 
-    fn set_lighting(&mut self, config: LightingConfig) -> Result<(), DriverError> {
+    fn initialize(&mut self, context: &OperationContext) -> Result<(), DriverError> {
+        // R2 establishes the lifecycle state without inventing an undocumented
+        // F108 initialization command. Opening the verified FF13 collection is
+        // sufficient for this driver today.
+        context.check()
+    }
+
+    fn health_check(&mut self, context: &OperationContext) -> Result<(), DriverError> {
+        // Device-removal detection is performed by rediscovering this exact HID
+        // path through the driver. Avoid sending probe commands merely to test
+        // liveness.
+        context.check()
+    }
+
+    fn set_lighting(
+        &mut self,
+        context: &OperationContext,
+        config: LightingConfig,
+    ) -> Result<(), DriverError> {
+        context.check()?;
         let payload = build_lighting_payload(config)?;
 
-        self.begin_transaction()?;
-        self.lighting_init()?;
-        self.send(payload, false)?;
-        self.apply_transaction()?;
-        self.finalize_transaction()?;
+        self.begin_transaction(context)?;
+        self.lighting_init(context)?;
+        self.send(context, payload, false)?;
+        self.apply_transaction(context)?;
+        self.finalize_transaction(context)?;
         Ok(())
     }
 }
 
 impl AulaF108ProSession {
-    fn send(&self, report: [u8; FEATURE_REPORT_SIZE], readback: bool) -> Result<(), DriverError> {
+    fn send(
+        &self,
+        context: &OperationContext,
+        report: [u8; FEATURE_REPORT_SIZE],
+        readback: bool,
+    ) -> Result<(), DriverError> {
+        context.check()?;
         self.transport
             .set_feature_report(&report)
             .map_err(map_transport_error)?;
-        thread::sleep(COMMAND_DELAY);
+        context.sleep(COMMAND_DELAY)?;
 
         if readback {
+            context.check()?;
             let response = self
                 .transport
                 .get_feature_report()
                 .map_err(map_transport_error)?;
             validate_ack(&response)?;
-            thread::sleep(COMMAND_DELAY);
+            context.sleep(COMMAND_DELAY)?;
         }
         Ok(())
     }
 
-    fn begin_transaction(&self) -> Result<(), DriverError> {
+    fn begin_transaction(&self, context: &OperationContext) -> Result<(), DriverError> {
         let mut report = [0u8; FEATURE_REPORT_SIZE];
         report[0] = 0x04;
         report[1] = 0x18;
-        self.send(report, true)
+        self.send(context, report, true)
     }
 
-    fn lighting_init(&self) -> Result<(), DriverError> {
+    fn lighting_init(&self, context: &OperationContext) -> Result<(), DriverError> {
         let mut report = [0u8; FEATURE_REPORT_SIZE];
         report[0] = 0x04;
         report[1] = 0x13;
         report[8] = 0x01;
-        self.send(report, true)
+        self.send(context, report, true)
     }
 
-    fn apply_transaction(&self) -> Result<(), DriverError> {
+    fn apply_transaction(&self, context: &OperationContext) -> Result<(), DriverError> {
         let mut report = [0u8; FEATURE_REPORT_SIZE];
         report[0] = 0x04;
         report[1] = 0x02;
-        self.send(report, true)
+        self.send(context, report, true)
     }
 
-    fn finalize_transaction(&self) -> Result<(), DriverError> {
+    fn finalize_transaction(&self, context: &OperationContext) -> Result<(), DriverError> {
         let mut report = [0u8; FEATURE_REPORT_SIZE];
         report[0] = 0x04;
         report[1] = 0xF0;
-        self.send(report, false)
+        self.send(context, report, false)
     }
 }
 
@@ -147,6 +224,19 @@ pub const LIGHTING_MODES: [&str; 20] = [
     "Tilt",
     "Shuttle",
 ];
+
+fn validate_candidate(candidate: &DeviceCandidate) -> Result<(), DriverError> {
+    if candidate.driver_id != "aula.f108pro.usb"
+        || candidate.vendor_id != Some(VENDOR_ID)
+        || candidate.product_id != Some(PRODUCT_ID)
+        || candidate.usage_page != Some(CONFIG_USAGE_PAGE)
+    {
+        return Err(DriverError::InvalidConfiguration(
+            "candidate does not match the AULA F108 Pro USB configuration interface".into(),
+        ));
+    }
+    Ok(())
+}
 
 fn build_lighting_payload(
     config: LightingConfig,
@@ -207,6 +297,9 @@ fn validate_ack(response: &[u8; FEATURE_REPORT_SIZE]) -> Result<(), DriverError>
 fn map_transport_error(error: HidTransportError) -> DriverError {
     match error {
         HidTransportError::NotFound => DriverError::NotFound,
+        HidTransportError::Disconnected(message) => DriverError::Disconnected(message),
+        HidTransportError::PermissionDenied(message) => DriverError::PermissionDenied(message),
+        HidTransportError::Busy(message) => DriverError::Busy(message),
         HidTransportError::UnsupportedPlatform => DriverError::UnsupportedPlatform,
         HidTransportError::Backend(message) => DriverError::Transport(message),
     }
@@ -215,6 +308,42 @@ fn map_transport_error(error: HidTransportError) -> DriverError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn candidate() -> DeviceCandidate {
+        DeviceCandidate {
+            driver_id: "aula.f108pro.usb".into(),
+            instance_id: "test-path".into(),
+            name: "AULA F108 Pro".into(),
+            connection: Connection::Usb,
+            vendor_id: Some(VENDOR_ID),
+            product_id: Some(PRODUCT_ID),
+            usage_page: Some(CONFIG_USAGE_PAGE),
+            interface_number: Some(3),
+            serial_number: None,
+        }
+    }
+
+    #[test]
+    fn manifest_declares_f108_transport_requirements() {
+        let manifest = AulaF108ProDriver::new().manifest();
+        assert_eq!(manifest.driver_id, "aula.f108pro.usb");
+        assert_eq!(manifest.supported_connections, vec![Connection::Usb]);
+        assert_eq!(manifest.capabilities, vec![Capability::HardwareRgb]);
+        assert_eq!(manifest.matchers[0].vendor_id, VENDOR_ID);
+        assert_eq!(manifest.matchers[0].product_id, PRODUCT_ID);
+        assert_eq!(manifest.matchers[0].usage_page, Some(CONFIG_USAGE_PAGE));
+        assert_eq!(
+            manifest.transport_requirements[0].kind,
+            TransportKind::HidFeature
+        );
+    }
+
+    #[test]
+    fn rejects_foreign_candidate() {
+        let mut wrong = candidate();
+        wrong.product_id = Some(0xFFFF);
+        assert!(validate_candidate(&wrong).is_err());
+    }
 
     #[test]
     fn builds_known_breath_payload() {
