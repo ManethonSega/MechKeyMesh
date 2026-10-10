@@ -2301,6 +2301,7 @@
   "sourceNotes": [
     "Geometry, HID usages, device key indices, LED indices and Fn flags are derived from the analyzed OEM rgb-keyboard.xml.",
     "OEM row_col is stored as gridPosition. It is not asserted to be the electrical switch matrix.",
-    "matrix remains null until the electrical matrix is independently verified."
+    "matrix remains null until the electrical matrix is independently verified.",
+    "OEM rgb-keyboard.xml SHA-256: 7c3f0720bfe97b9ef1dd820e86fb1e621ff20a9a0eeaf6d97b4329a3aa3c3c62"
   ]
 }
