@@ -1,0 +1,221 @@
+name: R6 Final Corrections
+
+on:
+  push:
+    branches: [r6/normal-layer-remapping]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: r6/normal-layer-remapping
+      - uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: rustfmt
+      - name: Apply corrections
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          remap = Path('drivers/aula-f108pro/src/remap.rs')
+          text = remap.read_text()
+          text = text.replace(
+              'send_multi_packet(session, context, &table, true)?;',
+              'send_multi_packet(session, context, &table, false)?;'
+          )
+          text = re.sub(
+              r'''        context\.sleep\(COMMAND_DELAY\)\.map_err\(\|error\| \{\n            DriverError::Protocol\(format!\(\n                "remap packet \{\}/\{\} delay failed: \{error\}",\n                index \+ 1,\n                packet_count\n            \)\)\n        \}\)\?;''',
+              '        context.sleep(COMMAND_DELAY)?;',
+              text,
+          )
+          text = text.replace(
+              '    let packet_count = data.len() / FEATURE_REPORT_SIZE;\n',
+              ''
+          )
+          remap.write_text(text)
+
+          keymap = Path('crates/persistence/src/keymap.rs')
+          text = keymap.read_text()
+          old = '''            vec![\n                KeyMapping::new("key-055", KeyAction::Disabled),\n                KeyMapping::new(\n                    "key-002",\n                    KeyAction::ModifiedKey {\n                        modifiers: vec![Modifier::LeftCtrl],\n                        key: 0x06,\n                    },\n                ),\n            ],'''
+          new = '''            vec![\n                KeyMapping::new(\n                    "key-002",\n                    KeyAction::ModifiedKey {\n                        modifiers: vec![Modifier::LeftCtrl],\n                        key: 0x06,\n                    },\n                ),\n                KeyMapping::new("key-055", KeyAction::Disabled),\n            ],'''
+          if old not in text:
+              raise SystemExit('persistence test block not found')
+          keymap.write_text(text.replace(old, new))
+
+          index = Path('apps/desktop/frontend/dist/index.html')
+          text = index.read_text()
+          marker = '  <link rel="stylesheet" href="app.css" />\n'
+          if 'keymap.css' not in text:
+              text = text.replace(marker, marker + '  <link rel="stylesheet" href="keymap.css" />\n')
+          index.write_text(text)
+
+          run_doc = Path('docs/runs/R6.md')
+          text = run_doc.read_text().replace(
+              '576-byte table            9 x 64-byte reports, readback',
+              '576-byte table            9 x 64-byte reports, no extra readback'
+          )
+          run_doc.write_text(text)
+
+          architecture = Path('docs/ARCHITECTURE.md')
+          text = architecture.read_text()
+          section = '''\n\n## Normal-layer remapping\n\nR6 adds a generic keymap contract and the first device translation for the AULA F108 Pro normal layer.\n\nThe source of truth remains SQLite. The complete desired normal map is validated, stored transactionally, translated from layout key IDs to F108 device indices, and then sent through the serialized Device Manager.\n\nThe verified F108 sequence is:\n\n```text\n04 18                     begin, readback\n04 11, byte[8] = 09       normal-map init, readback\n576-byte table            9 x 64-byte reports, no extra readback\n04 02                     apply, readback\n04 F0                     finalize, readback\n```\n\nThe table trailer is `AA 55` at offsets 574 and 575. This little-endian remap-table trailer is not generalized to other command families.\n\nR6 exposes only action encodings supported by current evidence. OEM program/file/URL/text assignments use an indexed host-side handler and remain disabled until MechKeyMesh independently implements that event channel.\n\nACK remains transport evidence only. Physical key presses are required before normal remapping can be called reliable.\n'''
+          if '## Normal-layer remapping' not in text:
+              text += section
+          architecture.write_text(text)
+
+          Path('apps/desktop/frontend/dist/keymap.css').write_text('''
+.keymap-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+
+.toolbar-group,
+.toolbar-save,
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbar-save {
+  margin-left: auto;
+  justify-content: flex-end;
+}
+
+.secondary.compact {
+  padding: 7px 10px;
+  font-size: 11px;
+}
+
+.current-assignment {
+  margin: 13px 0 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--electric-blue);
+  border-radius: 6px;
+  background: rgba(28, 141, 255, .08);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.action-editor h3 {
+  margin: 5px 0;
+  font-size: 24px;
+}
+
+.editor-field {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.action-fields {
+  display: grid;
+  gap: 12px;
+}
+
+.modifier-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(85px, 1fr));
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.modifier-grid legend {
+  padding: 0 7px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.modifier-grid label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--text-soft);
+  font-size: 11px;
+}
+
+.protocol-notice {
+  margin-top: 18px;
+  padding: 12px 13px;
+  border: 1px solid rgba(255, 146, 46, .45);
+  border-radius: 9px;
+  background: rgba(255, 146, 46, .07);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.editor-actions {
+  justify-content: space-between;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.keyboard-key.mapped rect {
+  stroke: var(--electric-blue);
+  stroke-width: 1.8;
+}
+
+.keyboard-key.mapped:not(.selected) rect {
+  fill: color-mix(in srgb, var(--key-fill) 88%, var(--electric-blue) 12%);
+}
+
+.primary.dirty {
+  box-shadow: 0 0 0 2px rgba(255, 146, 46, .24);
+}
+
+#keymapStatus {
+  max-width: 440px;
+  font-size: 11px;
+}
+
+@media (max-width: 900px) {
+  .keymap-toolbar,
+  .toolbar-save,
+  .editor-actions {
+    align-items: stretch;
+  }
+
+  .toolbar-save {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .modifier-grid {
+    grid-template-columns: repeat(2, minmax(100px, 1fr));
+  }
+}
+'''.strip() + '\n')
+      - name: Format Rust workspace
+        run: cargo fmt --all
+      - name: Commit corrections
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "fix: finalize R6 protocol, persistence and editor styling"
+          git push origin HEAD:r6/normal-layer-remapping
