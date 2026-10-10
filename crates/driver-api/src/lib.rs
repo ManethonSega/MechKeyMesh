@@ -1,4 +1,4 @@
-use mechkeymesh_layout::Layout;
+pub use mechkeymesh_layout::Layout;
 use serde::{Deserialize, Serialize};
 use std::{
     sync::{
