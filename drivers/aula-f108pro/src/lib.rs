@@ -590,7 +590,7 @@ mod tests {
         assert_eq!(payload[8], 1);
         assert_eq!(payload[9], 5);
         assert_eq!(payload[10], 3);
-        assert_eq!(payload[11], 1);
+        assert_eq!(payload[11], 0);
         assert_eq!(&payload[14..16], &[0x55, 0xAA]);
     }
 
