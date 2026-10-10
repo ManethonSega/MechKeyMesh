@@ -337,6 +337,7 @@ mod tests {
         assert_eq!(manifest.device_model_id, "aula.f108pro");
         assert_eq!(manifest.supported_connections, vec![Connection::Usb]);
         assert_eq!(manifest.capabilities, vec![Capability::HardwareRgb]);
+        assert_eq!(manifest.layout_ids, vec!["aula.f108pro.ansi"]);
         assert_eq!(manifest.matchers[0].vendor_id, VENDOR_ID);
         assert_eq!(manifest.matchers[0].product_id, PRODUCT_ID);
         assert_eq!(manifest.matchers[0].usage_page, Some(CONFIG_USAGE_PAGE));
