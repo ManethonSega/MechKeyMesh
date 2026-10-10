@@ -94,6 +94,7 @@ pub struct DriverManifest {
     pub device_name: String,
     pub supported_connections: Vec<Connection>,
     pub capabilities: Vec<Capability>,
+    pub layout_ids: Vec<String>,
     pub matchers: Vec<DeviceMatch>,
     pub transport_requirements: Vec<TransportRequirement>,
 }
