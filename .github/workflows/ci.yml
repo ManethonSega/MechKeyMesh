@@ -35,3 +35,9 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
       - name: Build desktop app
         run: wails build -clean
+      - name: Upload Windows alpha
+        uses: actions/upload-artifact@v4
+        with:
+          name: MechKeyMesh-windows-alpha
+          path: build/bin/MechKeyMesh.exe
+          if-no-files-found: error
