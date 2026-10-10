@@ -2,10 +2,26 @@ use thiserror::Error;
 
 pub const FEATURE_REPORT_SIZE: usize = 64;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HidDeviceInfo {
+    pub path: String,
+    pub vendor_id: u16,
+    pub product_id: u16,
+    pub usage_page: u16,
+    pub interface_number: i32,
+    pub serial_number: Option<String>,
+}
+
 #[derive(Debug, Error)]
 pub enum HidTransportError {
     #[error("device not found")]
     NotFound,
+    #[error("device disconnected: {0}")]
+    Disconnected(String),
+    #[error("device access denied: {0}")]
+    PermissionDenied(String),
+    #[error("device is busy: {0}")]
+    Busy(String),
     #[error("HID transport is not supported on this platform")]
     UnsupportedPlatform,
     #[error("{0}")]
@@ -21,10 +37,41 @@ pub trait FeatureTransport: Send {
     fn get_feature_report(&self) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError>;
 }
 
+pub fn classify_backend_error(message: impl Into<String>) -> HidTransportError {
+    let message = message.into();
+    let lower = message.to_ascii_lowercase();
+
+    if lower.contains("access is denied")
+        || lower.contains("access denied")
+        || lower.contains("permission denied")
+    {
+        HidTransportError::PermissionDenied(message)
+    } else if lower.contains("device is not connected")
+        || lower.contains("not connected")
+        || lower.contains("disconnected")
+        || lower.contains("no such device")
+        || lower.contains("device has been removed")
+    {
+        HidTransportError::Disconnected(message)
+    } else if lower.contains("device is busy")
+        || lower.contains("resource busy")
+        || lower.contains("being used")
+        || lower.contains("cannot access the file because it is being used")
+    {
+        HidTransportError::Busy(message)
+    } else {
+        HidTransportError::Backend(message)
+    }
+}
+
 #[cfg(windows)]
 mod windows {
-    use super::{FEATURE_REPORT_SIZE, FeatureTransport, HidTransportError};
+    use super::{
+        FEATURE_REPORT_SIZE, FeatureTransport, HidDeviceInfo, HidTransportError,
+        classify_backend_error,
+    };
     use hidapi::{HidApi, HidDevice};
+    use std::ffi::CString;
 
     pub struct WindowsFeatureTransport {
         device: HidDevice,
@@ -39,7 +86,7 @@ mod windows {
             buffer[1..].copy_from_slice(report);
             self.device
                 .send_feature_report(&buffer)
-                .map_err(|e| HidTransportError::Backend(e.to_string()))?;
+                .map_err(|error| classify_backend_error(error.to_string()))?;
             Ok(())
         }
 
@@ -47,7 +94,7 @@ mod windows {
             let mut buffer = [0u8; FEATURE_REPORT_SIZE + 1];
             self.device
                 .get_feature_report(&mut buffer)
-                .map_err(|e| HidTransportError::Backend(e.to_string()))?;
+                .map_err(|error| classify_backend_error(error.to_string()))?;
 
             let mut report = [0u8; FEATURE_REPORT_SIZE];
             report.copy_from_slice(&buffer[1..]);
@@ -55,38 +102,83 @@ mod windows {
         }
     }
 
-    pub fn open_feature_device(
+    pub fn enumerate_feature_devices(
         vendor_id: u16,
         product_id: u16,
         usage_page: u16,
-    ) -> Result<Box<dyn FeatureTransport>, HidTransportError> {
-        let api = HidApi::new().map_err(|e| HidTransportError::Backend(e.to_string()))?;
+    ) -> Result<Vec<HidDeviceInfo>, HidTransportError> {
+        let api = HidApi::new().map_err(|error| classify_backend_error(error.to_string()))?;
 
-        let info = api
+        let devices = api
             .device_list()
-            .find(|device| {
+            .filter(|device| {
                 device.vendor_id() == vendor_id
                     && device.product_id() == product_id
                     && device.usage_page() == usage_page
             })
-            .ok_or(HidTransportError::NotFound)?;
+            .map(|device| HidDeviceInfo {
+                path: device.path().to_string_lossy().into_owned(),
+                vendor_id: device.vendor_id(),
+                product_id: device.product_id(),
+                usage_page: device.usage_page(),
+                interface_number: device.interface_number(),
+                serial_number: device.serial_number().map(ToOwned::to_owned),
+            })
+            .collect();
 
-        let device = info
-            .open_device(&api)
-            .map_err(|e| HidTransportError::Backend(e.to_string()))?;
+        Ok(devices)
+    }
+
+    pub fn open_feature_path(path: &str) -> Result<Box<dyn FeatureTransport>, HidTransportError> {
+        let api = HidApi::new().map_err(|error| classify_backend_error(error.to_string()))?;
+        let path = CString::new(path)
+            .map_err(|_| HidTransportError::Backend("HID path contains an interior NUL".into()))?;
+        let device = api
+            .open_path(&path)
+            .map_err(|error| classify_backend_error(error.to_string()))?;
 
         Ok(Box::new(WindowsFeatureTransport { device }))
     }
 }
 
 #[cfg(windows)]
-pub use windows::open_feature_device;
+pub use windows::{enumerate_feature_devices, open_feature_path};
 
 #[cfg(not(windows))]
-pub fn open_feature_device(
+pub fn enumerate_feature_devices(
     _vendor_id: u16,
     _product_id: u16,
     _usage_page: u16,
-) -> Result<Box<dyn FeatureTransport>, HidTransportError> {
+) -> Result<Vec<HidDeviceInfo>, HidTransportError> {
     Err(HidTransportError::UnsupportedPlatform)
+}
+
+#[cfg(not(windows))]
+pub fn open_feature_path(_path: &str) -> Result<Box<dyn FeatureTransport>, HidTransportError> {
+    Err(HidTransportError::UnsupportedPlatform)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn classifies_common_windows_errors() {
+        assert!(matches!(
+            classify_backend_error("Access is denied."),
+            HidTransportError::PermissionDenied(_)
+        ));
+        assert!(matches!(
+            classify_backend_error("The device is not connected."),
+            HidTransportError::Disconnected(_)
+        ));
+        assert!(matches!(
+            classify_backend_error("The device is busy"),
+            HidTransportError::Busy(_)
+        ));
+        assert!(matches!(
+            classify_backend_error("unexpected HID failure"),
+            HidTransportError::Backend(_)
+        ));
+    }
 }
