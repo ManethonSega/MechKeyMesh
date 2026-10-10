@@ -25,21 +25,20 @@ fn reconnect(state: State<'_, AppState>) {
 
 #[tauri::command]
 fn get_lighting_modes() -> Vec<String> {
-    LIGHTING_MODES.iter().map(|mode| (*mode).to_string()).collect()
+    LIGHTING_MODES
+        .iter()
+        .map(|mode| (*mode).to_string())
+        .collect()
 }
 
 #[tauri::command]
-fn apply_lighting(
-    state: State<'_, AppState>,
-    config: LightingConfig,
-) -> Result<(), String> {
+fn apply_lighting(state: State<'_, AppState>, config: LightingConfig) -> Result<(), String> {
     state.manager.set_lighting(config)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let drivers: Vec<Arc<dyn KeyboardDriver>> =
-        vec![Arc::new(AulaF108ProDriver::new())];
+    let drivers: Vec<Arc<dyn KeyboardDriver>> = vec![Arc::new(AulaF108ProDriver::new())];
     let manager = DeviceManager::start(drivers);
     let manager_for_shutdown = manager.clone();
 
