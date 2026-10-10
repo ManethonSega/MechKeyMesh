@@ -1,4 +1,4 @@
-name: R6 Corrections
+name: R6 Finalize Editor
 
 on:
   push:
@@ -8,51 +8,170 @@ permissions:
   contents: write
 
 jobs:
-  patch:
+  finalize:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: r6/normal-layer-remapping
-      - uses: dtolnay/rust-toolchain@1.90.0
-        with:
-          components: rustfmt
-      - name: Correct remap transaction details
+      - name: Add keymap stylesheet and link
         shell: bash
         run: |
+          cat > apps/desktop/frontend/dist/keymap.css <<'CSS'
+          .keymap-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+            padding: 12px;
+            border: 1px solid var(--line);
+            border-radius: 11px;
+            background: var(--surface-2);
+          }
+
+          .toolbar-group,
+          .toolbar-save,
+          .editor-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+
+          .toolbar-save {
+            margin-left: auto;
+            justify-content: flex-end;
+          }
+
+          .secondary.compact {
+            padding: 7px 10px;
+            font-size: 11px;
+          }
+
+          .current-assignment {
+            margin: 13px 0 0;
+            padding: 10px 12px;
+            border-left: 3px solid var(--electric-blue);
+            border-radius: 6px;
+            background: rgba(28, 141, 255, .08);
+            color: var(--text-soft);
+            font-size: 12px;
+            font-weight: 700;
+          }
+
+          .action-editor h3 {
+            margin: 5px 0;
+            font-size: 24px;
+          }
+
+          .editor-field {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            margin-top: 16px;
+          }
+
+          .action-fields {
+            display: grid;
+            gap: 12px;
+          }
+
+          .modifier-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(85px, 1fr));
+            gap: 8px;
+            margin: 16px 0 0;
+            padding: 12px;
+            border: 1px solid var(--line);
+            border-radius: 9px;
+          }
+
+          .modifier-grid legend {
+            padding: 0 7px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 700;
+          }
+
+          .modifier-grid label {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            color: var(--text-soft);
+            font-size: 11px;
+          }
+
+          .protocol-notice {
+            margin-top: 18px;
+            padding: 12px 13px;
+            border: 1px solid rgba(255, 146, 46, .45);
+            border-radius: 9px;
+            background: rgba(255, 146, 46, .07);
+            color: var(--text-muted);
+            font-size: 12px;
+            line-height: 1.55;
+          }
+
+          .editor-actions {
+            justify-content: space-between;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--line);
+          }
+
+          .keyboard-key.mapped rect {
+            stroke: var(--electric-blue);
+            stroke-width: 1.8;
+          }
+
+          .keyboard-key.mapped:not(.selected) rect {
+            fill: color-mix(in srgb, var(--key-fill) 88%, var(--electric-blue) 12%);
+          }
+
+          .primary.dirty {
+            box-shadow: 0 0 0 2px rgba(255, 146, 46, .24);
+          }
+
+          #keymapStatus {
+            max-width: 440px;
+            font-size: 11px;
+          }
+
+          @media (max-width: 900px) {
+            .keymap-toolbar,
+            .toolbar-save,
+            .editor-actions {
+              align-items: stretch;
+            }
+
+            .toolbar-save {
+              width: 100%;
+              margin-left: 0;
+            }
+
+            .modifier-grid {
+              grid-template-columns: repeat(2, minmax(100px, 1fr));
+            }
+          }
+          CSS
           python - <<'PY'
           from pathlib import Path
-          import re
-
-          path = Path('drivers/aula-f108pro/src/remap.rs')
+          path = Path('apps/desktop/frontend/dist/index.html')
           text = path.read_text()
-          text = text.replace(
-              'send_multi_packet(session, context, &table, true)?;',
-              'send_multi_packet(session, context, &table, false)?;'
-          )
-          text = re.sub(
-              r'\s*let packet_count = data\.len\(\) / FEATURE_REPORT_SIZE;\n',
-              '\n',
-              text,
-              count=1,
-          )
-          text = re.sub(
-              r'\s*context\.sleep\(COMMAND_DELAY\)\.map_err\(\|error\| \{.*?\}\)\?;',
-              '\n        context.sleep(COMMAND_DELAY)?;',
-              text,
-              count=1,
-              flags=re.S,
-          )
+          marker = '  <link rel="stylesheet" href="app.css" />\n'
+          if 'keymap.css' not in text:
+              text = text.replace(marker, marker + '  <link rel="stylesheet" href="keymap.css" />\n')
           path.write_text(text)
           PY
-      - name: Format Rust workspace
-        run: cargo fmt --all
-      - name: Commit corrections
+          git rm .github/workflows/r6-corrections.yml
+      - name: Commit final editor files
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add drivers/aula-f108pro/src/remap.rs
-          git commit -m "fix: align R6 data transfer with verified protocol"
+          git add apps/desktop/frontend/dist/index.html apps/desktop/frontend/dist/keymap.css .github/workflows/r6-corrections.yml
+          git commit -m "style: finalize R6 keymap editor"
           git push origin HEAD:r6/normal-layer-remapping
