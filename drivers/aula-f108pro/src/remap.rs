@@ -117,7 +117,7 @@ pub fn send_normal_keymap(
     init[8] = 0x09;
     session.send(context, init, true)?;
 
-    send_multi_packet(session, context, &table, true)?;
+    send_multi_packet(session, context, &table, false)?;
     session.apply_transaction(context)?;
 
     let mut finalize = [0u8; FEATURE_REPORT_SIZE];
@@ -140,8 +140,6 @@ fn send_multi_packet(
             FEATURE_REPORT_SIZE
         )));
     }
-
-    let packet_count = data.len() / FEATURE_REPORT_SIZE;
     for (index, chunk) in data.chunks_exact(FEATURE_REPORT_SIZE).enumerate() {
         context.check()?;
         let mut report = [0u8; FEATURE_REPORT_SIZE];
@@ -150,13 +148,7 @@ fn send_multi_packet(
             .transport
             .set_feature_report(&report)
             .map_err(super::map_transport_error)?;
-        context.sleep(COMMAND_DELAY).map_err(|error| {
-            DriverError::Protocol(format!(
-                "remap packet {}/{} delay failed: {error}",
-                index + 1,
-                packet_count
-            ))
-        })?;
+        context.sleep(COMMAND_DELAY)?;
     }
 
     if readback {
