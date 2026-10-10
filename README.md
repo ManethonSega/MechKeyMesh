@@ -65,7 +65,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.3.0-alpha.1`, **R2 Device Manager 2.0 in progress** on branch `r2/device-manager-2`. R1 remains the stable foundation on `main` until R2 passes review and CI.
+`v0.3.0-alpha.1`, **R2 Device Manager 2.0 complete**. The production-oriented driver registry, lifecycle, timeout/cancellation, recovery and diagnostics foundation is ready for `main`. Physical F108 hot-plug acceptance remains explicitly deferred until the keyboard is available.
 
 The previous Go/Wails prototype is preserved in the branch:
 
