@@ -5,6 +5,9 @@ edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 
+[lib]
+path = "src/root.rs"
+
 [dependencies]
 mechkeymesh-driver-api = { path = "../driver-api" }
 serde.workspace = true
