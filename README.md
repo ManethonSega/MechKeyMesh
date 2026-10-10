@@ -24,6 +24,8 @@ Current Rust implementation:
 - runtime diagnostics
 - SQLite desired-state database with versioned migrations
 - stable device-model/profile/capability configuration scope
+- universal data-driven keyboard layout and KeyAction engine
+- brand-consistent dark and light application themes
 - hardware-risk features gated until their protocol safety tests exist
 
 ## Architecture
@@ -67,7 +69,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.4.0-alpha.1`, **R3 Persistence and Desired State complete**. SQLite is now the authoritative local source of truth for desired configuration, with versioned migrations and stable device-model/profile/capability scoping.
+`v0.5.0-alpha.1`, **R4 Universal Layout and Action Engine in progress** on branch `r4/layout-action-engine`. R3 remains authoritative on `main` until the data-driven F108 renderer and universal action model pass CI and review.
 
 The previous Go/Wails prototype is preserved in the branch:
 
