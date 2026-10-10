@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#081327" />
+  <title>MechKeyMesh</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<div id="splash" class="splash">
+  <img src="assets/logo.svg" alt="MechKeyMesh" />
+  <h1>Mech<span>Key</span>Mesh</h1>
+  <p>UNIVERSAL KEYBOARD STUDIO</p>
+  <div class="splashline"><i></i></div>
+  <small>Loading keyboard drivers...</small>
+</div>
+
+<div id="app" class="app hidden">
+  <aside>
+    <div class="brand">
+      <img src="assets/logo.svg" alt="" />
+      <div><strong>MechKeyMesh</strong><span>Universal Keyboard Studio</span></div>
+    </div>
+    <nav id="nav">
+      <button class="active" data-page="home">Home</button>
+      <button data-page="keys" disabled>Keys <b>Soon</b></button>
+      <button data-page="macros" disabled>Macros <b>Soon</b></button>
+      <button data-page="lighting">Lighting</button>
+      <button data-page="lcd" disabled>LCD <b>Soon</b></button>
+      <button data-page="profiles" disabled>Profiles <b>Soon</b></button>
+      <button data-page="settings" disabled>Device Settings <b>Soon</b></button>
+      <button data-page="diagnostics">Diagnostics</button>
+    </nav>
+    <div class="version">v0.2.0-alpha.1 · Rust/Tauri</div>
+  </aside>
+
+  <main>
+    <header>
+      <div>
+        <h2 id="pageTitle">Home</h2>
+        <p id="pageSubtitle">Device overview and connection health</p>
+      </div>
+      <div id="connectionPill" class="pill disconnected">Disconnected</div>
+    </header>
+
+    <section id="page-home" class="page active">
+      <div class="hero card">
+        <div>
+          <span class="eyebrow">FIRST DEVICE IMPLEMENTATION</span>
+          <h3 id="deviceName">AULA F108 Pro</h3>
+          <p id="deviceDetail">Waiting for keyboard...</p>
+        </div>
+        <button id="reconnectButton" class="secondary">Reconnect</button>
+      </div>
+
+      <div class="grid3">
+        <article class="card metric"><span>Connection</span><strong id="connectionType">—</strong></article>
+        <article class="card metric"><span>VID / PID</span><strong id="vidpid">—</strong></article>
+        <article class="card metric"><span>Driver</span><strong id="driverId">aula.f108pro.usb</strong></article>
+      </div>
+
+      <article class="card">
+        <div class="sectiontitle">
+          <div><span class="eyebrow">ECOSYSTEM FOUNDATION</span><h3>Device-specific drivers, shared platform</h3></div>
+        </div>
+        <p class="muted">
+          MechKeyMesh is now structured as a multi-vendor platform. The AULA F108 Pro is the first complete implementation and validation target. Future keyboard support is added as independent drivers rather than hard-coded into the desktop application.
+        </p>
+      </article>
+    </section>
+
+    <section id="page-lighting" class="page">
+      <div class="card">
+        <div class="sectiontitle">
+          <div><span class="eyebrow">AULA F108 PRO</span><h3>Onboard lighting</h3></div>
+          <span class="tag">Hardware effect</span>
+        </div>
+        <div class="formgrid">
+          <label>Effect<select id="lightingMode"></select></label>
+          <label>Color<input id="lightingColor" type="color" value="#21e6e8"/></label>
+          <label>Brightness<input id="brightness" type="range" min="0" max="5" value="5"/><output id="brightnessOut">5</output></label>
+          <label>Speed<input id="speed" type="range" min="0" max="5" value="3"/><output id="speedOut">3</output></label>
+          <label>Direction<select id="direction"><option value="0">Default / Forward</option><option value="1">Reverse</option></select></label>
+          <label class="check"><input id="colorful" type="checkbox"/> Rainbow / Colorful</label>
+        </div>
+        <div class="actions">
+          <span id="lightingResult" class="muted"></span>
+          <button id="applyLighting" class="primary">Apply to keyboard</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-diagnostics" class="page">
+      <div class="card">
+        <div class="sectiontitle">
+          <div><span class="eyebrow">DIAGNOSTICS</span><h3>Runtime log</h3></div>
+          <button id="refreshLogs" class="secondary">Refresh</button>
+        </div>
+        <pre id="logView">No log entries yet.</pre>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
