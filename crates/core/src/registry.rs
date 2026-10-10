@@ -162,6 +162,7 @@ mod tests {
                 device_name: "Fake Keyboard".into(),
                 supported_connections: vec![Connection::Usb],
                 capabilities: vec![Capability::HardwareRgb],
+                layout_ids: vec!["fake.layout".into()],
                 matchers: vec![DeviceMatch {
                     vendor_id: 1,
                     product_id: 2,
