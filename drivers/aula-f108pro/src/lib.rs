@@ -56,19 +56,10 @@ impl DeviceSession for AulaF108ProSession {
             connection: Connection::Usb,
             vendor_id: Some(VENDOR_ID),
             product_id: Some(PRODUCT_ID),
-            capabilities: vec![
-                Capability::Keys,
-                Capability::FnLayer,
-                Capability::Macros,
-                Capability::HardwareRgb,
-                Capability::PerKeyRgb,
-                Capability::LiveRgb,
-                Capability::Music,
-                Capability::Display,
-                Capability::Clock,
-                Capability::DeviceSettings,
-                Capability::Encoder,
-            ],
+            // Expose only capabilities implemented by this driver today.
+            // Known hardware features are added here only when their protocol
+            // implementation and safety tests are ready.
+            capabilities: vec![Capability::HardwareRgb],
             firmware: None,
             battery_percent: None,
         }
@@ -94,9 +85,11 @@ impl AulaF108ProSession {
         thread::sleep(COMMAND_DELAY);
 
         if readback {
-            self.transport
+            let response = self
+                .transport
                 .get_feature_report()
                 .map_err(map_transport_error)?;
+            validate_ack(&response)?;
             thread::sleep(COMMAND_DELAY);
         }
         Ok(())
@@ -201,6 +194,16 @@ fn build_lighting_payload(
     Ok(payload)
 }
 
+fn validate_ack(response: &[u8; FEATURE_REPORT_SIZE]) -> Result<(), DriverError> {
+    if response[3] != 0x01 {
+        return Err(DriverError::Protocol(format!(
+            "unexpected acknowledgment byte 3: 0x{:02X}",
+            response[3]
+        )));
+    }
+    Ok(())
+}
+
 fn map_transport_error(error: HidTransportError) -> DriverError {
     match error {
         HidTransportError::NotFound => DriverError::NotFound,
@@ -265,6 +268,16 @@ mod tests {
             })
             .is_err()
         );
+    }
+
+    #[test]
+    fn validates_device_acknowledgment() {
+        let mut valid = [0u8; FEATURE_REPORT_SIZE];
+        valid[3] = 0x01;
+        assert!(validate_ack(&valid).is_ok());
+
+        let invalid = [0u8; FEATURE_REPORT_SIZE];
+        assert!(validate_ack(&invalid).is_err());
     }
 
     #[test]
