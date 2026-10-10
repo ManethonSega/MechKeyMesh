@@ -19,7 +19,7 @@ Current Rust implementation:
 - HID transport abstraction
 - first driver crate: `mechkeymesh-driver-aula-f108pro`
 - wired F108 Pro discovery, VID `0C45`, PID `800A`, Usage Page `FF13`
-- 20 verified onboard lighting effects
+- 20 mapped onboard lighting effects with effect-specific parameter metadata; physical verification is R5
 - strict lighting parameter validation
 - runtime diagnostics
 - SQLite desired-state database with versioned migrations
@@ -69,7 +69,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.5.0-alpha.1`, **R4 Universal Layout and Action Engine complete**. The data-driven F108 renderer, generic layout registry and universal action model have passed Linux core tests, full Windows workspace tests, strict Clippy checks and the Windows release build. The CI desktop job retains a checksum-verified Windows test executable for hands-on review.
+`v0.6.0-alpha.1`, **R5 Complete F108 onboard RGB in progress** on branch `r5/f108-onboard-rgb`. The software now models all 20 known F108 hardware effects and their valid controls from OEM-derived capability metadata. R5 remains open until all 20 modes are physically verified on the actual keyboard.
 
 The previous Go/Wails prototype is preserved in the branch:
 
