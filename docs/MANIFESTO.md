@@ -1,5 +1,5 @@
 # MechKeyMesh Manifesto
-## A complete blueprint for a stable, safe, full-featured replacement for the AULA F108 Pro software
+## A multi-vendor keyboard platform, validated first through a complete AULA F108 Pro implementation
 
 This document consolidates and corrects everything established so far from four sources:
 
@@ -8,11 +8,13 @@ This document consolidates and corrects everything established so far from four 
 3. **Punkster81's `AULA-F108-Driver`**
 4. **Features and architectural improvements we have designed ourselves**
 
-The objective is **not another experimental RGB utility**.
+The objective is **not another experimental RGB utility and not an AULA-only application**.
 
-The objective is:
+The platform objective is:
 
-> **A complete replacement for the AULA F108 Pro software that preserves everything the keyboard already does, reuses proven open-source work, adds the best community features, fixes the OEM application's reliability problems, and makes dangerous operations impossible by design.**
+> **Create a durable, vendor-neutral keyboard ecosystem in which each keyboard is supported through an independent driver implementing shared capabilities, layouts and safety contracts.**
+
+The first complete implementation is the **AULA F108 Pro**. It remains our initial hardware target and must become a complete replacement for its OEM software before we dilute development across many incomplete device drivers.
 
 ---
 
@@ -22,7 +24,7 @@ Official name:
 
 # **MechKeyMesh**
 
-The application should feel like software specifically designed for this keyboard, not a generic HID configurator.
+The application should feel coherent across brands while adapting itself to the capabilities and physical layout of the connected keyboard. The AULA F108 Pro is the first device used to prove that architecture.
 
 Its priorities are, in this order:
 
@@ -1952,33 +1954,37 @@ where appropriate.
 
 # 72. Development stack
 
-The strongest starting architecture is:
+MechKeyMesh is now based on:
 
-## Backend
+## Core and device drivers
 
-**Go**
+**Rust**
 
 Why:
 
-- Parsiya already implemented the critical protocol in Go
-- native Windows HID is already solved there
-- good concurrency model
-- easy static distribution
-- no Python runtime required
-- straightforward hardware test binaries
+- strong type and memory-safety guarantees for a long-lived hardware ecosystem
+- Cargo workspaces fit independent driver crates and shared libraries
+- protocol/state invariants can be encoded more strongly as the driver count grows
+- native Windows and cross-platform HID libraries are mature
+- no garbage collector or external runtime is required
 
 ## Desktop shell
 
-**Wails**, provided packaging and WebView behavior pass our prototype tests.
+**Tauri 2**
 
 Why:
 
-- Go backend remains reusable
-- modern HTML/CSS/JS UI
-- Punkster's JavaScript concepts can be adapted
-- rich editors are easier than with basic native widgets
+- Rust-native application core
+- mature desktop packaging and updater ecosystem
+- OS WebView frontend
+- clean command boundary between frontend and hardware code
+- good fit for a modular multi-vendor architecture
 
-If Wails proves unreliable in testing, the backend should remain independent enough that another UI layer can replace it.
+## Frontend
+
+Static HTML/CSS/JavaScript initially, evolving to TypeScript as the editors become more complex.
+
+The previous Go/Wails prototype is preserved in `archive/go-wails-prototype`. Its protocol knowledge and design work remain valuable references, but new production development continues in Rust/Tauri.
 
 ---
 

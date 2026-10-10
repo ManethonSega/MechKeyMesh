@@ -1,37 +1,55 @@
-# Phase 1: hardware core
+# Phase 1: Rust/Tauri platform foundation + AULA F108 Pro vertical slice
 
 ## Goal
 
-Build the boring foundation first: MechKeyMesh must survive device absence, unplug/replug and command failures without blocking the UI or corrupting internal state.
+Prove the new multi-vendor architecture against the **AULA F108 Pro**, our first implementation, without exposing risky hardware operations prematurely.
 
-## Implemented in the first alpha
+## Implemented
 
-- [x] device lifecycle model
-- [x] central device manager
-- [x] serialized operation queue
-- [x] periodic reconnect loop
-- [x] F108 wired device identity
-- [x] Windows HID feature-report transport
-- [x] built-in lighting payload validation and sender
-- [x] application diagnostics/log buffer
-- [x] Wails shell and initial UI
-- [x] backend unit tests for core packet validation
+- [x] Cargo workspace
+- [x] Tauri 2 desktop shell
+- [x] vendor-neutral driver API
+- [x] capability declarations
+- [x] HID transport abstraction
+- [x] Windows-native HID backend
+- [x] serialized device manager
+- [x] reconnect/recovery loop
+- [x] diagnostics/log buffer
+- [x] AULA F108 Pro driver crate
+- [x] F108 Pro wired identity and Usage Page selection
+- [x] 20 onboard lighting modes
+- [x] lighting bounds validation
+- [x] unit tests for F108 lighting payloads
+
+## Intentionally not enabled yet
+
+- LCD writes
+- remapping
+- macros
+- device settings
+- firmware flashing
+- 2.4 GHz configuration
+- live RGB streaming
+
+These remain gated because the first release criterion is correctness and recoverability, not feature count.
 
 ## Hardware validation checklist
 
-On the target Windows PC:
+On the target Windows PC with the AULA F108 Pro:
 
 - [ ] application starts with keyboard disconnected
-- [ ] connecting the F108 moves state to Ready without restart
-- [ ] unplugging returns state to Disconnected/Recovery without crash
-- [ ] reconnecting returns to Ready
-- [ ] all 20 built-in lighting modes apply
-- [ ] brightness bounds 0..5 are enforced
-- [ ] speed bounds 0..5 are enforced
+- [ ] connecting the keyboard moves state to Ready
+- [ ] unplugging does not crash or freeze the app
+- [ ] reconnecting returns to Ready without app restart
+- [ ] all 20 onboard lighting modes apply
+- [ ] brightness is constrained to 0..5
+- [ ] speed is constrained to 0..5
 - [ ] invalid mode values never reach USB
-- [ ] OEM AULA application being open produces a readable access error instead of a crash
+- [ ] competing OEM software produces a readable access error
 - [ ] repeated reconnect cycles remain stable
 
-## Phase 1 exit criterion
+## Exit criterion
 
-> MechKeyMesh can remain open during repeated keyboard unplug/replug cycles and normal lighting changes without crashing, freezing or requiring an application restart.
+> The Rust/Tauri MechKeyMesh foundation can keep running through repeated AULA F108 Pro disconnect/reconnect cycles and apply verified onboard lighting without crashes, stale-device state or unsafe commands.
+
+Only after this passes do we move to the next F108 Pro subsystem.

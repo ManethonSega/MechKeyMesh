@@ -1,59 +1,104 @@
 # MechKeyMesh architecture
 
-## Design goals
+## Product direction
 
-MechKeyMesh is not hard-wired to one keyboard. A device-specific driver owns protocol details, while the application core owns lifecycle, serialization, state, recovery and user-facing workflows.
+MechKeyMesh is a **multi-vendor keyboard platform**, not an AULA-specific application.
+
+The **AULA F108 Pro is the first complete implementation**. It is intentionally used to drive the shared architecture with real hardware requirements instead of designing abstract interfaces that have never been tested against a device.
+
+## Workspace structure
 
 ```text
-Frontend (Wails WebView)
-        |
-        v
-Application API
-        |
-        v
-Device Manager
-  |             |
-  |             +--> Diagnostics / log buffer
-  v
-Serialized Command Queue
-        |
-        v
-Protocol Driver Interface
-        |
-        +--> AULA F108 Pro
-        +--> future device drivers
-        |
-        v
-OS Transport (Windows HID)
+Cargo workspace
+│
+├── crates/
+│   ├── core/                 lifecycle, serialization, shared state
+│   ├── driver-api/           stable device/capability contracts
+│   └── hid/                  transport abstraction
+│
+├── drivers/
+│   └── aula-f108pro/         first device driver
+│
+└── apps/
+    └── desktop/
+        ├── frontend/         static TypeScript/JS-ready UI
+        └── src-tauri/        Tauri 2 application shell
 ```
 
-## Current Phase 1 boundaries
+Future keyboards belong under `drivers/`. A driver may support any subset of standardized capabilities.
 
-The first implementation deliberately supports only low-risk capabilities:
+## Capability model
 
-- F108 Pro wired USB detection
-- robust open/close lifecycle
-- reconnect attempts after disconnect/failure
-- 20 onboard lighting effects
+Examples:
+
+```text
+Keys
+FnLayer
+Macros
+HardwareRgb
+PerKeyRgb
+LiveRgb
+Music
+Display
+Clock
+DeviceSettings
+Battery
+Encoder
+Firmware
+```
+
+The desktop application does not assume that every keyboard supports every capability. Eventually the UI should be generated/enabled from the active device's declared capabilities.
+
+## First driver: AULA F108 Pro
+
+Current identity:
+
+```text
+VID        0C45
+PID        800A
+Usage Page FF13
+Connection USB
+```
+
+The first safe vertical slice implements:
+
+- HID discovery/open
+- central command serialization
+- reconnect/recovery
+- onboard lighting
 - diagnostics
 
-Not yet enabled:
+The next F108 Pro work proceeds through remapping, Fn layer, per-key RGB, macros, device settings and finally the safety-critical LCD path.
 
-- LCD writes
-- remapping
-- macros
-- device settings
-- firmware flashing
-- 2.4 GHz configuration
-- live RGB streaming
+## Central device manager
 
-Those are not UI omissions. They are intentionally gated until their protocol and safety tests are in place.
+Only the device manager owns an active device session.
 
-## Device manager
+```text
+Frontend
+   |
+   v
+Tauri commands
+   |
+   v
+DeviceManagerHandle
+   |
+   v
+single worker thread / serialized queue
+   |
+   v
+DeviceSession
+   |
+   v
+Driver
+   |
+   v
+Transport
+```
 
-`internal/device.Manager` is the only application service allowed to hold an open device driver. UI calls are converted into queued operations. This prevents RGB, LCD, macros and settings from talking to HID concurrently as the feature set grows.
+This prevents future RGB, display, macros and settings modules from writing to HID concurrently.
 
-Lifecycle states:
+Lifecycle:
 
 ```text
 Disconnected -> Detecting -> Opening -> Ready
@@ -62,20 +107,51 @@ Disconnected -> Detecting -> Opening -> Ready
                               Recovery <- Busy
 ```
 
-The manager periodically attempts reconnection when no device is open. A failed hardware operation invalidates the active device handle and returns the manager to recovery/discovery rather than leaving stale handles in the application.
+A failed hardware command invalidates the session and returns discovery to a known state rather than keeping stale handles.
 
-## Driver interface
+## Driver boundary
 
-`internal/protocol.Device` is intentionally small. Device-specific capabilities are added through optional interfaces, for example `LightingDevice`. This allows a future keyboard that supports remapping but not RGB to participate without pretending it has unsupported capabilities.
+`mechkeymesh-driver-api` defines vendor-neutral identity, capabilities and operations.
 
-## Protocol encoders
+Device-specific knowledge belongs in the driver:
 
-Packet construction is separated from transport. Payload builders can be unit tested without a physical keyboard. Hardware tests are a separate layer.
+- VID/PID and interface selection
+- packet formats
+- transaction order
+- device limits
+- mode IDs
+- firmware quirks
 
-## OEM compatibility rule
+Shared code must not contain AULA magic values.
 
-Generic code found in an OEM executable is not automatically treated as a feature of a specific keyboard. Device configuration, physical testing and packet captures take precedence over generic shared code.
+## Transport boundary
 
-## ACK rule
+`mechkeymesh-hid` handles HID access. The first backend uses the Rust `hidapi` crate with its Windows-native backend.
 
-A HID acknowledgment means only that transport succeeded. It does not prove the hardware acted on the request. Features move from experimental to stable only after a functional hardware test.
+Future transports may include:
+
+- Linux hidraw
+- macOS HID
+- Bluetooth LE GATT
+- vendor-specific USB bulk/interrupt paths
+- serial or network transports
+
+Drivers should depend on transport contracts rather than desktop-framework APIs.
+
+## Safety model
+
+Three levels are distinct:
+
+```text
+transport succeeded
+device acknowledged
+functional result verified
+```
+
+An ACK is not proof that a feature worked.
+
+For high-risk features, packet generation and media conversion must be testable without access to physical hardware. LCD upload will not be enabled until its hard bounds are encoded and regression-tested.
+
+## Ecosystem rule
+
+> MechKeyMesh does not support a new keyboard by adding device-specific branches to the application. It supports a new keyboard by adding or extending a driver that implements standardized capabilities.

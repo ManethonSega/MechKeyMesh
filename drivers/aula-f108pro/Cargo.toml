@@ -1,0 +1,10 @@
+[package]
+name = "mechkeymesh-driver-aula-f108pro"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+mechkeymesh-driver-api = { path = "../../crates/driver-api" }
+mechkeymesh-hid = { path = "../../crates/hid" }

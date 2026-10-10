@@ -6,42 +6,43 @@ on:
   pull_request:
 
 jobs:
-  backend-tests:
+  core-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: dtolnay/rust-toolchain@1.90.0
         with:
-          go-version: '1.25.x'
-          cache: false
-      - run: go test ./internal/...
+          components: rustfmt, clippy
+      - name: Format check
+        run: cargo fmt --all -- --check
+      - name: Core tests
+        run: cargo test --workspace --exclude mechkeymesh-desktop
+      - name: Clippy
+        run: cargo clippy --workspace --exclude mechkeymesh-desktop --all-targets -- -D warnings
 
-  windows-driver:
+  windows-tests:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: dtolnay/rust-toolchain@1.90.0
         with:
-          go-version: '1.25.x'
-          cache: false
-      - run: go test ./internal/...
+          components: rustfmt, clippy
+      - name: Workspace tests
+        run: cargo test --workspace
+      - name: Windows clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
   desktop-build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25.x'
-          cache: false
-      - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
-      - name: Build desktop app
-        run: wails build -clean
-      - name: Verify Windows executable
+      - uses: dtolnay/rust-toolchain@1.90.0
+      - name: Build MechKeyMesh
+        run: cargo build -p mechkeymesh-desktop --release
+      - name: Verify executable
         shell: pwsh
         run: |
-          if (!(Test-Path "build/bin/MechKeyMesh.exe")) {
+          if (!(Test-Path "target/release/MechKeyMesh.exe")) {
             throw "MechKeyMesh.exe was not produced"
           }
-          Get-Item "build/bin/MechKeyMesh.exe" | Format-List Name,Length,LastWriteTime
+          Get-Item "target/release/MechKeyMesh.exe" | Format-List Name,Length,LastWriteTime
