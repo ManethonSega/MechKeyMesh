@@ -1,9 +1,9 @@
 use mechkeymesh_driver_api::{
-    Capability, Connection, DeviceDescriptor, DeviceSession, DriverError,
-    KeyboardDriver, LightingConfig,
+    Capability, Connection, DeviceDescriptor, DeviceSession, DriverError, KeyboardDriver,
+    LightingConfig,
 };
 use mechkeymesh_hid::{
-    open_feature_device, FeatureTransport, HidTransportError, FEATURE_REPORT_SIZE,
+    FEATURE_REPORT_SIZE, FeatureTransport, HidTransportError, open_feature_device,
 };
 use std::{thread, time::Duration};
 
@@ -36,12 +36,8 @@ impl KeyboardDriver for AulaF108ProDriver {
     }
 
     fn open(&self) -> Result<Box<dyn DeviceSession>, DriverError> {
-        let transport = open_feature_device(
-            VENDOR_ID,
-            PRODUCT_ID,
-            CONFIG_USAGE_PAGE,
-        )
-        .map_err(map_transport_error)?;
+        let transport = open_feature_device(VENDOR_ID, PRODUCT_ID, CONFIG_USAGE_PAGE)
+            .map_err(map_transport_error)?;
 
         Ok(Box::new(AulaF108ProSession { transport }))
     }
@@ -91,11 +87,7 @@ impl DeviceSession for AulaF108ProSession {
 }
 
 impl AulaF108ProSession {
-    fn send(
-        &self,
-        report: [u8; FEATURE_REPORT_SIZE],
-        readback: bool,
-    ) -> Result<(), DriverError> {
+    fn send(&self, report: [u8; FEATURE_REPORT_SIZE], readback: bool) -> Result<(), DriverError> {
         self.transport
             .set_feature_report(&report)
             .map_err(map_transport_error)?;
@@ -258,9 +250,21 @@ mod tests {
         };
 
         assert!(build_lighting_payload(LightingConfig { mode: 20, ..base }).is_err());
-        assert!(build_lighting_payload(LightingConfig { brightness: 6, ..base }).is_err());
+        assert!(
+            build_lighting_payload(LightingConfig {
+                brightness: 6,
+                ..base
+            })
+            .is_err()
+        );
         assert!(build_lighting_payload(LightingConfig { speed: 6, ..base }).is_err());
-        assert!(build_lighting_payload(LightingConfig { direction: 2, ..base }).is_err());
+        assert!(
+            build_lighting_payload(LightingConfig {
+                direction: 2,
+                ..base
+            })
+            .is_err()
+        );
     }
 
     #[test]
