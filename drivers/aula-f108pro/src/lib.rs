@@ -4,7 +4,8 @@ pub use layout::f108pro_layout;
 
 use mechkeymesh_driver_api::{
     Capability, Connection, DeviceCandidate, DeviceDescriptor, DeviceMatch, DeviceSession,
-    DriverError, DriverManifest, KeyboardDriver, LightingConfig, OperationContext, TransportKind,
+    DriverError, DriverManifest, KeyboardDriver, LightingColorControl, LightingConfig,
+    LightingDirectionControl, LightingEffectDescriptor, OperationContext, TransportKind,
     TransportRequirement,
 };
 use mechkeymesh_hid::{
@@ -61,6 +62,10 @@ impl KeyboardDriver for AulaF108ProDriver {
 
     fn layouts(&self) -> Vec<mechkeymesh_layout::Layout> {
         vec![f108pro_layout()]
+    }
+
+    fn hardware_lighting_effects(&self) -> Vec<LightingEffectDescriptor> {
+        lighting_effects()
     }
 
     fn discover(&self, context: &OperationContext) -> Result<Vec<DeviceCandidate>, DriverError> {
@@ -213,28 +218,61 @@ impl AulaF108ProSession {
     }
 }
 
-pub const LIGHTING_MODES: [&str; 20] = [
-    "Off",
-    "Static",
-    "Single On",
-    "Single Off",
-    "Glittering",
-    "Falling",
-    "Colourful",
-    "Breath",
-    "Spectrum",
-    "Outward",
-    "Scrolling",
-    "Rolling",
-    "Rotating",
-    "Explode",
-    "Launch",
-    "Ripples",
-    "Flowing",
-    "Pulsating",
-    "Tilt",
-    "Shuttle",
+#[derive(Debug, Clone, Copy)]
+struct F108LightingEffect {
+    mode: u8,
+    name: &'static str,
+    config_func: u8,
+    color: LightingColorControl,
+    direction: Option<LightingDirectionControl>,
+}
+
+const F108_LIGHTING_EFFECTS: [F108LightingEffect; 20] = [
+    F108LightingEffect { mode: 0, name: "Off",        config_func: 0x00, color: LightingColorControl::None,           direction: None },
+    F108LightingEffect { mode: 1, name: "Static",     config_func: 0x31, color: LightingColorControl::ColorOrRainbow, direction: None },
+    F108LightingEffect { mode: 2, name: "SingleOn",   config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
+    F108LightingEffect { mode: 3, name: "SingleOff",  config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
+    F108LightingEffect { mode: 4, name: "Glittering", config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
+    F108LightingEffect { mode: 5, name: "Falling",    config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
+    F108LightingEffect { mode: 6, name: "Colourful",  config_func: 0x03, color: LightingColorControl::RainbowOnly,    direction: None },
+    F108LightingEffect { mode: 7, name: "Breath",     config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
+    F108LightingEffect { mode: 8, name: "Spectrum",   config_func: 0x03, color: LightingColorControl::RainbowOnly,    direction: None },
+    F108LightingEffect { mode: 9, name: "Outward",    config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
+    F108LightingEffect { mode: 10, name: "Scrolling", config_func: 0x3B, color: LightingColorControl::ColorOrRainbow, direction: Some(LightingDirectionControl::LeftRight) },
+    F108LightingEffect { mode: 11, name: "Rolling",   config_func: 0x37, color: LightingColorControl::ColorOrRainbow, direction: Some(LightingDirectionControl::UpDown) },
+    F108LightingEffect { mode: 12, name: "Rotating",  config_func: 0x37, color: LightingColorControl::ColorOrRainbow, direction: Some(LightingDirectionControl::UpDown) },
+    F108LightingEffect { mode: 13, name: "Explode",   config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
+    F108LightingEffect { mode: 14, name: "Launch",    config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
+    F108LightingEffect { mode: 15, name: "Ripples",   config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
+    F108LightingEffect { mode: 16, name: "Flowing",   config_func: 0x37, color: LightingColorControl::ColorOrRainbow, direction: Some(LightingDirectionControl::UpDown) },
+    F108LightingEffect { mode: 17, name: "Pulsating", config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
+    F108LightingEffect { mode: 18, name: "Tilt",      config_func: 0x37, color: LightingColorControl::ColorOrRainbow, direction: Some(LightingDirectionControl::UpDown) },
+    F108LightingEffect { mode: 19, name: "Shuttle",   config_func: 0x33, color: LightingColorControl::ColorOrRainbow, direction: None },
 ];
+
+const CONFIG_BRIGHTNESS: u8 = 0x01;
+const CONFIG_SPEED: u8 = 0x02;
+
+pub fn lighting_effects() -> Vec<LightingEffectDescriptor> {
+    F108_LIGHTING_EFFECTS
+        .iter()
+        .map(|effect| LightingEffectDescriptor {
+            mode: effect.mode,
+            name: effect.name.into(),
+            color: effect.color,
+            brightness: effect.config_func & CONFIG_BRIGHTNESS != 0,
+            speed: effect.config_func & CONFIG_SPEED != 0,
+            direction: effect.direction,
+        })
+        .collect()
+}
+
+fn effect_for_mode(mode: u8) -> Option<F108LightingEffect> {
+    F108_LIGHTING_EFFECTS
+        .iter()
+        .copied()
+        .find(|effect| effect.mode == mode)
+}
 
 fn validate_candidate(candidate: &DeviceCandidate) -> Result<(), DriverError> {
     if candidate.driver_id != "aula.f108pro.usb"
@@ -252,13 +290,13 @@ fn validate_candidate(candidate: &DeviceCandidate) -> Result<(), DriverError> {
 fn build_lighting_payload(
     config: LightingConfig,
 ) -> Result<[u8; FEATURE_REPORT_SIZE], DriverError> {
-    if config.mode as usize >= LIGHTING_MODES.len() {
-        return Err(DriverError::InvalidConfiguration(format!(
-            "lighting mode {} is outside 0..{}",
-            config.mode,
-            LIGHTING_MODES.len() - 1
-        )));
-    }
+    let effect = effect_for_mode(config.mode).ok_or_else(|| {
+        DriverError::InvalidConfiguration(format!(
+            "lighting mode {} is outside 0..19",
+            config.mode
+        ))
+    })?;
+
     if config.brightness > 5 {
         return Err(DriverError::InvalidConfiguration(
             "brightness must be between 0 and 5".into(),
@@ -278,13 +316,23 @@ fn build_lighting_payload(
     let mut payload = [0u8; FEATURE_REPORT_SIZE];
     payload[0] = config.mode;
 
-    if config.mode != 0 {
-        payload[1] = config.r;
-        payload[2] = config.g;
-        payload[3] = config.b;
-        payload[8] = u8::from(config.colorful);
+    match effect.color {
+        LightingColorControl::None | LightingColorControl::RainbowOnly => {}
+        LightingColorControl::ColorOrRainbow => {
+            payload[1] = config.r;
+            payload[2] = config.g;
+            payload[3] = config.b;
+            payload[8] = u8::from(config.colorful);
+        }
+    }
+
+    if effect.config_func & CONFIG_BRIGHTNESS != 0 {
         payload[9] = config.brightness;
+    }
+    if effect.config_func & CONFIG_SPEED != 0 {
         payload[10] = config.speed;
+    }
+    if effect.direction.is_some() {
         payload[11] = config.direction;
     }
 
@@ -359,6 +407,54 @@ mod tests {
     }
 
     #[test]
+    fn exposes_all_twenty_oem_effects_in_order() {
+        let effects = lighting_effects();
+        assert_eq!(effects.len(), 20);
+        for (mode, effect) in effects.iter().enumerate() {
+            assert_eq!(effect.mode as usize, mode);
+        }
+
+        assert_eq!(effects[0].name, "Off");
+        assert_eq!(effects[1].name, "Static");
+        assert_eq!(effects[19].name, "Shuttle");
+    }
+
+    #[test]
+    fn effect_parameter_metadata_matches_oem_mode_table() {
+        let effects = lighting_effects();
+
+        let off = &effects[0];
+        assert_eq!(off.color, LightingColorControl::None);
+        assert!(!off.brightness);
+        assert!(!off.speed);
+        assert_eq!(off.direction, None);
+
+        let static_mode = &effects[1];
+        assert_eq!(static_mode.color, LightingColorControl::ColorOrRainbow);
+        assert!(static_mode.brightness);
+        assert!(!static_mode.speed);
+        assert_eq!(static_mode.direction, None);
+
+        for mode in [6usize, 8usize] {
+            assert_eq!(effects[mode].color, LightingColorControl::RainbowOnly);
+            assert!(effects[mode].brightness);
+            assert!(effects[mode].speed);
+            assert_eq!(effects[mode].direction, None);
+        }
+
+        assert_eq!(
+            effects[10].direction,
+            Some(LightingDirectionControl::LeftRight)
+        );
+        for mode in [11usize, 12usize, 16usize, 18usize] {
+            assert_eq!(
+                effects[mode].direction,
+                Some(LightingDirectionControl::UpDown)
+            );
+        }
+    }
+
+    #[test]
     fn builds_known_breath_payload() {
         let payload = build_lighting_payload(LightingConfig {
             mode: 7,
@@ -410,6 +506,69 @@ mod tests {
             })
             .is_err()
         );
+    }
+
+    #[test]
+    fn static_zeros_unused_speed_and_direction() {
+        let payload = build_lighting_payload(LightingConfig {
+            mode: 1,
+            r: 10,
+            g: 20,
+            b: 30,
+            brightness: 4,
+            speed: 5,
+            direction: 1,
+            colorful: false,
+        })
+        .unwrap();
+
+        assert_eq!(&payload[1..4], &[10, 20, 30]);
+        assert_eq!(payload[9], 4);
+        assert_eq!(payload[10], 0);
+        assert_eq!(payload[11], 0);
+    }
+
+    #[test]
+    fn rainbow_only_modes_ignore_stale_color_and_colorful_values() {
+        for mode in [6u8, 8u8] {
+            let payload = build_lighting_payload(LightingConfig {
+                mode,
+                r: 255,
+                g: 1,
+                b: 2,
+                brightness: 5,
+                speed: 4,
+                direction: 1,
+                colorful: true,
+            })
+            .unwrap();
+
+            assert_eq!(&payload[1..4], &[0, 0, 0]);
+            assert_eq!(payload[8], 0);
+            assert_eq!(payload[9], 5);
+            assert_eq!(payload[10], 4);
+            assert_eq!(payload[11], 0);
+        }
+    }
+
+    #[test]
+    fn only_direction_modes_emit_direction_byte() {
+        for mode in 0u8..=19 {
+            let payload = build_lighting_payload(LightingConfig {
+                mode,
+                r: 1,
+                g: 2,
+                b: 3,
+                brightness: 5,
+                speed: 3,
+                direction: 1,
+                colorful: true,
+            })
+            .unwrap();
+
+            let expected = matches!(mode, 10 | 11 | 12 | 16 | 18);
+            assert_eq!(payload[11] == 1, expected, "mode {mode}");
+        }
     }
 
     #[test]
