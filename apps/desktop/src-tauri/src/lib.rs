@@ -1,5 +1,7 @@
-use mechkeymesh_core::{DeviceManager, DeviceManagerHandle, DeviceStatus, LogEntry};
-use mechkeymesh_driver_api::{KeyboardDriver, LightingConfig};
+use mechkeymesh_core::{
+    DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LogEntry, ManagerConfig,
+};
+use mechkeymesh_driver_api::{DriverManifest, LightingConfig};
 use mechkeymesh_driver_aula_f108pro::{AulaF108ProDriver, LIGHTING_MODES};
 use std::sync::Arc;
 use tauri::State;
@@ -19,8 +21,18 @@ fn get_logs(state: State<'_, AppState>) -> Vec<LogEntry> {
 }
 
 #[tauri::command]
+fn get_driver_registry(state: State<'_, AppState>) -> Vec<DriverManifest> {
+    state.manager.drivers()
+}
+
+#[tauri::command]
 fn reconnect(state: State<'_, AppState>) {
     state.manager.reconnect();
+}
+
+#[tauri::command]
+fn cancel_active_operation(state: State<'_, AppState>) -> bool {
+    state.manager.cancel_active_operation()
 }
 
 #[tauri::command]
@@ -38,8 +50,12 @@ fn apply_lighting(state: State<'_, AppState>, config: LightingConfig) -> Result<
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let drivers: Vec<Arc<dyn KeyboardDriver>> = vec![Arc::new(AulaF108ProDriver::new())];
-    let manager = DeviceManager::start(drivers);
+    let mut registry = DriverRegistry::new();
+    registry
+        .register(Arc::new(AulaF108ProDriver::new()))
+        .expect("failed to register AULA F108 Pro driver");
+
+    let manager = DeviceManager::start(registry, ManagerConfig::default());
     let manager_for_shutdown = manager.clone();
 
     tauri::Builder::default()
@@ -47,7 +63,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_status,
             get_logs,
+            get_driver_registry,
             reconnect,
+            cancel_active_operation,
             get_lighting_modes,
             apply_lighting
         ])
