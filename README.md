@@ -2,67 +2,102 @@
 
 **Universal Keyboard Studio**
 
-MechKeyMesh is a vendor-neutral Windows keyboard configuration platform. The first supported device is the **AULA F108 Pro**, but the architecture is deliberately driver-based so other brands, sizes, layouts, displays and encoders can be added without rewriting the application.
+MechKeyMesh is being built as a **large multi-vendor keyboard platform**. Keyboard-specific behavior lives in independent drivers behind a shared capability model, layout engine and device lifecycle.
 
-## Current development status
+## First implementation: AULA F108 Pro
 
-`v0.1.0-alpha.1` starts the Phase 1 foundation:
+The **AULA F108 Pro is the first complete device implementation and hardware validation target**.
 
-- Wails desktop shell and MechKeyMesh UI foundation
-- central device manager and serialized hardware command queue
-- explicit device lifecycle states and reconnect loop
-- first AULA F108 Pro USB driver (VID `0C45`, PID `800A`)
-- safe built-in lighting control for the 20 known hardware effects
-- diagnostics/log buffer exposed to the UI
-- platform stub so the core can be tested outside Windows
-- protocol tests for lighting payload validation
+That means we are not building a generic shell and postponing real hardware work. The platform architecture is vendor-neutral from day one, while development proceeds vertically through the F108 Pro until it can replace the OEM application reliably.
 
-The first alpha intentionally **does not** write LCD media, macros, firmware or unverified settings. Those features are added only after their safety constraints and packet formats are covered by tests.
+Current Rust implementation:
+
+- Tauri 2 desktop shell
+- Rust Cargo workspace
+- vendor-neutral driver API
+- serialized device manager and reconnect/recovery loop
+- HID transport abstraction
+- first driver crate: `mechkeymesh-driver-aula-f108pro`
+- wired F108 Pro discovery, VID `0C45`, PID `800A`, Usage Page `FF13`
+- 20 verified onboard lighting effects
+- strict lighting parameter validation
+- runtime diagnostics
+- hardware-risk features gated until their protocol safety tests exist
+
+## Architecture
+
+```text
+MechKeyMesh Desktop
+        |
+        v
+MechKeyMesh Core
+        |
+        +--> Profiles / layouts / shared services
+        |
+        v
+Driver API
+        |
+        +--> AULA F108 Pro        <-- first implementation
+        +--> future AULA models
+        +--> future Epomaker
+        +--> future Ajazz
+        +--> future vendors
+        |
+        v
+Transport abstraction
+        |
+        +--> USB HID
+        +--> future BLE / vendor transports
+```
+
+A new keyboard should be supported by adding a driver that declares and implements capabilities. Device-specific protocol code should not leak into the desktop UI or shared core.
 
 ## Development priorities
 
 1. Reliability
 2. Hardware safety
-3. Complete OEM replacement
-4. Usability
-5. Advanced functionality
+3. Complete AULA F108 Pro replacement
+4. Multi-vendor driver ergonomics
+5. Usability
+6. Advanced functionality
 
-See [`docs/MANIFESTO.md`](docs/MANIFESTO.md) for the product blueprint and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the current implementation architecture.
+The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
-## Build stack
+## Current version
 
-- Go backend
-- Wails v2 desktop shell
-- HTML/CSS/JavaScript frontend initially, with the UI/backend boundary kept framework-agnostic
-- Windows native HID API for the F108 Pro
+`v0.2.0-alpha.1`, Rust/Tauri architecture migration.
 
-### Windows development
+The previous Go/Wails prototype is preserved in the branch:
 
-Install Go, Node.js and the stable Wails v2 CLI, then run:
+`archive/go-wails-prototype`
 
-```powershell
-go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
-wails doctor
-wails dev
-```
+## Build prerequisites
 
-### Backend tests
+- Rust 1.90+
+- Windows for the current F108 Pro HID implementation
+- WebView2 runtime for the Tauri desktop shell
+
+### Run core tests
 
 ```powershell
-go test ./internal/...
+cargo test --workspace --exclude mechkeymesh-desktop
 ```
 
-## Hardware safety
+### Build the Windows desktop executable
 
-Two project rules are permanent:
+```powershell
+cargo build -p mechkeymesh-desktop --release
+```
+
+## Hardware safety rules
 
 > No user action may generate an LCD write outside a device's documented user-media region.
 
 > A device ACK proves transport, not functional correctness. Unverified commands do not enter stable releases.
 
-## Upstream research
+## Research sources
 
-The AULA F108 Pro driver work builds on documented, MIT-licensed community research from:
+The F108 Pro implementation builds on our OEM analysis and MIT-licensed community research:
 
 - https://github.com/parsiya/f108-pro
 - https://github.com/Punkster81/AULA-F108-Driver
