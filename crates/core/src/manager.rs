@@ -665,6 +665,7 @@ mod tests {
         max_parallel: Arc<AtomicUsize>,
         active_operations: Arc<AtomicUsize>,
         operation_delay: Duration,
+        initialize_count: Arc<AtomicUsize>,
     }
 
     struct FakeSession {
@@ -672,6 +673,7 @@ mod tests {
         max_parallel: Arc<AtomicUsize>,
         active_operations: Arc<AtomicUsize>,
         operation_delay: Duration,
+        initialize_count: Arc<AtomicUsize>,
     }
 
     impl FakeDriver {
@@ -683,6 +685,7 @@ mod tests {
                 max_parallel: Arc::new(AtomicUsize::new(0)),
                 active_operations: Arc::new(AtomicUsize::new(0)),
                 operation_delay: Duration::from_millis(15),
+                initialize_count: Arc::new(AtomicUsize::new(0)),
             }
         }
 
@@ -753,6 +756,7 @@ mod tests {
                 max_parallel: self.max_parallel.clone(),
                 active_operations: self.active_operations.clone(),
                 operation_delay: self.operation_delay,
+                initialize_count: self.initialize_count.clone(),
             }))
         }
     }
@@ -771,6 +775,12 @@ mod tests {
                 firmware: None,
                 battery_percent: None,
             }
+        }
+
+        fn initialize(&mut self, context: &OperationContext) -> Result<(), DriverError> {
+            context.check()?;
+            self.initialize_count.fetch_add(1, Ordering::AcqRel);
+            Ok(())
         }
 
         fn set_lighting(
@@ -826,6 +836,7 @@ mod tests {
         let handle = start_fake(driver.clone());
 
         wait_for_state(&handle, DeviceState::Ready);
+        assert_eq!(driver.initialize_count.load(Ordering::Acquire), 1);
         driver.present.store(false, Ordering::Release);
         wait_for_state(&handle, DeviceState::Disconnected);
 
@@ -888,6 +899,57 @@ mod tests {
         assert!(b.join().unwrap().is_ok());
         assert_eq!(max_parallel.load(Ordering::Acquire), 1);
 
+        handle.shutdown();
+    }
+
+    #[test]
+    fn command_timeout_is_enforced_without_freezing_manager() {
+        let driver = Arc::new(FakeDriver {
+            operation_delay: Duration::from_millis(500),
+            ..FakeDriver::new()
+        });
+        let mut config = test_config();
+        config.command_timeout = Duration::from_millis(40);
+
+        let mut registry = DriverRegistry::new();
+        registry.register(driver).unwrap();
+        let handle = DeviceManager::start(registry, config);
+        wait_for_state(&handle, DeviceState::Ready);
+
+        let lighting = LightingConfig {
+            mode: 1,
+            r: 1,
+            g: 2,
+            b: 3,
+            brightness: 5,
+            speed: 3,
+            direction: 0,
+            colorful: false,
+        };
+
+        let started = Instant::now();
+        let error = handle.set_lighting(lighting).unwrap_err();
+        assert!(started.elapsed() < Duration::from_millis(250));
+        assert!(error.contains("timed out") || error.contains("deadline"));
+
+        wait_for_state(&handle, DeviceState::Ready);
+        handle.shutdown();
+    }
+
+    #[test]
+    fn repeated_simulated_disconnect_reconnect_cycles_recover() {
+        let driver = Arc::new(FakeDriver::new());
+        let handle = start_fake(driver.clone());
+        wait_for_state(&handle, DeviceState::Ready);
+
+        for _ in 0..10 {
+            driver.present.store(false, Ordering::Release);
+            wait_for_state(&handle, DeviceState::Disconnected);
+            driver.present.store(true, Ordering::Release);
+            wait_for_state(&handle, DeviceState::Ready);
+        }
+
+        assert!(handle.status().reconnect_count >= 10);
         handle.shutdown();
     }
 
