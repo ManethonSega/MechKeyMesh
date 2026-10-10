@@ -1,7 +1,7 @@
 use crate::{DriverRegistry, LogEntry, LogRing};
 use mechkeymesh_driver_api::{
     CancellationToken, DeviceCandidate, DeviceDescriptor, DeviceSession, DriverError,
-    DriverManifest, ErrorClass, KeyAssignment, KeymapLayer, KeyboardDriver, LightingConfig,
+    DriverManifest, ErrorClass, KeyAssignment, KeyboardDriver, KeymapLayer, LightingConfig,
     OperationContext,
 };
 use serde::{Deserialize, Serialize};

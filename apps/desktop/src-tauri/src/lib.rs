@@ -5,7 +5,7 @@ use mechkeymesh_core::{
     DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LogEntry, ManagerConfig,
 };
 use mechkeymesh_driver_api::{
-    Capability, DriverManifest, KeyAssignment, KeymapLayer, KeyboardDriver, LightingConfig,
+    Capability, DriverManifest, KeyAssignment, KeyboardDriver, KeymapLayer, LightingConfig,
     LightingEffectDescriptor, NormalRemapCapabilities,
 };
 use mechkeymesh_driver_aula_f108pro::AulaF108ProRemapDriver;
@@ -101,9 +101,7 @@ fn get_primary_layout(state: State<'_, AppState>) -> Result<Layout, String> {
 }
 
 #[tauri::command]
-fn get_normal_remap_capabilities(
-    state: State<'_, AppState>,
-) -> NormalRemapCapabilities {
+fn get_normal_remap_capabilities(state: State<'_, AppState>) -> NormalRemapCapabilities {
     state.normal_remap_capabilities.clone()
 }
 
@@ -246,8 +244,7 @@ fn configuration_scope(
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let primary_driver: Arc<dyn KeyboardDriver> =
-                Arc::new(AulaF108ProRemapDriver::new());
+            let primary_driver: Arc<dyn KeyboardDriver> = Arc::new(AulaF108ProRemapDriver::new());
             let mut registry = DriverRegistry::new();
             registry.register(primary_driver.clone())?;
             let manifests = registry.manifests();

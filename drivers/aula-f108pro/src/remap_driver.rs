@@ -1,17 +1,15 @@
 use super::{
-    AulaF108ProSession, CONFIG_USAGE_PAGE, PRODUCT_ID, VENDOR_ID, f108pro_layout,
-    lighting_effects, map_transport_error, validate_candidate,
+    AulaF108ProSession, CONFIG_USAGE_PAGE, PRODUCT_ID, VENDOR_ID, f108pro_layout, lighting_effects,
+    map_transport_error, validate_candidate,
 };
 use crate::remap;
 use mechkeymesh_driver_api::{
     Capability, Connection, DeviceCandidate, DeviceDescriptor, DeviceMatch, DeviceSession,
-    DriverError, DriverManifest, KeyboardDriver, KeyAssignment, KeymapLayer, LightingConfig,
+    DriverError, DriverManifest, KeyAssignment, KeyboardDriver, KeymapLayer, LightingConfig,
     LightingEffectDescriptor, NormalRemapCapabilities, OperationContext, TransportKind,
     TransportRequirement,
 };
-use mechkeymesh_hid::{
-    FEATURE_REPORT_SIZE, enumerate_feature_devices, open_feature_path,
-};
+use mechkeymesh_hid::{FEATURE_REPORT_SIZE, enumerate_feature_devices, open_feature_path};
 
 pub struct AulaF108ProRemapDriver;
 
@@ -72,10 +70,7 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
         remap::validate_keymap(layer, assignments)
     }
 
-    fn discover(
-        &self,
-        context: &OperationContext,
-    ) -> Result<Vec<DeviceCandidate>, DriverError> {
+    fn discover(&self, context: &OperationContext) -> Result<Vec<DeviceCandidate>, DriverError> {
         context.check()?;
         let devices = enumerate_feature_devices(VENDOR_ID, PRODUCT_ID, CONFIG_USAGE_PAGE)
             .map_err(map_transport_error)?;
@@ -187,9 +182,17 @@ mod tests {
         assert!(capabilities.shortcut);
         assert!(!capabilities.open_application);
         assert!(!capabilities.send_text);
-        assert!(!capabilities.mouse_actions.contains(&MouseAction::DoubleClick));
+        assert!(
+            !capabilities
+                .mouse_actions
+                .contains(&MouseAction::DoubleClick)
+        );
         assert!(capabilities.media_actions.contains(&MediaAction::Mute));
-        assert!(capabilities.windows_actions.contains(&WindowsAction::Calculator));
+        assert!(
+            capabilities
+                .windows_actions
+                .contains(&WindowsAction::Calculator)
+        );
     }
 
     #[test]
@@ -210,7 +213,11 @@ mod tests {
                 },
             },
         ];
-        assert!(driver.validate_keymap(KeymapLayer::Normal, &accepted).is_ok());
+        assert!(
+            driver
+                .validate_keymap(KeymapLayer::Normal, &accepted)
+                .is_ok()
+        );
 
         let rejected = [KeyAssignment {
             device_key_index: 2,
@@ -218,6 +225,10 @@ mod tests {
                 path: "notepad.exe".into(),
             },
         }];
-        assert!(driver.validate_keymap(KeymapLayer::Normal, &rejected).is_err());
+        assert!(
+            driver
+                .validate_keymap(KeymapLayer::Normal, &rejected)
+                .is_err()
+        );
     }
 }

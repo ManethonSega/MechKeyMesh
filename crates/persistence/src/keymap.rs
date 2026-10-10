@@ -164,10 +164,7 @@ fn validate_keymap_scope(desired: &DesiredKeymap) -> Result<(), PersistenceError
     Ok(())
 }
 
-fn validate_scope(
-    scope: &ConfigurationScope,
-    layer: KeymapLayer,
-) -> Result<(), PersistenceError> {
+fn validate_scope(scope: &ConfigurationScope, layer: KeymapLayer) -> Result<(), PersistenceError> {
     if scope.capability != Capability::Keys {
         return Err(PersistenceError::InvalidScope(format!(
             "normal key mappings require capability {}, got {}",
@@ -207,11 +204,7 @@ mod tests {
         let path = directory.path().join("mechkeymesh.sqlite3");
         let store = PersistenceStore::open(&path).unwrap();
         store
-            .ensure_device_model(&DeviceModel::new(
-                "aula.f108pro",
-                "AULA",
-                "AULA F108 Pro",
-            ))
+            .ensure_device_model(&DeviceModel::new("aula.f108pro", "AULA", "AULA F108 Pro"))
             .unwrap();
         store.ensure_default_profile("aula.f108pro").unwrap();
         drop(store);
@@ -246,9 +239,7 @@ mod tests {
 
         let reopened = PersistenceStore::open(&path).unwrap();
         assert_eq!(
-            reopened
-                .load_keymap(&scope(), KeymapLayer::Normal)
-                .unwrap(),
+            reopened.load_keymap(&scope(), KeymapLayer::Normal).unwrap(),
             desired
         );
     }
@@ -279,9 +270,7 @@ mod tests {
         store.save_keymap(&replacement).unwrap();
 
         assert_eq!(
-            store
-                .load_keymap(&scope(), KeymapLayer::Normal)
-                .unwrap(),
+            store.load_keymap(&scope(), KeymapLayer::Normal).unwrap(),
             replacement
         );
     }
@@ -310,11 +299,8 @@ mod tests {
     fn rejects_wrong_capability_and_duplicate_keys() {
         let (_directory, path) = setup();
         let store = PersistenceStore::open(&path).unwrap();
-        let wrong_scope = ConfigurationScope::new(
-            "aula.f108pro",
-            "default",
-            Capability::HardwareRgb,
-        );
+        let wrong_scope =
+            ConfigurationScope::new("aula.f108pro", "default", Capability::HardwareRgb);
         assert!(
             store
                 .save_keymap(&DesiredKeymap::normal(wrong_scope, vec![]))

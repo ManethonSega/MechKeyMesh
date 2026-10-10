@@ -270,11 +270,9 @@ fn encode_mouse(action: MouseAction) -> Result<[u8; 4], DriverError> {
         MouseAction::MiddleClick => Ok([ACTION_MOUSE, 0x04, 0x00, 0x00]),
         MouseAction::ScrollUp => Ok([ACTION_MOUSE, 0x00, 0x01, 0x00]),
         MouseAction::ScrollDown => Ok([ACTION_MOUSE, 0x00, 0xFF, 0x00]),
-        MouseAction::DoubleClick | MouseAction::Button4 | MouseAction::Button5 => {
-            Err(DriverError::UnsupportedCapability(
-                "this F108 mouse remap encoding is not verified",
-            ))
-        }
+        MouseAction::DoubleClick | MouseAction::Button4 | MouseAction::Button5 => Err(
+            DriverError::UnsupportedCapability("this F108 mouse remap encoding is not verified"),
+        ),
     }
 }
 
@@ -308,11 +306,8 @@ mod tests {
 
     #[test]
     fn builds_complete_table_with_little_endian_trailer() {
-        let table = build_remap_table(
-            KeymapLayer::Normal,
-            &[assignment(55, KeyAction::Disabled)],
-        )
-        .unwrap();
+        let table =
+            build_remap_table(KeymapLayer::Normal, &[assignment(55, KeyAction::Disabled)]).unwrap();
         assert_eq!(table.len(), REMAP_TABLE_SIZE);
         assert_eq!(&table[55 * 4..55 * 4 + 4], &[0x05, 0x03, 0, 0]);
         assert_eq!(&table[574..576], &[0xAA, 0x55]);
@@ -401,11 +396,8 @@ mod tests {
 
     #[test]
     fn default_action_leaves_slot_zeroed() {
-        let table = build_remap_table(
-            KeymapLayer::Normal,
-            &[assignment(1, KeyAction::Default)],
-        )
-        .unwrap();
+        let table =
+            build_remap_table(KeymapLayer::Normal, &[assignment(1, KeyAction::Default)]).unwrap();
         assert_eq!(&table[4..8], &[0, 0, 0, 0]);
     }
 }
