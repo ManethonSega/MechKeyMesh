@@ -172,6 +172,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/desktop/frontend/dist/index.html apps/desktop/frontend/dist/keymap.css .github/workflows/r6-corrections.yml
+          git add -A
           git commit -m "style: finalize R6 keymap editor"
           git push origin HEAD:r6/normal-layer-remapping
