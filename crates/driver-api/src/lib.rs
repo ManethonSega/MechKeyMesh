@@ -26,6 +26,26 @@ pub enum Capability {
     Firmware,
 }
 
+impl Capability {
+    pub const fn storage_key(self) -> &'static str {
+        match self {
+            Self::Keys => "keys",
+            Self::FnLayer => "fn-layer",
+            Self::Macros => "macros",
+            Self::HardwareRgb => "hardware-rgb",
+            Self::PerKeyRgb => "per-key-rgb",
+            Self::LiveRgb => "live-rgb",
+            Self::Music => "music",
+            Self::Display => "display",
+            Self::Clock => "clock",
+            Self::DeviceSettings => "device-settings",
+            Self::Battery => "battery",
+            Self::Encoder => "encoder",
+            Self::Firmware => "firmware",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Connection {
@@ -69,6 +89,7 @@ pub struct TransportRequirement {
 #[serde(rename_all = "camelCase")]
 pub struct DriverManifest {
     pub driver_id: String,
+    pub device_model_id: String,
     pub vendor: String,
     pub device_name: String,
     pub supported_connections: Vec<Connection>,
@@ -95,6 +116,7 @@ pub struct DeviceCandidate {
 #[serde(rename_all = "camelCase")]
 pub struct DeviceDescriptor {
     pub driver_id: String,
+    pub device_model_id: String,
     pub instance_id: String,
     pub vendor: String,
     pub name: String,
@@ -191,7 +213,7 @@ impl DriverError {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LightingConfig {
     pub mode: u8,
@@ -345,6 +367,13 @@ mod tests {
     fn zero_timeout_expires() {
         let context = OperationContext::new(Duration::ZERO);
         assert!(matches!(context.check(), Err(DriverError::Timeout(_))));
+    }
+
+    #[test]
+    fn capability_storage_keys_are_stable() {
+        assert_eq!(Capability::HardwareRgb.storage_key(), "hardware-rgb");
+        assert_eq!(Capability::FnLayer.storage_key(), "fn-layer");
+        assert_eq!(Capability::DeviceSettings.storage_key(), "device-settings");
     }
 
     #[test]
