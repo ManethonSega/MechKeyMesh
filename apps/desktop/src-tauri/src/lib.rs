@@ -3,7 +3,7 @@ use mechkeymesh_core::{
     DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LogEntry, ManagerConfig,
 };
 use mechkeymesh_driver_api::{Capability, DriverManifest, LightingConfig};
-use mechkeymesh_driver_aula_f108pro::{AulaF108ProDriver, LIGHTING_MODES, f108pro_layout};
+use mechkeymesh_driver_aula_f108pro::{AulaF108ProDriver, LIGHTING_MODES};
 use mechkeymesh_layout::{Layout, LayoutRegistry};
 use mechkeymesh_persistence::{PersistenceStatus, PersistenceStore};
 use serde::Serialize;
@@ -147,7 +147,9 @@ pub fn run() {
             let manifests = registry.manifests();
 
             let mut layouts = LayoutRegistry::new();
-            layouts.register(f108pro_layout())?;
+            for layout in registry.layouts() {
+                layouts.register(layout)?;
+            }
 
             let data_dir = app.path().app_data_dir()?;
             let persistence = PersistenceStore::open(data_dir.join("mechkeymesh.sqlite3"))?;
