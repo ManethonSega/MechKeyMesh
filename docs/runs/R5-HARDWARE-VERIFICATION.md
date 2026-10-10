@@ -2,9 +2,9 @@
 
 **Device:** AULA F108 Pro  
 **Capability:** Built-in/onboard hardware RGB  
-**Status:** PHYSICAL VERIFICATION PENDING
+**Status:** DEFERRED - R5 CLOSED WITHOUT PHYSICAL VERIFICATION
 
-This document is the evidence record for R5. A successful HID transaction or ACK is not a physical pass.
+This document remains the evidence record for physical F108 onboard-RGB validation. R5 was closed by explicit user direction before these tests were performed. A successful HID transaction, ACK, CI run, or software test is not a physical pass.
 
 | Mode | Effect | Expected accepted parameters | Visible result | Persists after app closes | Result | Notes |
 |---:|---|---|---|---|---|---|
@@ -46,13 +46,15 @@ For each row:
 
 Do not mark a mode Passed merely because the app reports success.
 
-## Completion rule
+## Deferred verification rule
 
-R5 closes only when every row has:
+R5 is closed, but this matrix is still intentionally incomplete.
+
+A future claim that the F108 onboard RGB capability is **physically verified** requires every row to have:
 
 - a visible physical result
 - persistence result
 - Pass or Fail
 - sufficient notes to explain any deviation
 
-Any failed or ambiguous effect remains an R5 regression until fixed or accurately reclassified.
+Until then, the capability is implemented and software-tested, not physically verified.
