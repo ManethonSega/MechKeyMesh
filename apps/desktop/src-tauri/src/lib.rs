@@ -69,7 +69,8 @@ fn get_layout(state: State<'_, AppState>, layout_id: String) -> Result<Layout, S
 
 #[tauri::command]
 fn get_primary_layout(state: State<'_, AppState>) -> Result<Layout, String> {
-    get_layout(state, state.primary_layout_id.clone())
+    let layout_id = state.primary_layout_id.clone();
+    get_layout(state, layout_id)
 }
 
 #[tauri::command]
