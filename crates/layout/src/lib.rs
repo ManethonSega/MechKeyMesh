@@ -257,7 +257,6 @@ impl Layout {
     }
 }
 
-
 #[derive(Debug, Error, PartialEq)]
 pub enum LayoutRegistryError {
     #[error(transparent)]
