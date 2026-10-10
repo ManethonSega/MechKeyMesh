@@ -1,0 +1,24 @@
+[package]
+name = "mechkeymesh-desktop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[lib]
+name = "mechkeymesh_desktop_lib"
+crate-type = ["rlib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "MechKeyMesh"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.7.0", features = [] }
+
+[dependencies]
+mechkeymesh-core = { path = "../../../crates/core" }
+mechkeymesh-driver-api = { path = "../../../crates/driver-api" }
+mechkeymesh-driver-aula-f108pro = { path = "../../../drivers/aula-f108pro" }
+serde.workspace = true
+tauri = { version = "2.12.0", features = [] }
