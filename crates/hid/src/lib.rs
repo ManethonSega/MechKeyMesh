@@ -18,14 +18,12 @@ pub trait FeatureTransport: Send {
         report: &[u8; FEATURE_REPORT_SIZE],
     ) -> Result<(), HidTransportError>;
 
-    fn get_feature_report(
-        &self,
-    ) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError>;
+    fn get_feature_report(&self) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError>;
 }
 
 #[cfg(windows)]
 mod windows {
-    use super::{FeatureTransport, HidTransportError, FEATURE_REPORT_SIZE};
+    use super::{FEATURE_REPORT_SIZE, FeatureTransport, HidTransportError};
     use hidapi::{HidApi, HidDevice};
 
     pub struct WindowsFeatureTransport {
@@ -45,9 +43,7 @@ mod windows {
             Ok(())
         }
 
-        fn get_feature_report(
-            &self,
-        ) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
+        fn get_feature_report(&self) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
             let mut buffer = [0u8; FEATURE_REPORT_SIZE + 1];
             self.device
                 .get_feature_report(&mut buffer)
