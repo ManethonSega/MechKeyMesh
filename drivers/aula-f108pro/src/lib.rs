@@ -37,6 +37,7 @@ impl KeyboardDriver for AulaF108ProDriver {
             device_name: "AULA F108 Pro".into(),
             supported_connections: vec![Connection::Usb],
             capabilities: vec![Capability::HardwareRgb],
+            layout_ids: vec!["aula.f108pro.ansi".into()],
             matchers: vec![DeviceMatch {
                 vendor_id: VENDOR_ID,
                 product_id: PRODUCT_ID,
