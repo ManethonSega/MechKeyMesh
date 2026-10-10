@@ -58,6 +58,9 @@
         <article class="card metric"><span>Connection</span><strong id="connectionType">—</strong></article>
         <article class="card metric"><span>VID / PID</span><strong id="vidpid">—</strong></article>
         <article class="card metric"><span>Driver</span><strong id="driverId">aula.f108pro.usb</strong></article>
+        <article class="card metric"><span>Lifecycle</span><strong id="stateText">Disconnected</strong></article>
+        <article class="card metric"><span>Candidates</span><strong id="candidateCount">0</strong></article>
+        <article class="card metric"><span>Reconnects</span><strong id="reconnectCount">0</strong></article>
       </div>
 
       <article class="card">
@@ -97,6 +100,8 @@
           <div><span class="eyebrow">DIAGNOSTICS</span><h3>Runtime log</h3></div>
           <button id="refreshLogs" class="secondary">Refresh</button>
         </div>
+        <p class="muted" id="activeOperation">No active hardware operation.</p>
+        <pre id="driverView">Loading driver registry...</pre>
         <pre id="logView">No log entries yet.</pre>
       </div>
     </section>
