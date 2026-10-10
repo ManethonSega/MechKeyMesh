@@ -1,0 +1,10 @@
+[package]
+name = "mechkeymesh-config"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+mechkeymesh-driver-api = { path = "../driver-api" }
+serde.workspace = true

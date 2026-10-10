@@ -64,7 +64,9 @@ function updateStatus(status) {
         device.productId.toString(16).padStart(4, "0").toUpperCase()
       : "—";
 
-  $("#applyLighting").disabled = state !== "ready";
+  $("#applyLighting").disabled = state === "busy";
+  $("#applyLighting").textContent =
+    state === "ready" ? "Save & apply to keyboard" : "Save desired state";
 }
 
 async function pollStatus() {
@@ -78,6 +80,36 @@ async function pollStatus() {
 function hexRgb(hex) {
   const value = parseInt(hex.slice(1), 16);
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+function rgbHex(r, g, b) {
+  return "#" + [r, g, b]
+    .map((value) => Number(value).toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function loadPersistence() {
+  const status = await invoke("get_persistence_status");
+  $("#schemaVersion").textContent = "schema " + status.schemaVersion;
+  $("#databaseIntegrity").textContent = status.integrityOk ? "OK" : "Check failed";
+  $("#persistenceView").textContent =
+    `SQLite | schema ${status.schemaVersion} | ${status.journalMode} | integrity ${status.integrityOk ? "OK" : "FAILED"}\n${status.path}`;
+}
+
+async function loadDesiredLighting() {
+  const desired = await invoke("get_desired_lighting");
+  if (!desired) return;
+
+  const config = desired.config;
+  $("#lightingMode").value = String(config.mode);
+  $("#lightingColor").value = rgbHex(config.r, config.g, config.b);
+  $("#brightness").value = String(config.brightness);
+  $("#brightnessOut").value = String(config.brightness);
+  $("#speed").value = String(config.speed);
+  $("#speedOut").value = String(config.speed);
+  $("#direction").value = String(config.direction);
+  $("#colorful").checked = Boolean(config.colorful);
+  $("#desiredProfile").textContent = desired.scope.profileId;
 }
 
 $("#applyLighting").addEventListener("click", async () => {
@@ -97,10 +129,17 @@ $("#applyLighting").addEventListener("click", async () => {
   $("#applyLighting").disabled = true;
 
   try {
-    await invoke("apply_lighting", { config });
-    $("#lightingResult").textContent = "Applied successfully.";
+    const result = await invoke("apply_lighting", { config });
+    if (result.applied) {
+      $("#lightingResult").textContent = "Desired state saved and applied.";
+    } else {
+      $("#lightingResult").textContent =
+        "Desired state saved. Keyboard not applied: " + (result.message || "not ready");
+    }
+    await loadPersistence();
+    await loadDesiredLighting();
   } catch (error) {
-    $("#lightingResult").textContent = "Failed: " + error;
+    $("#lightingResult").textContent = "Could not save desired state: " + error;
   }
   await pollStatus();
 });
@@ -112,10 +151,13 @@ $("#reconnectButton").addEventListener("click", async () => {
 
 async function refreshLogs() {
   try {
-    const [logs, drivers] = await Promise.all([
+    const [logs, drivers, persistence] = await Promise.all([
       invoke("get_logs"),
-      invoke("get_driver_registry")
+      invoke("get_driver_registry"),
+      invoke("get_persistence_status")
     ]);
+    $("#persistenceView").textContent =
+      `SQLite | schema ${persistence.schemaVersion} | ${persistence.journalMode} | integrity ${persistence.integrityOk ? "OK" : "FAILED"}\n${persistence.path}`;
     $("#driverView").textContent = drivers.length
       ? drivers.map((driver) => {
           const matches = driver.matchers
@@ -147,6 +189,8 @@ $("#refreshLogs").addEventListener("click", refreshLogs);
 
 (async function boot() {
   await loadModes();
+  await loadPersistence();
+  await loadDesiredLighting();
   await pollStatus();
   setTimeout(() => {
     $("#splash").classList.add("hidden");

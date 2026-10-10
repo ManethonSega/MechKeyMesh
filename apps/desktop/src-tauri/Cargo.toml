@@ -17,8 +17,10 @@ path = "src/main.rs"
 tauri-build = { version = "2.7.0", features = [] }
 
 [dependencies]
+mechkeymesh-config = { path = "../../../crates/config" }
 mechkeymesh-core = { path = "../../../crates/core" }
 mechkeymesh-driver-api = { path = "../../../crates/driver-api" }
 mechkeymesh-driver-aula-f108pro = { path = "../../../drivers/aula-f108pro" }
+mechkeymesh-persistence = { path = "../../../crates/persistence" }
 serde.workspace = true
 tauri = { version = "2.12.0", features = [] }

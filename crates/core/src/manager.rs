@@ -708,6 +708,7 @@ mod tests {
         fn manifest(&self) -> DriverManifest {
             DriverManifest {
                 driver_id: "fake.keyboard.usb".into(),
+                device_model_id: "fake.keyboard".into(),
                 vendor: "Fake".into(),
                 device_name: "Fake Keyboard".into(),
                 supported_connections: vec![Connection::Usb],
@@ -765,6 +766,7 @@ mod tests {
         fn descriptor(&self) -> DeviceDescriptor {
             DeviceDescriptor {
                 driver_id: self.candidate.driver_id.clone(),
+                device_model_id: "fake.keyboard".into(),
                 instance_id: self.candidate.instance_id.clone(),
                 vendor: "Fake".into(),
                 name: self.candidate.name.clone(),

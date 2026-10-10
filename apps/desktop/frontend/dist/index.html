@@ -32,7 +32,7 @@
       <button data-page="settings" disabled>Device Settings <b>Soon</b></button>
       <button data-page="diagnostics">Diagnostics</button>
     </nav>
-    <div class="version">v0.3.0-alpha.1 · Device Manager 2.0</div>
+    <div class="version">v0.4.0-alpha.1 · Persistence</div>
   </aside>
 
   <main>
@@ -61,6 +61,9 @@
         <article class="card metric"><span>Lifecycle</span><strong id="stateText">Disconnected</strong></article>
         <article class="card metric"><span>Candidates</span><strong id="candidateCount">0</strong></article>
         <article class="card metric"><span>Reconnects</span><strong id="reconnectCount">0</strong></article>
+        <article class="card metric"><span>Database schema</span><strong id="schemaVersion">—</strong></article>
+        <article class="card metric"><span>Database integrity</span><strong id="databaseIntegrity">—</strong></article>
+        <article class="card metric"><span>Desired profile</span><strong id="desiredProfile">Default</strong></article>
       </div>
 
       <article class="card">
@@ -89,7 +92,7 @@
         </div>
         <div class="actions">
           <span id="lightingResult" class="muted"></span>
-          <button id="applyLighting" class="primary">Apply to keyboard</button>
+          <button id="applyLighting" class="primary">Save desired state</button>
         </div>
       </div>
     </section>
@@ -101,6 +104,7 @@
           <button id="refreshLogs" class="secondary">Refresh</button>
         </div>
         <p class="muted" id="activeOperation">No active hardware operation.</p>
+        <pre id="persistenceView">Loading persistence status...</pre>
         <pre id="driverView">Loading driver registry...</pre>
         <pre id="logView">No log entries yet.</pre>
       </div>
