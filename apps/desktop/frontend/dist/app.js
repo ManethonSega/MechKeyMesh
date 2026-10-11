@@ -3,6 +3,7 @@ const invoke = (command, args = {}) => window.__TAURI__.core.invoke(command, arg
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 let activeLayout = null;
+let activeDriverId = null;
 let lightingEffects = [];
 const selectedKeyIds = new Set();
 
@@ -120,6 +121,7 @@ function stateClass(state) {
 function updateStatus(status) {
   const state = status?.state || "disconnected";
   const device = status?.device || null;
+  const nextDriverId = device?.driverId || null;
   const pill = $("#connectionPill");
   pill.textContent = state;
   pill.className = "pill " + stateClass(state);
@@ -146,6 +148,11 @@ function updateStatus(status) {
   $("#applyLighting").disabled = state === "busy";
   $("#applyLighting").textContent =
     state === "ready" ? "Save & apply to keyboard" : "Save desired state";
+
+  if (nextDriverId !== activeDriverId) {
+    activeDriverId = nextDriverId;
+    void loadPrimaryLayout();
+  }
 }
 
 async function pollStatus() {
@@ -235,6 +242,7 @@ function actionLabel(action) {
 function keyTitle(key) {
   const parts = [
     key.label,
+    key.section ? `section ${key.section}` : null,
     key.hidUsage == null ? null : `HID 0x${Number(key.hidUsage).toString(16).padStart(2, "0").toUpperCase()}`,
     key.deviceKeyIndex == null ? null : `device index ${key.deviceKeyIndex}`,
     key.ledIndex == null ? null : `LED ${key.ledIndex}`
@@ -242,13 +250,24 @@ function keyTitle(key) {
   return parts.join(" | ");
 }
 
+function keyFontSize(key) {
+  const labelLength = Math.max(String(key.label || "").length, 1);
+  const widthLimited = key.width / (labelLength * 0.72);
+  const heightLimited = key.height * 0.32;
+  return Math.max(5, Math.min(8, widthLimited, heightLimited));
+}
+
 function renderKeyboard(layout) {
+  const layoutChanged = activeLayout?.id !== layout.id;
+  if (layoutChanged) selectedKeyIds.clear();
   activeLayout = layout;
+  window.mechKeyMeshActiveLayout = layout;
+
   $("#layoutName").textContent = layout.name;
   $("#layoutKind").textContent = layoutKindLabel(layout.kind);
   $("#layoutKeyCount").textContent = `${layout.keys.length} keys`;
   $("#layoutSummary").textContent =
-    `${layout.id} · ${layout.coordinateSpace.width} × ${layout.coordinateSpace.height} layout space`;
+    `${layout.id} · schema ${layout.schemaVersion} · ${layout.coordinateSpace.width} × ${layout.coordinateSpace.height}`;
 
   const viewport = $("#keyboardViewport");
   viewport.innerHTML = "";
@@ -259,6 +278,7 @@ function renderKeyboard(layout) {
     "viewBox",
     `0 0 ${layout.coordinateSpace.width} ${layout.coordinateSpace.height}`
   );
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
   svg.setAttribute("role", "group");
   svg.setAttribute("aria-label", layout.name + " keyboard layout");
 
@@ -269,11 +289,14 @@ function renderKeyboard(layout) {
     group.setAttribute("tabindex", "0");
     group.setAttribute("role", "button");
     group.setAttribute("aria-label", keyTitle(key));
+    group.setAttribute("aria-pressed", "false");
 
     if (Number(key.rotation || 0) !== 0) {
-      const cx = key.x + key.width / 2;
-      const cy = key.y + key.height / 2;
-      group.setAttribute("transform", `rotate(${key.rotation} ${cx} ${cy})`);
+      const pivot = key.rotationOrigin || {
+        x: key.x + key.width / 2,
+        y: key.y + key.height / 2
+      };
+      group.setAttribute("transform", `rotate(${key.rotation} ${pivot.x} ${pivot.y})`);
     }
 
     const title = document.createElementNS(SVG_NS, "title");
@@ -289,6 +312,7 @@ function renderKeyboard(layout) {
     const text = document.createElementNS(SVG_NS, "text");
     text.setAttribute("x", key.x + key.width / 2);
     text.setAttribute("y", key.y + key.height / 2 + 0.5);
+    text.style.fontSize = `${keyFontSize(key)}px`;
     text.textContent = key.label;
 
     group.append(title, rect, text);
@@ -304,6 +328,7 @@ function renderKeyboard(layout) {
 
   viewport.appendChild(svg);
   refreshKeySelection();
+  window.dispatchEvent(new CustomEvent("mechkeymesh-layout-changed", { detail: { layout } }));
 }
 
 function selectKey(key, additive) {
@@ -326,13 +351,15 @@ function selectKey(key, additive) {
     $("#selectedKeyName").textContent = `${selected.length} keys selected`;
     $("#selectedKeyDetails").innerHTML =
       `<div><dt>Selection</dt><dd>${selected.map((item) => item.label).join(", ")}</dd></div>
-       <div><dt>Action editing</dt><dd>Multi-key assignment arrives with remapping runs.</dd></div>`;
+       <div><dt>Action editing</dt><dd>Use the action editor to apply one assignment to the full selection.</dd></div>`;
   }
 }
 
 function refreshKeySelection() {
   document.querySelectorAll(".keyboard-key").forEach((element) => {
-    element.classList.toggle("selected", selectedKeyIds.has(element.dataset.keyId));
+    const selected = selectedKeyIds.has(element.dataset.keyId);
+    element.classList.toggle("selected", selected);
+    element.setAttribute("aria-pressed", String(selected));
   });
 }
 
@@ -350,17 +377,21 @@ function showKeyInspector(key) {
   $("#selectedKeyName").textContent = key.label;
 
   const matrix = key.matrix
-    ? `row ${key.matrix.row}, column ${key.matrix.column}`
+    ? `unit ${key.matrix.unit ?? 0}, row ${key.matrix.row}, column ${key.matrix.column}`
     : "Unverified";
   const grid = key.gridPosition
-    ? `row ${key.gridPosition.row}, column ${key.gridPosition.column}`
+    ? `unit ${key.gridPosition.unit ?? 0}, row ${key.gridPosition.row}, column ${key.gridPosition.column}`
     : "—";
   const hid = key.hidUsage == null
     ? "—"
     : "0x" + Number(key.hidUsage).toString(16).padStart(2, "0").toUpperCase();
+  const pivot = key.rotationOrigin
+    ? `, pivot ${key.rotationOrigin.x}, ${key.rotationOrigin.y}`
+    : "";
 
   $("#selectedKeyDetails").innerHTML =
-    `<div><dt>Physical position</dt><dd>x ${key.x}, y ${key.y}, ${key.width} × ${key.height}</dd></div>
+    `<div><dt>Physical position</dt><dd>x ${key.x}, y ${key.y}, ${key.width} × ${key.height}, rotation ${key.rotation || 0}°${pivot}</dd></div>
+     <div><dt>Section</dt><dd>${key.section || "—"}</dd></div>
      <div><dt>Source grid</dt><dd>${grid}</dd></div>
      <div><dt>Electrical matrix</dt><dd>${matrix}</dd></div>
      <div><dt>HID usage</dt><dd>${hid}</dd></div>
@@ -373,7 +404,6 @@ function showKeyInspector(key) {
 async function loadPrimaryLayout() {
   try {
     const layout = await invoke("get_primary_layout");
-    activeLayout = layout;
     renderKeyboard(layout);
   } catch (error) {
     $("#keyboardViewport").innerHTML =
