@@ -250,11 +250,11 @@ impl DeviceManagerHandle {
     }
 }
 
-fn wait_for_reply(
-    receiver: Receiver<Result<(), String>>,
+fn wait_for_reply<T>(
+    receiver: Receiver<Result<T, String>>,
     cancellation: CancellationToken,
     timeout: Duration,
-) -> Result<(), String> {
+) -> Result<T, String> {
     match receiver.recv_timeout(timeout + Duration::from_millis(250)) {
         Ok(result) => result,
         Err(_) => {
