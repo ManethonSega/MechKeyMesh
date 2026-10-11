@@ -21,6 +21,7 @@ Current Rust implementation:
 - wired F108 Pro discovery, VID `0C45`, PID `800A`, Usage Page `FF13`
 - 20 mapped onboard lighting effects with effect-specific parameter metadata; physical verification remains explicitly unverified/deferred
 - independent Normal/Fn desired keymap persistence and complete 576-byte F108 table generation
+- persistent per-key RGB desired state using physical key IDs and layout LED indices
 - verified software encoders for keyboard keys, modifiers, shortcuts, media, selected mouse actions and selected Windows/system actions
 - strict lighting and remap parameter validation
 - runtime diagnostics
@@ -71,7 +72,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.8.0-alpha.1`, **R7 Fn layer and reset semantics complete**. Normal and Fn are independent desired-state layers with separate persistence and hardware tables, safe reset semantics, native Fn shortcut protection, and the known OEM Fn-mode enum recorded. R7 was closed on 2026-10-11 by project decision with physical Normal/Fn/reset verification explicitly deferred, so these behaviors must not yet be described as physically verified.
+`v0.9.0-alpha.1`, **R8 Stored per-key RGB in progress** on branch `r8/stored-per-key-rgb`. The software now models persistent physical-key colors, translates them through layout LED indices, implements the exact OEM-derived `04 23` RGB write sequence and maps the `04 F5` RGB readback path. R8 remains open until physical keys are proven to illuminate at the correct positions and persist correctly.
 
 The previous Go/Wails prototype is preserved in the branch:
 
