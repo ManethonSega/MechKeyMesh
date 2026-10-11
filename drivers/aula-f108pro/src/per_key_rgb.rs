@@ -175,7 +175,7 @@ pub fn read_per_key_rgb(
     // OEM readback handler closes with 04 02 and no 04 F0.
     session.apply_transaction(context)?;
 
-    Ok(parse_rgb_readback(&table, led_indices)?)
+    parse_rgb_readback(&table, led_indices)
 }
 
 pub fn parse_rgb_readback(
