@@ -29,7 +29,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-002",
@@ -51,7 +52,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-003",
@@ -73,7 +75,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-004",
@@ -95,7 +98,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-005",
@@ -117,7 +121,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-006",
@@ -139,7 +144,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-007",
@@ -161,7 +167,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-008",
@@ -183,7 +190,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-009",
@@ -205,7 +213,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-010",
@@ -227,7 +236,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-011",
@@ -249,7 +259,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-012",
@@ -271,7 +282,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-013",
@@ -293,7 +305,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-112",
@@ -315,7 +328,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-113",
@@ -337,7 +351,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-115",
@@ -359,7 +374,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "function"
     },
     {
       "id": "key-019",
@@ -381,7 +397,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-020",
@@ -403,7 +420,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-021",
@@ -425,7 +443,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-022",
@@ -447,7 +466,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-023",
@@ -469,7 +489,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-024",
@@ -491,7 +512,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-025",
@@ -513,7 +535,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-026",
@@ -535,7 +558,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-027",
@@ -557,7 +581,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-028",
@@ -579,7 +604,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-029",
@@ -601,7 +627,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-030",
@@ -623,7 +650,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-031",
@@ -645,7 +673,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-103",
@@ -667,7 +696,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-116",
@@ -689,7 +719,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "navigation"
     },
     {
       "id": "key-117",
@@ -711,7 +742,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "navigation"
     },
     {
       "id": "key-118",
@@ -733,7 +765,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "navigation"
     },
     {
       "id": "key-032",
@@ -755,7 +788,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-033",
@@ -777,7 +811,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-034",
@@ -799,7 +834,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-122",
@@ -821,7 +857,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-037",
@@ -843,7 +880,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-038",
@@ -865,7 +903,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-039",
@@ -887,7 +926,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-040",
@@ -909,7 +949,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-041",
@@ -931,7 +972,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-042",
@@ -953,7 +995,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-043",
@@ -975,7 +1018,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-044",
@@ -997,7 +1041,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-045",
@@ -1019,7 +1064,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-046",
@@ -1041,7 +1087,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-047",
@@ -1063,7 +1110,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-048",
@@ -1085,7 +1133,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-049",
@@ -1107,7 +1156,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-067",
@@ -1129,7 +1179,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-119",
@@ -1151,7 +1202,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "navigation"
     },
     {
       "id": "key-120",
@@ -1173,7 +1225,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "navigation"
     },
     {
       "id": "key-121",
@@ -1195,7 +1248,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "navigation"
     },
     {
       "id": "key-050",
@@ -1217,7 +1271,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-051",
@@ -1239,7 +1294,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-052",
@@ -1261,7 +1317,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-123",
@@ -1283,7 +1340,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-055",
@@ -1305,7 +1363,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-056",
@@ -1327,7 +1386,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-057",
@@ -1349,7 +1409,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-058",
@@ -1371,7 +1432,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-059",
@@ -1393,7 +1455,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-060",
@@ -1415,7 +1478,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-061",
@@ -1437,7 +1501,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-062",
@@ -1459,7 +1524,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-063",
@@ -1481,7 +1547,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-064",
@@ -1503,7 +1570,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-065",
@@ -1525,7 +1593,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-066",
@@ -1547,7 +1616,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-085",
@@ -1569,7 +1639,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-068",
@@ -1591,7 +1662,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-069",
@@ -1613,7 +1685,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-070",
@@ -1635,7 +1708,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-073",
@@ -1657,7 +1731,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-074",
@@ -1679,7 +1754,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-075",
@@ -1701,7 +1777,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-076",
@@ -1723,7 +1800,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-077",
@@ -1745,7 +1823,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-078",
@@ -1767,7 +1846,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-079",
@@ -1789,7 +1869,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-080",
@@ -1811,7 +1892,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-081",
@@ -1833,7 +1915,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-082",
@@ -1855,7 +1938,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-083",
@@ -1877,7 +1961,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-084",
@@ -1899,7 +1984,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-101",
@@ -1921,7 +2007,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "navigation"
     },
     {
       "id": "key-086",
@@ -1943,7 +2030,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-087",
@@ -1965,7 +2053,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-088",
@@ -1987,7 +2076,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-106",
@@ -2009,7 +2099,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-091",
@@ -2031,7 +2122,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-092",
@@ -2053,7 +2145,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-093",
@@ -2075,7 +2168,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-094",
@@ -2097,7 +2191,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-095",
@@ -2119,7 +2214,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-096",
@@ -2141,7 +2237,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-097",
@@ -2163,7 +2260,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-098",
@@ -2185,7 +2283,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "main"
     },
     {
       "id": "key-099",
@@ -2207,7 +2306,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "navigation"
     },
     {
       "id": "key-100",
@@ -2229,7 +2329,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "navigation"
     },
     {
       "id": "key-102",
@@ -2251,7 +2352,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "navigation"
     },
     {
       "id": "key-104",
@@ -2273,7 +2375,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     },
     {
       "id": "key-105",
@@ -2295,7 +2398,8 @@
       "fnProgrammable": true,
       "defaultAction": {
         "type": "default"
-      }
+      },
+      "section": "numpad"
     }
   ],
   "sourceNotes": [
