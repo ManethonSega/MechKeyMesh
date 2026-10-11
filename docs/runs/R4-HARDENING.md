@@ -2,7 +2,7 @@
 
 ## Status
 
-**IMPLEMENTED, CI PENDING**
+**COMPLETE**
 
 This audit revisits the completed R4 architecture after R6 was merged. It does not reopen the original milestone. It strengthens the generic layout/action foundation before additional keyboard shapes and vendors depend on it.
 
@@ -118,10 +118,15 @@ The F108 geometry, device indices, LED indices and action persistence format are
 
 ## Acceptance
 
-This hardening is accepted only after:
+The hardening passed CI workflow run **38099196150** on commit `a7a7b89178c6cfc032ef3db440febf3978a3a8b0`:
 
-- Rust formatting passes
-- all workspace tests pass
-- Linux and Windows Clippy pass with warnings denied
-- Windows desktop release build passes
-- the executable is verified and uploaded by CI
+- Rust formatting passed
+- all core/workspace tests passed
+- Linux Clippy passed with warnings denied
+- Windows workspace tests passed
+- Windows Clippy passed with warnings denied
+- Windows desktop release build passed
+- executable verification passed
+- Windows test-build artifact upload passed
+
+A documentation-only completion commit is also required to pass the same CI workflow before merge.
