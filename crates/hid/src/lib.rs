@@ -209,9 +209,7 @@ mod tests {
                 Ok(())
             }
 
-            fn get_feature_report(
-                &self,
-            ) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
+            fn get_feature_report(&self) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
                 Ok([0u8; FEATURE_REPORT_SIZE])
             }
         }
