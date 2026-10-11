@@ -86,7 +86,6 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
         })
     }
 
-
     fn per_key_rgb_capabilities(&self) -> Option<PerKeyRgbCapabilities> {
         Some(per_key_rgb::capabilities())
     }
@@ -155,6 +154,7 @@ impl DeviceSession for AulaF108ProRemapSession {
             Capability::Keys,
             Capability::FnLayer,
             Capability::HardwareRgb,
+            Capability::PerKeyRgb,
         ];
         descriptor
     }
