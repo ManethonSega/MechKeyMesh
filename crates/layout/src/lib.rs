@@ -208,9 +208,7 @@ impl KeyAction {
             Self::Macro { macro_id } => require_text(macro_id, "macro ID"),
             Self::Layer { layer_id, .. } => require_text(layer_id, "layer ID"),
             Self::VendorSpecific {
-                namespace,
-                action,
-                ..
+                namespace, action, ..
             } => {
                 require_text(namespace, "vendor namespace")?;
                 require_text(action, "vendor action")
@@ -350,10 +348,7 @@ pub enum LayoutError {
     #[error("key {0} extends outside the declared coordinate space")]
     KeyOutsideCoordinateSpace(String),
     #[error("key {key_id} has an invalid default action: {source}")]
-    InvalidDefaultAction {
-        key_id: String,
-        source: ActionError,
-    },
+    InvalidDefaultAction { key_id: String, source: ActionError },
 }
 
 impl Layout {
@@ -434,12 +429,12 @@ impl Layout {
                 return Err(LayoutError::KeyOutsideCoordinateSpace(key.id.clone()));
             }
 
-            key.default_action.validate().map_err(|source| {
-                LayoutError::InvalidDefaultAction {
+            key.default_action
+                .validate()
+                .map_err(|source| LayoutError::InvalidDefaultAction {
                     key_id: key.id.clone(),
                     source,
-                }
-            })?;
+                })?;
 
             if let Some(index) = key.device_key_index
                 && !device_indices.insert(index)
