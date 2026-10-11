@@ -10,6 +10,7 @@ let perKeyClipboard = null;
 let perKeyRegionMode = false;
 let perKeyRegionStart = null;
 let perKeyRegionRect = null;
+let perKeySuppressNextClick = false;
 let perKeySavedSnapshot = "";
 let perKeyInitialized = false;
 
@@ -176,6 +177,12 @@ function perKeyRender(layout) {
 
     group.append(title, rect, text, swatch);
     group.addEventListener("click", (event) => {
+      if (perKeySuppressNextClick) {
+        perKeySuppressNextClick = false;
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       if (perKeyRegionMode) {
         event.preventDefault();
         return;
@@ -266,6 +273,7 @@ function perKeyRegionPointerUp(event) {
     return center.x >= minX && center.x <= maxX && center.y >= minY && center.y <= maxY;
   });
   perKeySetSelection(keys, event.ctrlKey || event.metaKey);
+  perKeySuppressNextClick = true;
 
   perKeyRegionRect?.remove();
   perKeyRegionRect = null;
