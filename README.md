@@ -20,7 +20,7 @@ Current Rust implementation:
 - first driver crate: `mechkeymesh-driver-aula-f108pro`
 - wired F108 Pro discovery, VID `0C45`, PID `800A`, Usage Page `FF13`
 - 20 mapped onboard lighting effects with effect-specific parameter metadata; physical verification remains explicitly unverified/deferred
-- normal-layer desired keymap persistence and complete 576-byte F108 table generation
+- independent Normal/Fn desired keymap persistence and complete 576-byte F108 table generation
 - verified software encoders for keyboard keys, modifiers, shortcuts, media, selected mouse actions and selected Windows/system actions
 - strict lighting and remap parameter validation
 - runtime diagnostics
@@ -71,7 +71,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.7.0-alpha.1`, **R6 Normal-layer remapping complete**. The software, persistence, editor, protocol tests, Windows tests and release build criteria passed. R6 was closed on 2026-10-11 by project decision with physical key verification explicitly deferred. This means the milestone is complete, but normal-layer remapping must not yet be described as physically verified.
+`v0.8.0-alpha.1`, **R7 Fn layer and reset semantics in progress** on branch `r7/fn-layer-reset-semantics`. Normal and Fn are now modeled as independent desired-state layers. The known Fn table command `04 27`, OEM Fn-mode enum evidence and a conservative native-shortcut protection policy are implemented in software. R7 remains open until CI and physical layer/reset validation are complete.
 
 The previous Go/Wails prototype is preserved in the branch:
 
