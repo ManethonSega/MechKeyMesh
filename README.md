@@ -20,7 +20,9 @@ Current Rust implementation:
 - first driver crate: `mechkeymesh-driver-aula-f108pro`
 - wired F108 Pro discovery, VID `0C45`, PID `800A`, Usage Page `FF13`
 - 20 mapped onboard lighting effects with effect-specific parameter metadata; physical verification remains explicitly unverified/deferred
-- strict lighting parameter validation
+- normal-layer desired keymap persistence and complete 576-byte F108 table generation
+- verified software encoders for keyboard keys, modifiers, shortcuts, media, selected mouse actions and selected Windows/system actions
+- strict lighting and remap parameter validation
 - runtime diagnostics
 - SQLite desired-state database with versioned migrations
 - stable device-model/profile/capability configuration scope
@@ -69,7 +71,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.6.0-alpha.1`, **R5 Complete F108 onboard RGB complete**. The software models all 20 known F108 hardware effects and their valid controls from OEM-derived capability metadata, and the R5 automated test/build criteria pass. Physical verification of all 20 effects was explicitly deferred when R5 was closed, so the capability must not yet be described as physically verified.
+`v0.7.0-alpha.1`, **R6 Normal-layer remapping complete**. The software, persistence, editor, protocol tests, Windows tests and release build criteria passed. R6 was closed on 2026-10-11 by project decision with physical key verification explicitly deferred. This means the milestone is complete, but normal-layer remapping must not yet be described as physically verified.
 
 The previous Go/Wails prototype is preserved in the branch:
 
