@@ -80,17 +80,13 @@ impl MacroProgram {
 
         for (index, event) in self.events.iter().enumerate() {
             match event {
-                MacroEvent::KeyDown { usage } | MacroEvent::KeyUp { usage }
-                    if *usage == 0 =>
-                {
+                MacroEvent::KeyDown { usage } | MacroEvent::KeyUp { usage } if *usage == 0 => {
                     return Err(MacroValidationError::InvalidEvent {
                         index,
                         reason: "keyboard usage 0 is reserved".into(),
                     });
                 }
-                MacroEvent::Delay { milliseconds }
-                    if *milliseconds > MAX_SOFTWARE_DELAY_MS =>
-                {
+                MacroEvent::Delay { milliseconds } if *milliseconds > MAX_SOFTWARE_DELAY_MS => {
                     return Err(MacroValidationError::InvalidEvent {
                         index,
                         reason: format!(
@@ -152,10 +148,7 @@ pub enum MacroValidationError {
     #[error("{field} must not be empty")]
     EmptyText { field: &'static str },
     #[error("{field} exceeds {maximum} characters")]
-    TextTooLong {
-        field: &'static str,
-        maximum: usize,
-    },
+    TextTooLong { field: &'static str, maximum: usize },
     #[error("macro contains {count} events, maximum is {maximum}")]
     TooManyEvents { count: usize, maximum: usize },
     #[error("invalid playback: {0}")]

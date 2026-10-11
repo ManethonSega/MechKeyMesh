@@ -138,11 +138,12 @@ impl PersistenceStore {
         let mut programs = Vec::new();
         for row in macro_rows {
             let (id, name, playback_json) = row?;
-            let playback: MacroPlayback = serde_json::from_str(&playback_json).map_err(|error| {
-                PersistenceError::Integrity(format!(
-                    "invalid playback JSON for macro {id}: {error}"
-                ))
-            })?;
+            let playback: MacroPlayback =
+                serde_json::from_str(&playback_json).map_err(|error| {
+                    PersistenceError::Integrity(format!(
+                        "invalid playback JSON for macro {id}: {error}"
+                    ))
+                })?;
 
             let mut event_statement = connection.prepare(
                 r#"
@@ -335,11 +336,7 @@ mod tests {
     fn wrong_scope_and_invalid_event_are_rejected() {
         let (_directory, path) = setup();
         let store = PersistenceStore::open(&path).unwrap();
-        let wrong = ConfigurationScope::new(
-            "aula.f108pro",
-            "default",
-            Capability::DeviceSettings,
-        );
+        let wrong = ConfigurationScope::new("aula.f108pro", "default", Capability::DeviceSettings);
         assert!(store.save_macro(&wrong, &sample()).is_err());
 
         let mut invalid = sample();

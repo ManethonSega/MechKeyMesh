@@ -112,10 +112,7 @@ fn get_macros(state: State<'_, AppState>) -> Result<Vec<MacroProgram>, String> {
 }
 
 #[tauri::command]
-fn save_macro(
-    state: State<'_, AppState>,
-    program: MacroProgram,
-) -> Result<MacroProgram, String> {
+fn save_macro(state: State<'_, AppState>, program: MacroProgram) -> Result<MacroProgram, String> {
     program.validate().map_err(|error| error.to_string())?;
     let scope = configuration_scope(&state, Capability::Macros)?;
     state
