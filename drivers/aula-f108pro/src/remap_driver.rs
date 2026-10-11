@@ -2,12 +2,13 @@ use super::{
     AulaF108ProSession, CONFIG_USAGE_PAGE, PRODUCT_ID, VENDOR_ID, f108pro_layout, lighting_effects,
     map_transport_error, validate_candidate,
 };
-use crate::remap;
+use crate::{per_key_rgb, remap};
 use mechkeymesh_driver_api::{
     Capability, Connection, DeviceCandidate, DeviceDescriptor, DeviceMatch, DeviceSession,
     DriverError, DriverManifest, FnActivationMode, FnActivationModeOption, FnLayerDescriptor,
     KeyAssignment, KeyboardDriver, KeymapCapabilities, KeymapLayer, LightingConfig,
-    LightingEffectDescriptor, OperationContext, TransportKind, TransportRequirement,
+    LightingEffectDescriptor, OperationContext, PerKeyRgbCapabilities, PerKeyRgbConfig,
+    PerKeyRgbReadback, TransportKind, TransportRequirement,
 };
 use mechkeymesh_hid::{FEATURE_REPORT_SIZE, enumerate_feature_devices, open_feature_path};
 
@@ -37,6 +38,7 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
                 Capability::Keys,
                 Capability::FnLayer,
                 Capability::HardwareRgb,
+                Capability::PerKeyRgb,
             ],
             layout_ids: vec!["aula.f108pro.ansi".into()],
             matchers: vec![DeviceMatch {
@@ -82,6 +84,15 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
             hardware_write_verified: false,
             note: "OEM binary maps fn_switch raw 0 to Toggle and raw 1 to Momentary. MechKeyMesh does not write this setting yet because the 04 17 / 00 01 function-settings transaction is not physically verified.".into(),
         })
+    }
+
+
+    fn per_key_rgb_capabilities(&self) -> Option<PerKeyRgbCapabilities> {
+        Some(per_key_rgb::capabilities())
+    }
+
+    fn validate_per_key_rgb(&self, config: &PerKeyRgbConfig) -> Result<(), DriverError> {
+        per_key_rgb::validate_config(config)
     }
 
     fn validate_keymap(
@@ -176,6 +187,22 @@ impl DeviceSession for AulaF108ProRemapSession {
         }
     }
 
+    fn set_per_key_rgb(
+        &mut self,
+        context: &OperationContext,
+        config: &PerKeyRgbConfig,
+    ) -> Result<(), DriverError> {
+        per_key_rgb::send_per_key_rgb(&mut self.inner, context, config)
+    }
+
+    fn read_per_key_rgb(
+        &mut self,
+        context: &OperationContext,
+        led_indices: &[u16],
+    ) -> Result<PerKeyRgbReadback, DriverError> {
+        per_key_rgb::read_per_key_rgb(&mut self.inner, context, led_indices)
+    }
+
     fn close(&mut self) -> Result<(), DriverError> {
         self.inner.close()
     }
@@ -187,7 +214,7 @@ mod tests {
     use mechkeymesh_driver_api::{KeyAction, MediaAction, Modifier, MouseAction, WindowsAction};
 
     #[test]
-    fn r7_manifest_exposes_normal_fn_and_rgb_capabilities() {
+    fn r8_manifest_exposes_normal_fn_hardware_and_per_key_rgb_capabilities() {
         let driver = AulaF108ProRemapDriver::new();
         let manifest = driver.manifest();
         assert_eq!(
@@ -196,6 +223,7 @@ mod tests {
                 Capability::Keys,
                 Capability::FnLayer,
                 Capability::HardwareRgb,
+                Capability::PerKeyRgb,
             ]
         );
     }
@@ -252,6 +280,32 @@ mod tests {
         assert_eq!(descriptor.modes[1].raw_value, 1);
         assert!(!descriptor.hardware_write_verified);
         assert_eq!(descriptor.current_mode, None);
+    }
+
+    #[test]
+    fn per_key_rgb_capability_is_enabled_and_validated() {
+        let driver = AulaF108ProRemapDriver::new();
+        let capabilities = driver.per_key_rgb_capabilities().unwrap();
+        assert_eq!(capabilities.brightness_min, 0);
+        assert_eq!(capabilities.brightness_max, 5);
+        assert!(capabilities.readback_supported);
+
+        assert!(
+            driver
+                .validate_per_key_rgb(&PerKeyRgbConfig {
+                    brightness: 5,
+                    colors: vec![],
+                })
+                .is_ok()
+        );
+        assert!(
+            driver
+                .validate_per_key_rgb(&PerKeyRgbConfig {
+                    brightness: 6,
+                    colors: vec![],
+                })
+                .is_err()
+        );
     }
 
     #[test]
