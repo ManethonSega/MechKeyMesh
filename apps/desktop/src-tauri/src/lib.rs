@@ -5,8 +5,8 @@ use mechkeymesh_core::{
     DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LogEntry, ManagerConfig,
 };
 use mechkeymesh_driver_api::{
-    Capability, DriverManifest, KeyAssignment, KeyboardDriver, KeymapLayer, LightingConfig,
-    LightingEffectDescriptor, NormalRemapCapabilities,
+    Capability, DriverManifest, FnLayerDescriptor, KeyAssignment, KeyboardDriver,
+    KeymapCapabilities, KeymapLayer, LightingConfig, LightingEffectDescriptor,
 };
 use mechkeymesh_driver_aula_f108pro::AulaF108ProRemapDriver;
 use mechkeymesh_layout::{Layout, LayoutRegistry};
@@ -23,7 +23,6 @@ struct AppState {
     driver_layout_ids: BTreeMap<String, String>,
     primary_driver: Arc<dyn KeyboardDriver>,
     lighting_effects: Vec<LightingEffectDescriptor>,
-    normal_remap_capabilities: NormalRemapCapabilities,
     primary_device_model_id: String,
     primary_layout_id: String,
 }
@@ -78,11 +77,14 @@ fn get_desired_lighting(state: State<'_, AppState>) -> Result<Option<DesiredLigh
 }
 
 #[tauri::command]
-fn get_desired_normal_keymap(state: State<'_, AppState>) -> Result<DesiredKeymap, String> {
-    let scope = configuration_scope(&state, Capability::Keys)?;
+fn get_desired_keymap(
+    state: State<'_, AppState>,
+    layer: KeymapLayer,
+) -> Result<DesiredKeymap, String> {
+    let scope = configuration_scope(&state, capability_for_layer(layer))?;
     state
         .persistence
-        .load_keymap(&scope, KeymapLayer::Normal)
+        .load_keymap(&scope, layer)
         .map_err(|error| error.to_string())
 }
 
@@ -102,8 +104,22 @@ fn get_primary_layout(state: State<'_, AppState>) -> Result<Layout, String> {
 }
 
 #[tauri::command]
-fn get_normal_remap_capabilities(state: State<'_, AppState>) -> NormalRemapCapabilities {
-    state.normal_remap_capabilities.clone()
+fn get_keymap_capabilities(
+    state: State<'_, AppState>,
+    layer: KeymapLayer,
+) -> Result<KeymapCapabilities, String> {
+    state
+        .primary_driver
+        .keymap_capabilities(layer)
+        .ok_or_else(|| format!("active driver does not support {layer:?} remapping"))
+}
+
+#[tauri::command]
+fn get_fn_layer_descriptor(state: State<'_, AppState>) -> Result<FnLayerDescriptor, String> {
+    state
+        .primary_driver
+        .fn_layer_descriptor()
+        .ok_or_else(|| "active driver does not expose Fn-layer settings".to_string())
 }
 
 #[tauri::command]
@@ -149,17 +165,18 @@ fn apply_lighting(
 }
 
 #[tauri::command]
-fn save_normal_keymap(
+fn save_keymap(
     state: State<'_, AppState>,
+    layer: KeymapLayer,
     mappings: Vec<KeyMapping>,
 ) -> Result<KeymapApplyResult, String> {
-    let scope = configuration_scope(&state, Capability::Keys)?;
-    let desired = DesiredKeymap::normal(scope, mappings);
+    let scope = configuration_scope(&state, capability_for_layer(layer))?;
+    let desired = DesiredKeymap::for_layer(scope, layer, mappings);
     let assignments = resolve_key_assignments(&state, &desired)?;
 
     state
         .primary_driver
-        .validate_keymap(KeymapLayer::Normal, &assignments)
+        .validate_keymap(layer, &assignments)
         .map_err(|error| error.to_string())?;
 
     state
@@ -167,10 +184,7 @@ fn save_normal_keymap(
         .save_keymap(&desired)
         .map_err(|error| error.to_string())?;
 
-    match state
-        .manager
-        .set_keymap(KeymapLayer::Normal, assignments.clone())
-    {
+    match state.manager.set_keymap(layer, assignments.clone()) {
         Ok(()) => Ok(KeymapApplyResult {
             stored: true,
             applied: true,
@@ -183,6 +197,74 @@ fn save_normal_keymap(
             assignment_count: assignments.len(),
             message: Some(error),
         }),
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct KeymapResetResult {
+    stored: bool,
+    normal_applied: bool,
+    fn_applied: bool,
+    message: Option<String>,
+}
+
+#[tauri::command]
+fn reset_key_assignments(state: State<'_, AppState>) -> Result<KeymapResetResult, String> {
+    let normal = DesiredKeymap::for_layer(
+        configuration_scope(&state, Capability::Keys)?,
+        KeymapLayer::Normal,
+        vec![],
+    );
+    let fn_layer = DesiredKeymap::for_layer(
+        configuration_scope(&state, Capability::FnLayer)?,
+        KeymapLayer::Fn,
+        vec![],
+    );
+
+    state
+        .primary_driver
+        .validate_keymap(KeymapLayer::Normal, &[])
+        .map_err(|error| error.to_string())?;
+    state
+        .primary_driver
+        .validate_keymap(KeymapLayer::Fn, &[])
+        .map_err(|error| error.to_string())?;
+
+    state
+        .persistence
+        .save_keymaps(&[normal, fn_layer])
+        .map_err(|error| error.to_string())?;
+
+    let normal_result = state.manager.set_keymap(KeymapLayer::Normal, vec![]);
+    let fn_result = state.manager.set_keymap(KeymapLayer::Fn, vec![]);
+    let normal_applied = normal_result.is_ok();
+    let fn_applied = fn_result.is_ok();
+    let message = match (normal_result, fn_result) {
+        (Ok(()), Ok(())) => None,
+        (normal, fn_layer) => Some(format!(
+            "desired key assignments were reset locally; normal layer: {}; Fn layer: {}",
+            normal
+                .err()
+                .unwrap_or_else(|| "applied".to_string()),
+            fn_layer
+                .err()
+                .unwrap_or_else(|| "applied".to_string())
+        )),
+    };
+
+    Ok(KeymapResetResult {
+        stored: true,
+        normal_applied,
+        fn_applied,
+        message,
+    })
+}
+
+const fn capability_for_layer(layer: KeymapLayer) -> Capability {
+    match layer {
+        KeymapLayer::Normal => Capability::Keys,
+        KeymapLayer::Fn => Capability::FnLayer,
     }
 }
 
@@ -303,9 +385,16 @@ pub fn run() {
                 .expect("the primary driver must declare at least one layout")
                 .clone();
             let lighting_effects = primary_driver.hardware_lighting_effects();
-            let normal_remap_capabilities = primary_driver
-                .normal_remap_capabilities()
-                .expect("the R6 F108 driver must expose normal-remap capabilities");
+            assert!(
+                primary_driver
+                    .keymap_capabilities(KeymapLayer::Normal)
+                    .is_some(),
+                "the F108 driver must expose normal-layer remap capabilities"
+            );
+            assert!(
+                primary_driver.keymap_capabilities(KeymapLayer::Fn).is_some(),
+                "the R7 F108 driver must expose Fn-layer remap capabilities"
+            );
 
             let manager = DeviceManager::start(registry, ManagerConfig::default());
 
@@ -316,7 +405,6 @@ pub fn run() {
                 driver_layout_ids,
                 primary_driver,
                 lighting_effects,
-                normal_remap_capabilities,
                 primary_device_model_id,
                 primary_layout_id,
             });
@@ -328,15 +416,17 @@ pub fn run() {
             get_driver_registry,
             get_persistence_status,
             get_desired_lighting,
-            get_desired_normal_keymap,
+            get_desired_keymap,
             get_layout,
             get_primary_layout,
-            get_normal_remap_capabilities,
+            get_keymap_capabilities,
+            get_fn_layer_descriptor,
             reconnect,
             cancel_active_operation,
             get_lighting_effects,
             apply_lighting,
-            save_normal_keymap
+            save_keymap,
+            reset_key_assignments
         ])
         .build(tauri::generate_context!())
         .expect("error while building MechKeyMesh")
