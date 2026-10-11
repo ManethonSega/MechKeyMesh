@@ -2,7 +2,7 @@ use crate::{DriverRegistry, LogEntry, LogRing};
 use mechkeymesh_driver_api::{
     CancellationToken, DeviceCandidate, DeviceDescriptor, DeviceSession, DriverError,
     DriverManifest, ErrorClass, KeyAssignment, KeyboardDriver, KeymapLayer, LightingConfig,
-    OperationContext,
+    OperationContext, PerKeyRgbConfig, PerKeyRgbReadback,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -116,6 +116,20 @@ enum Command {
         cancellation: CancellationToken,
         reply: Sender<Result<(), String>>,
     },
+    SetPerKeyRgb {
+        id: u64,
+        config: PerKeyRgbConfig,
+        submitted: Instant,
+        cancellation: CancellationToken,
+        reply: Sender<Result<(), String>>,
+    },
+    ReadPerKeyRgb {
+        id: u64,
+        led_indices: Vec<u16>,
+        submitted: Instant,
+        cancellation: CancellationToken,
+        reply: Sender<Result<PerKeyRgbReadback, String>>,
+    },
     Shutdown,
 }
 
@@ -190,6 +204,41 @@ impl DeviceManagerHandle {
                 id,
                 layer,
                 assignments,
+                submitted: Instant::now(),
+                cancellation: cancellation.clone(),
+                reply: reply_tx,
+            })
+            .map_err(|_| "device manager is not running".to_string())?;
+        wait_for_reply(reply_rx, cancellation, self.command_timeout)
+    }
+
+    pub fn set_per_key_rgb(&self, config: PerKeyRgbConfig) -> Result<(), String> {
+        let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
+        let cancellation = CancellationToken::new();
+        let (reply_tx, reply_rx) = mpsc::channel();
+        self.tx
+            .send(Command::SetPerKeyRgb {
+                id,
+                config,
+                submitted: Instant::now(),
+                cancellation: cancellation.clone(),
+                reply: reply_tx,
+            })
+            .map_err(|_| "device manager is not running".to_string())?;
+        wait_for_reply(reply_rx, cancellation, self.command_timeout)
+    }
+
+    pub fn read_per_key_rgb(
+        &self,
+        led_indices: Vec<u16>,
+    ) -> Result<PerKeyRgbReadback, String> {
+        let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
+        let cancellation = CancellationToken::new();
+        let (reply_tx, reply_rx) = mpsc::channel();
+        self.tx
+            .send(Command::ReadPerKeyRgb {
+                id,
+                led_indices,
                 submitted: Instant::now(),
                 cancellation: cancellation.clone(),
                 reply: reply_tx,
@@ -330,6 +379,48 @@ fn worker(
                 );
                 let _ = reply.send(result);
             }
+            Ok(Command::SetPerKeyRgb {
+                id,
+                config: per_key,
+                submitted,
+                cancellation,
+                reply,
+            }) => {
+                let result = execute_operation(
+                    &mut active,
+                    &status,
+                    &log,
+                    &active_cancellation,
+                    &config,
+                    id,
+                    "apply stored per-key RGB",
+                    submitted,
+                    cancellation,
+                    |session, context| session.set_per_key_rgb(context, &per_key),
+                );
+                let _ = reply.send(result);
+            }
+            Ok(Command::ReadPerKeyRgb {
+                id,
+                led_indices,
+                submitted,
+                cancellation,
+                reply,
+            }) => {
+                let result = execute_operation_with_result(
+                    &mut active,
+                    &status,
+                    &log,
+                    &active_cancellation,
+                    &config,
+                    id,
+                    "read stored per-key RGB",
+                    submitted,
+                    cancellation,
+                    |session, context| session.read_per_key_rgb(context, &led_indices),
+                );
+                let _ = reply.send(result);
+            }
             Err(RecvTimeoutError::Timeout) => {
                 if let Some(device) = active.as_mut()
                     && !active_device_present(device, &log, &config)
@@ -369,6 +460,36 @@ fn execute_operation<F>(
 ) -> Result<(), String>
 where
     F: FnOnce(&mut dyn DeviceSession, &OperationContext) -> Result<(), DriverError>,
+{
+    execute_operation_with_result(
+        active,
+        status,
+        log,
+        active_cancellation,
+        config,
+        id,
+        name,
+        submitted,
+        cancellation,
+        operation,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_operation_with_result<T, F>(
+    active: &mut Option<ActiveDevice>,
+    status: &Arc<RwLock<DeviceStatus>>,
+    log: &LogRing,
+    active_cancellation: &Arc<Mutex<Option<CancellationToken>>>,
+    config: &ManagerConfig,
+    id: u64,
+    name: &str,
+    submitted: Instant,
+    cancellation: CancellationToken,
+    operation: F,
+) -> Result<T, String>
+where
+    F: FnOnce(&mut dyn DeviceSession, &OperationContext) -> Result<T, DriverError>,
 {
     let Some(device) = active.as_mut() else {
         return Err("no supported keyboard is ready".into());
@@ -410,10 +531,10 @@ where
         .expect("active cancellation lock poisoned") = None;
 
     match result {
-        Ok(()) => {
+        Ok(value) => {
             set_status(status, DeviceState::Ready, Some(descriptor), None, None, 1);
             log.push("info", format!("operation {id} completed: {name}"));
-            Ok(())
+            Ok(value)
         }
         Err(error) => {
             let class = error.class();
