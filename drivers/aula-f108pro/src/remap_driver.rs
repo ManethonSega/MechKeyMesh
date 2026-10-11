@@ -5,9 +5,9 @@ use super::{
 use crate::remap;
 use mechkeymesh_driver_api::{
     Capability, Connection, DeviceCandidate, DeviceDescriptor, DeviceMatch, DeviceSession,
-    DriverError, DriverManifest, KeyAssignment, KeyboardDriver, KeymapLayer, LightingConfig,
-    LightingEffectDescriptor, NormalRemapCapabilities, OperationContext, TransportKind,
-    TransportRequirement,
+    DriverError, DriverManifest, FnActivationMode, FnActivationModeOption, FnLayerDescriptor,
+    KeyAssignment, KeyboardDriver, KeymapCapabilities, KeymapLayer, LightingConfig,
+    LightingEffectDescriptor, OperationContext, TransportKind, TransportRequirement,
 };
 use mechkeymesh_hid::{FEATURE_REPORT_SIZE, enumerate_feature_devices, open_feature_path};
 
@@ -33,7 +33,11 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
             vendor: "AULA".into(),
             device_name: "AULA F108 Pro".into(),
             supported_connections: vec![Connection::Usb],
-            capabilities: vec![Capability::Keys, Capability::HardwareRgb],
+            capabilities: vec![
+                Capability::Keys,
+                Capability::FnLayer,
+                Capability::HardwareRgb,
+            ],
             layout_ids: vec!["aula.f108pro.ansi".into()],
             matchers: vec![DeviceMatch {
                 vendor_id: VENDOR_ID,
@@ -58,8 +62,26 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
         lighting_effects()
     }
 
-    fn normal_remap_capabilities(&self) -> Option<NormalRemapCapabilities> {
-        Some(remap::normal_remap_capabilities())
+    fn keymap_capabilities(&self, layer: KeymapLayer) -> Option<KeymapCapabilities> {
+        Some(remap::keymap_capabilities(layer))
+    }
+
+    fn fn_layer_descriptor(&self) -> Option<FnLayerDescriptor> {
+        Some(FnLayerDescriptor {
+            modes: vec![
+                FnActivationModeOption {
+                    mode: FnActivationMode::Toggle,
+                    raw_value: 0,
+                },
+                FnActivationModeOption {
+                    mode: FnActivationMode::Momentary,
+                    raw_value: 1,
+                },
+            ],
+            current_mode: None,
+            hardware_write_verified: false,
+            note: "OEM binary maps fn_switch raw 0 to Toggle and raw 1 to Momentary. MechKeyMesh does not write this setting yet because the 04 17 / 00 01 function-settings transaction is not physically verified.".into(),
+        })
     }
 
     fn validate_keymap(
@@ -118,7 +140,11 @@ struct AulaF108ProRemapSession {
 impl DeviceSession for AulaF108ProRemapSession {
     fn descriptor(&self) -> DeviceDescriptor {
         let mut descriptor = self.inner.descriptor();
-        descriptor.capabilities = vec![Capability::Keys, Capability::HardwareRgb];
+        descriptor.capabilities = vec![
+            Capability::Keys,
+            Capability::FnLayer,
+            Capability::HardwareRgb,
+        ];
         descriptor
     }
 
@@ -146,9 +172,7 @@ impl DeviceSession for AulaF108ProRemapSession {
     ) -> Result<(), DriverError> {
         match layer {
             KeymapLayer::Normal => remap::send_normal_keymap(&mut self.inner, context, assignments),
-            KeymapLayer::Fn => Err(DriverError::UnsupportedCapability(
-                "F108 Fn remapping is implemented in R7, not R6",
-            )),
+            KeymapLayer::Fn => remap::send_fn_keymap(&mut self.inner, context, assignments),
         }
     }
 
@@ -163,19 +187,23 @@ mod tests {
     use mechkeymesh_driver_api::{KeyAction, MediaAction, Modifier, MouseAction, WindowsAction};
 
     #[test]
-    fn r6_manifest_exposes_only_implemented_key_and_rgb_capabilities() {
+    fn r7_manifest_exposes_normal_fn_and_rgb_capabilities() {
         let driver = AulaF108ProRemapDriver::new();
         let manifest = driver.manifest();
         assert_eq!(
             manifest.capabilities,
-            vec![Capability::Keys, Capability::HardwareRgb]
+            vec![
+                Capability::Keys,
+                Capability::FnLayer,
+                Capability::HardwareRgb,
+            ]
         );
     }
 
     #[test]
-    fn r6_capability_matrix_excludes_unverified_host_and_mouse_actions() {
+    fn r7_capability_matrix_excludes_unverified_host_and_mouse_actions() {
         let capabilities = AulaF108ProRemapDriver::new()
-            .normal_remap_capabilities()
+            .keymap_capabilities(KeymapLayer::Normal)
             .unwrap();
         assert!(capabilities.disable);
         assert!(capabilities.keyboard_key);
@@ -193,6 +221,37 @@ mod tests {
                 .windows_actions
                 .contains(&WindowsAction::Calculator)
         );
+    }
+
+    #[test]
+    fn fn_layer_capabilities_protect_native_controls() {
+        let driver = AulaF108ProRemapDriver::new();
+        let capabilities = driver.keymap_capabilities(KeymapLayer::Fn).unwrap();
+        assert!(
+            capabilities
+                .protected_keys
+                .iter()
+                .any(|restriction| restriction.device_key_index == 1)
+        );
+        assert!(
+            capabilities
+                .protected_keys
+                .iter()
+                .any(|restriction| restriction.device_key_index == 96)
+        );
+        assert!(capabilities.keyboard_key);
+        assert!(capabilities.shortcut);
+    }
+
+    #[test]
+    fn fn_activation_enum_matches_oem_binary_mapping() {
+        let descriptor = AulaF108ProRemapDriver::new().fn_layer_descriptor().unwrap();
+        assert_eq!(descriptor.modes[0].mode, FnActivationMode::Toggle);
+        assert_eq!(descriptor.modes[0].raw_value, 0);
+        assert_eq!(descriptor.modes[1].mode, FnActivationMode::Momentary);
+        assert_eq!(descriptor.modes[1].raw_value, 1);
+        assert!(!descriptor.hardware_write_verified);
+        assert_eq!(descriptor.current_mode, None);
     }
 
     #[test]

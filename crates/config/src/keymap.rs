@@ -3,6 +3,7 @@ use mechkeymesh_driver_api::{KeyAction, KeymapLayer};
 use serde::{Deserialize, Serialize};
 
 pub const NORMAL_LAYER_ID: &str = "normal";
+pub const FN_LAYER_ID: &str = "fn";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,14 +31,33 @@ pub struct DesiredKeymap {
 }
 
 impl DesiredKeymap {
-    pub fn normal(scope: ConfigurationScope, mut mappings: Vec<KeyMapping>) -> Self {
+    pub fn for_layer(
+        scope: ConfigurationScope,
+        layer: KeymapLayer,
+        mut mappings: Vec<KeyMapping>,
+    ) -> Self {
         mappings.sort_by(|left, right| left.key_id.cmp(&right.key_id));
         Self {
             scope,
-            layer: KeymapLayer::Normal,
-            layer_id: NORMAL_LAYER_ID.into(),
+            layer,
+            layer_id: layer_id(layer).into(),
             mappings,
         }
+    }
+
+    pub fn normal(scope: ConfigurationScope, mappings: Vec<KeyMapping>) -> Self {
+        Self::for_layer(scope, KeymapLayer::Normal, mappings)
+    }
+
+    pub fn fn_layer(scope: ConfigurationScope, mappings: Vec<KeyMapping>) -> Self {
+        Self::for_layer(scope, KeymapLayer::Fn, mappings)
+    }
+}
+
+pub const fn layer_id(layer: KeymapLayer) -> &'static str {
+    match layer {
+        KeymapLayer::Normal => NORMAL_LAYER_ID,
+        KeymapLayer::Fn => FN_LAYER_ID,
     }
 }
 
@@ -62,6 +82,19 @@ mod tests {
         assert_eq!(desired.layer, KeymapLayer::Normal);
         assert_eq!(desired.layer_id, NORMAL_LAYER_ID);
         assert_eq!(desired.scope.capability, Capability::Keys);
+        assert_eq!(desired.mappings.len(), 1);
+    }
+
+    #[test]
+    fn fn_keymap_uses_independent_scope_and_layer_id() {
+        let desired = DesiredKeymap::fn_layer(
+            ConfigurationScope::new("aula.f108pro", "default", Capability::FnLayer),
+            vec![KeyMapping::new("key-055", KeyAction::Disabled)],
+        );
+
+        assert_eq!(desired.layer, KeymapLayer::Fn);
+        assert_eq!(desired.layer_id, FN_LAYER_ID);
+        assert_eq!(desired.scope.capability, Capability::FnLayer);
         assert_eq!(desired.mappings.len(), 1);
     }
 

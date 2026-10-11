@@ -25,7 +25,7 @@
     </div>
     <nav id="nav">
       <button class="active" data-page="home">Home</button>
-      <button data-page="keys">Keys <b>R6</b></button>
+      <button data-page="keys">Keys <b>R7</b></button>
       <button data-page="macros" disabled>Macros <b>Soon</b></button>
       <button data-page="lighting">Lighting</button>
       <button data-page="lcd" disabled>LCD <b>Soon</b></button>
@@ -33,7 +33,7 @@
       <button data-page="settings" disabled>Device Settings <b>Soon</b></button>
       <button data-page="diagnostics">Diagnostics</button>
     </nav>
-    <div class="version">v0.7.0-alpha.1 · Normal Remapping</div>
+    <div class="version">v0.8.0-alpha.1 · Normal + Fn Layers</div>
   </aside>
 
   <main>
@@ -84,7 +84,7 @@
       <article class="card layout-card">
         <div class="sectiontitle">
           <div>
-            <span class="eyebrow">NORMAL-LAYER REMAPPING</span>
+            <span class="eyebrow">NORMAL + FN REMAPPING</span>
             <h3 id="layoutName">Loading layout...</h3>
             <p id="layoutSummary" class="muted">Select one key, or Ctrl/Cmd-click several keys, then assign an action.</p>
           </div>
@@ -96,21 +96,31 @@
         </div>
 
         <div class="layer-tabs" role="tablist" aria-label="Keyboard layer">
-          <button class="layer-tab active" type="button">Normal</button>
-          <button class="layer-tab" type="button" disabled>Fn <span>R7</span></button>
+          <button class="layer-tab active" type="button" role="tab" aria-selected="true" data-layer="normal">Normal</button>
+          <button class="layer-tab" type="button" role="tab" aria-selected="false" data-layer="fn">Fn</button>
         </div>
 
-        <div class="keymap-toolbar" role="toolbar" aria-label="Normal keymap editing">
+        <div id="fnLayerInfo" class="fn-layer-info hidden-control">
+          <div>
+            <strong>Fn activation behavior</strong>
+            <span id="fnModeSummary" class="muted">Loading OEM Fn-mode evidence...</span>
+          </div>
+          <span class="verification pending">Setting write not enabled</span>
+        </div>
+
+        <div class="keymap-toolbar" role="toolbar" aria-label="Keymap editing">
           <div class="toolbar-group">
             <button id="undoKeymap" class="secondary compact" type="button" disabled>Undo</button>
             <button id="redoKeymap" class="secondary compact" type="button" disabled>Redo</button>
             <button id="copyKeyAction" class="secondary compact" type="button" disabled>Copy</button>
             <button id="pasteKeyAction" class="secondary compact" type="button" disabled>Paste</button>
             <button id="resetSelectedKeys" class="secondary compact" type="button" disabled>Reset selected</button>
+            <button id="resetCurrentLayer" class="secondary compact" type="button">Reset current layer</button>
+            <button id="resetAllKeyAssignments" class="secondary compact danger-soft" type="button">Reset key assignments</button>
           </div>
           <div class="toolbar-save">
-            <span id="keymapStatus" class="muted">Loading desired normal layer...</span>
-            <button id="saveNormalKeymap" class="primary" type="button">Save desired normal layer</button>
+            <span id="keymapStatus" class="muted">Loading desired Normal layer...</span>
+            <button id="saveKeymap" class="primary" type="button">Save desired Normal layer</button>
           </div>
         </div>
 
@@ -118,7 +128,7 @@
           <div class="layout-loading">Loading keyboard geometry...</div>
         </div>
         <p class="layout-note">
-          Mapped keys have a blue marker. The complete 576-byte normal-layer table is regenerated and written atomically. OEM <code>row_col</code> remains source-grid information, not an assumed electrical matrix.
+          Mapped keys have a blue marker. Normal and Fn are independent 576-byte desired-state tables. Fn keys protected for native firmware behavior are marked in orange. OEM <code>row_col</code> remains source-grid information, not an assumed electrical matrix.
         </p>
       </article>
 
@@ -138,8 +148,9 @@
 
         <article class="card action-editor">
           <span class="eyebrow">ASSIGN ACTION</span>
-          <h3>Normal-layer action</h3>
+          <h3 id="actionEditorTitle">Normal-layer action</h3>
           <p class="muted">Only F108 encodings supported by current protocol evidence are enabled.</p>
+          <div id="fnProtectionNotice" class="protocol-notice hidden-control"></div>
 
           <label class="editor-field">Action family
             <select id="keyActionType">
@@ -199,6 +210,13 @@
 
           <div id="hostActionNotice" class="protocol-notice">
             Open application, file, URL and send-text assignments in the OEM software depend on an indexed host-side handler. They stay disabled until MechKeyMesh verifies that event channel rather than pretending the four-byte mapping alone is sufficient.
+          </div>
+
+          <div class="reset-semantics">
+            <strong>Reset semantics</strong>
+            <p><b>Reset selected</b> restores only the selected assignments to firmware default in the editor.</p>
+            <p><b>Reset current layer</b> stores and sends an empty remap table for Normal or Fn.</p>
+            <p><b>Reset key assignments</b> clears both remap tables only. It is intentionally not called "Reset Keyboard" or "Factory Reset". Those broader OEM operations remain unavailable until their exact physical scope is verified.</p>
           </div>
 
           <div class="editor-actions">

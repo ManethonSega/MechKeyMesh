@@ -2,24 +2,53 @@ const keymapInvoke = (command, args = {}) => window.__TAURI__.core.invoke(comman
 const keymapQ = (selector) => document.querySelector(selector);
 
 let keymapLayout = null;
-let keymapCapabilities = null;
-let keymapMappings = new Map();
+let fnLayerDescriptor = null;
+let activeKeymapLayer = "normal";
 let keymapClipboard = null;
-let keymapHistory = [];
-let keymapHistoryIndex = -1;
-let savedKeymapSnapshot = "[]";
 let keymapInitialized = false;
+
+const layerStates = {
+  normal: null,
+  fn: null
+};
 
 function deepClone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }
 
-function mappingSnapshot() {
+function layerLabel(layer = activeKeymapLayer) {
+  return layer === "fn" ? "Fn" : "Normal";
+}
+
+function createLayerState(desired, capabilities) {
+  const mappings = new Map(
+    (desired.mappings || []).map((mapping) => [mapping.keyId, mapping.action])
+  );
+  const initial = snapshotForMap(mappings);
+  return {
+    mappings,
+    capabilities,
+    history: [initial],
+    historyIndex: 0,
+    savedSnapshot: initial
+  };
+}
+
+function activeState() {
+  return layerStates[activeKeymapLayer];
+}
+
+function snapshotForMap(mappings) {
   return JSON.stringify(
-    [...keymapMappings.entries()]
+    [...mappings.entries()]
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([keyId, action]) => ({ keyId, action }))
   );
+}
+
+function mappingSnapshot() {
+  const state = activeState();
+  return state ? snapshotForMap(state.mappings) : "[]";
 }
 
 function selectedKeyIdsFromDom() {
@@ -35,11 +64,19 @@ function selectedKeys() {
 }
 
 function actionForKey(keyId) {
-  return keymapMappings.get(keyId) || { type: "default" };
+  return activeState()?.mappings.get(keyId) || { type: "default" };
 }
 
 function actionsEqual(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function restrictionForKey(key) {
+  if (activeKeymapLayer !== "fn" || !key) return null;
+  const index = Number(key.deviceKeyIndex);
+  return activeState()?.capabilities?.protectedKeys?.find(
+    (restriction) => Number(restriction.deviceKeyIndex) === index
+  ) || null;
 }
 
 function actionSummary(action) {
@@ -73,6 +110,7 @@ function actionSummary(action) {
 }
 
 function populateKeyTargets() {
+  if (!keymapLayout) return;
   const seen = new Set();
   const options = [];
   for (const key of keymapLayout.keys) {
@@ -89,7 +127,8 @@ function populateKeyTargets() {
     for (const option of options) {
       const element = document.createElement("option");
       element.value = String(option.usage);
-      element.textContent = `${option.label} (0x${option.usage.toString(16).padStart(2, "0").toUpperCase()})`;
+      element.textContent =
+        `${option.label} (0x${option.usage.toString(16).padStart(2, "0").toUpperCase()})`;
       select.appendChild(element);
     }
   }
@@ -103,6 +142,9 @@ function titleCase(value) {
 }
 
 function populateCapabilityTargets() {
+  const capabilities = activeState()?.capabilities;
+  if (!capabilities) return;
+
   const mediaLabels = {
     "play-pause": "Play / Pause",
     "stop": "Stop",
@@ -128,39 +170,29 @@ function populateCapabilityTargets() {
     "calculator": "Calculator"
   };
 
-  populateSelect(
-    "#mediaTarget",
-    keymapCapabilities.mediaActions,
-    (value) => mediaLabels[value] || titleCase(value)
-  );
-  populateSelect(
-    "#mouseTarget",
-    keymapCapabilities.mouseActions,
-    (value) => mouseLabels[value] || titleCase(value)
-  );
-  populateSelect(
-    "#windowsTarget",
-    keymapCapabilities.windowsActions,
-    (value) => windowsLabels[value] || titleCase(value)
-  );
+  populateSelect("#mediaTarget", capabilities.mediaActions, (value) => mediaLabels[value] || titleCase(value));
+  populateSelect("#mouseTarget", capabilities.mouseActions, (value) => mouseLabels[value] || titleCase(value));
+  populateSelect("#windowsTarget", capabilities.windowsActions, (value) => windowsLabels[value] || titleCase(value));
 
   const typeSelect = keymapQ("#keyActionType");
-  setOptionEnabled(typeSelect, "disabled", keymapCapabilities.disable);
-  setOptionEnabled(typeSelect, "keyboard-key", keymapCapabilities.keyboardKey);
-  setOptionEnabled(typeSelect, "modifier", keymapCapabilities.modifier);
-  setOptionEnabled(typeSelect, "shortcut", keymapCapabilities.shortcut);
-  setOptionEnabled(typeSelect, "media", keymapCapabilities.mediaActions.length > 0);
-  setOptionEnabled(typeSelect, "mouse", keymapCapabilities.mouseActions.length > 0);
-  setOptionEnabled(typeSelect, "windows", keymapCapabilities.windowsActions.length > 0);
-  setOptionEnabled(typeSelect, "open-application", keymapCapabilities.openApplication);
-  setOptionEnabled(typeSelect, "open-file", keymapCapabilities.openFile);
-  setOptionEnabled(typeSelect, "open-url", keymapCapabilities.openUrl);
-  setOptionEnabled(typeSelect, "send-text", keymapCapabilities.sendText);
-  setOptionEnabled(typeSelect, "macro", keymapCapabilities.macroAction);
+  setOptionEnabled(typeSelect, "disabled", capabilities.disable);
+  setOptionEnabled(typeSelect, "keyboard-key", capabilities.keyboardKey);
+  setOptionEnabled(typeSelect, "modifier", capabilities.modifier);
+  setOptionEnabled(typeSelect, "shortcut", capabilities.shortcut);
+  setOptionEnabled(typeSelect, "media", capabilities.mediaActions.length > 0);
+  setOptionEnabled(typeSelect, "mouse", capabilities.mouseActions.length > 0);
+  setOptionEnabled(typeSelect, "windows", capabilities.windowsActions.length > 0);
+  setOptionEnabled(typeSelect, "open-application", capabilities.openApplication);
+  setOptionEnabled(typeSelect, "open-file", capabilities.openFile);
+  setOptionEnabled(typeSelect, "open-url", capabilities.openUrl);
+  setOptionEnabled(typeSelect, "send-text", capabilities.sendText);
+  setOptionEnabled(typeSelect, "macro", capabilities.macroAction);
 
-  if (keymapCapabilities.unsupportedHostActionsReason) {
-    keymapQ("#hostActionNotice").textContent = keymapCapabilities.unsupportedHostActionsReason;
+  if (typeSelect.selectedOptions[0]?.disabled) typeSelect.value = "default";
+  if (capabilities.unsupportedHostActionsReason) {
+    keymapQ("#hostActionNotice").textContent = capabilities.unsupportedHostActionsReason;
   }
+  updateActionFields();
 }
 
 function populateSelect(selector, values, labeler) {
@@ -223,7 +255,7 @@ function actionFromEditor() {
     case "windows":
       return { type: "windows", action: keymapQ("#windowsTarget").value };
     default:
-      throw new Error("This action is not currently supported by the F108 R6 driver.");
+      throw new Error("This action is not currently supported by the F108 driver.");
   }
 }
 
@@ -249,7 +281,9 @@ function editorFromAction(action) {
       keymapQ("#keyActionType").value = "shortcut";
       keymapQ("#shortcutKeyTarget").value = String(action.key);
       for (const modifier of action.modifiers || []) {
-        const checkbox = document.querySelector(`#shortcutFields input[value="${CSS.escape(modifier)}"]`);
+        const checkbox = document.querySelector(
+          `#shortcutFields input[value="${CSS.escape(modifier)}"]`
+        );
         if (checkbox) checkbox.checked = true;
       }
       break;
@@ -274,13 +308,33 @@ function editorFromAction(action) {
 function refreshSelectionEditor() {
   const keys = selectedKeys();
   const count = keys.length;
+  const restrictions = keys
+    .map((key) => ({ key, restriction: restrictionForKey(key) }))
+    .filter((entry) => entry.restriction);
+
   keymapQ("#selectedKeyCount").textContent = count === 0
     ? "No keys selected"
     : `${count} key${count === 1 ? "" : "s"} selected`;
-  keymapQ("#applyKeyAction").disabled = count === 0;
+
+  const hasProtected = restrictions.length > 0;
+  keymapQ("#applyKeyAction").disabled = count === 0 || hasProtected;
   keymapQ("#copyKeyAction").disabled = count !== 1;
-  keymapQ("#pasteKeyAction").disabled = count === 0 || !keymapClipboard;
+  keymapQ("#pasteKeyAction").disabled = count === 0 || !keymapClipboard || hasProtected;
   keymapQ("#resetSelectedKeys").disabled = count === 0;
+
+  const notice = keymapQ("#fnProtectionNotice");
+  if (hasProtected) {
+    const details = restrictions
+      .map(({ key, restriction }) => `${key.label}: ${restriction.reason}`)
+      .join(" ");
+    notice.textContent =
+      "Protected Fn shortcut. MechKeyMesh blocks non-default assignments here to preserve firmware behavior. " +
+      details;
+    notice.classList.remove("hidden-control");
+  } else {
+    notice.classList.add("hidden-control");
+    notice.textContent = "";
+  }
 
   if (count === 0) {
     keymapQ("#currentAssignment").textContent = "Assigned action: Default";
@@ -297,26 +351,47 @@ function refreshSelectionEditor() {
 }
 
 function refreshMappedKeys() {
+  const state = activeState();
+  if (!state) return;
+
   document.querySelectorAll(".keyboard-key").forEach((element) => {
-    const action = actionForKey(element.dataset.keyId);
+    const keyId = element.dataset.keyId;
+    const key = keymapLayout?.keys.find((item) => item.id === keyId);
+    const action = actionForKey(keyId);
     const mapped = action.type !== "default";
+    const restriction = restrictionForKey(key);
+
     element.classList.toggle("mapped", mapped);
+    element.classList.toggle("fn-protected", Boolean(restriction));
     element.dataset.assignment = actionSummary(action);
+    if (restriction) {
+      element.dataset.protectionReason = restriction.reason;
+      element.setAttribute("aria-disabled", "true");
+    } else {
+      delete element.dataset.protectionReason;
+      element.removeAttribute("aria-disabled");
+    }
   });
 }
 
 function commitHistory() {
+  const state = activeState();
+  if (!state) return;
+
   const snapshot = mappingSnapshot();
-  if (keymapHistory[keymapHistoryIndex] === snapshot) return;
-  keymapHistory = keymapHistory.slice(0, keymapHistoryIndex + 1);
-  keymapHistory.push(snapshot);
-  keymapHistoryIndex = keymapHistory.length - 1;
+  if (state.history[state.historyIndex] === snapshot) return;
+  state.history = state.history.slice(0, state.historyIndex + 1);
+  state.history.push(snapshot);
+  state.historyIndex = state.history.length - 1;
   updateHistoryButtons();
   updateDirtyState();
 }
 
 function restoreSnapshot(snapshot) {
-  keymapMappings = new Map(
+  const state = activeState();
+  if (!state) return;
+
+  state.mappings = new Map(
     JSON.parse(snapshot).map((mapping) => [mapping.keyId, mapping.action])
   );
   refreshMappedKeys();
@@ -325,54 +400,169 @@ function restoreSnapshot(snapshot) {
 }
 
 function updateHistoryButtons() {
-  keymapQ("#undoKeymap").disabled = keymapHistoryIndex <= 0;
-  keymapQ("#redoKeymap").disabled = keymapHistoryIndex >= keymapHistory.length - 1;
+  const state = activeState();
+  keymapQ("#undoKeymap").disabled = !state || state.historyIndex <= 0;
+  keymapQ("#redoKeymap").disabled =
+    !state || state.historyIndex >= state.history.length - 1;
 }
 
 function updateDirtyState(message) {
-  const dirty = mappingSnapshot() !== savedKeymapSnapshot;
+  const state = activeState();
+  if (!state) return;
+
+  const dirty = mappingSnapshot() !== state.savedSnapshot;
   if (message) {
     keymapQ("#keymapStatus").textContent = message;
   } else {
     keymapQ("#keymapStatus").textContent = dirty
-      ? "Unsaved normal-layer changes"
-      : `${keymapMappings.size} mapped key${keymapMappings.size === 1 ? "" : "s"} saved`;
+      ? `Unsaved ${layerLabel()}-layer changes`
+      : `${state.mappings.size} mapped key${state.mappings.size === 1 ? "" : "s"} saved on ${layerLabel()}`;
   }
-  keymapQ("#saveNormalKeymap").classList.toggle("dirty", dirty);
+  keymapQ("#saveKeymap").classList.toggle("dirty", dirty);
 }
 
 function applyActionToSelection(action) {
-  const ids = selectedKeyIdsFromDom();
-  if (ids.length === 0) return;
-  for (const keyId of ids) {
-    if (action.type === "default") keymapMappings.delete(keyId);
-    else keymapMappings.set(keyId, deepClone(action));
+  const state = activeState();
+  const keys = selectedKeys();
+  if (!state || keys.length === 0) return;
+
+  const protectedKey = keys.find((key) => restrictionForKey(key));
+  if (protectedKey && action.type !== "default") {
+    throw new Error(
+      `${protectedKey.label} is protected on the Fn layer: ${restrictionForKey(protectedKey).reason}`
+    );
+  }
+
+  for (const key of keys) {
+    if (action.type === "default") state.mappings.delete(key.id);
+    else state.mappings.set(key.id, deepClone(action));
   }
   commitHistory();
   refreshMappedKeys();
   refreshSelectionEditor();
 }
 
-async function saveNormalKeymap() {
-  const mappings = [...keymapMappings.entries()]
+async function saveCurrentKeymap(statusText = null) {
+  const state = activeState();
+  if (!state) return false;
+
+  const mappings = [...state.mappings.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([keyId, action]) => ({ keyId, action }));
-  const button = keymapQ("#saveNormalKeymap");
+  const button = keymapQ("#saveKeymap");
   button.disabled = true;
-  updateDirtyState("Validating and writing the complete normal layer...");
+  updateDirtyState(
+    statusText || `Validating and writing the complete ${layerLabel()} layer...`
+  );
+
   try {
-    const result = await keymapInvoke("save_normal_keymap", { mappings });
-    savedKeymapSnapshot = mappingSnapshot();
+    const result = await keymapInvoke("save_keymap", {
+      layer: activeKeymapLayer,
+      mappings
+    });
+    state.savedSnapshot = mappingSnapshot();
     updateDirtyState(
       result.applied
-        ? `Saved and applied ${result.assignmentCount} mapping${result.assignmentCount === 1 ? "" : "s"}. Physical key verification is still required.`
-        : `Desired keymap saved locally. Keyboard not applied: ${result.message || "not ready"}`
+        ? `Saved and applied ${result.assignmentCount} ${layerLabel()} mapping${result.assignmentCount === 1 ? "" : "s"}. Physical key verification is still required.`
+        : `Desired ${layerLabel()} keymap saved locally. Keyboard not applied: ${result.message || "not ready"}`
     );
+    return true;
   } catch (error) {
     updateDirtyState(`Keymap rejected: ${String(error)}`);
+    return false;
   } finally {
     button.disabled = false;
   }
+}
+
+async function resetCurrentLayer() {
+  const state = activeState();
+  if (!state) return;
+  if (!window.confirm(
+    `Reset the entire ${layerLabel()} layer to firmware default? This clears all saved assignments on this layer.`
+  )) return;
+
+  state.mappings.clear();
+  commitHistory();
+  refreshMappedKeys();
+  refreshSelectionEditor();
+  await saveCurrentKeymap(`Resetting the complete ${layerLabel()} remap table...`);
+}
+
+async function resetAllKeyAssignments() {
+  if (!window.confirm(
+    "Reset both Normal and Fn key assignments? Lighting, LCD media, device settings and other subsystems are not reset."
+  )) return;
+
+  const button = keymapQ("#resetAllKeyAssignments");
+  button.disabled = true;
+  updateDirtyState("Resetting both key assignment layers...");
+  try {
+    const result = await keymapInvoke("reset_key_assignments");
+    for (const layer of ["normal", "fn"]) {
+      const state = layerStates[layer];
+      state.mappings.clear();
+      state.history = ["[]"];
+      state.historyIndex = 0;
+      state.savedSnapshot = "[]";
+    }
+    refreshMappedKeys();
+    refreshSelectionEditor();
+    updateHistoryButtons();
+    updateDirtyState(
+      result.normalApplied && result.fnApplied
+        ? "Normal and Fn key assignments reset and applied."
+        : `Desired Normal and Fn assignments reset locally. ${result.message || "Hardware application is pending."}`
+    );
+  } catch (error) {
+    updateDirtyState(`Could not reset key assignments: ${String(error)}`);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function updateFnLayerInfo() {
+  const panel = keymapQ("#fnLayerInfo");
+  if (activeKeymapLayer !== "fn") {
+    panel.classList.add("hidden-control");
+    return;
+  }
+
+  panel.classList.remove("hidden-control");
+  if (!fnLayerDescriptor) {
+    keymapQ("#fnModeSummary").textContent = "Fn activation metadata unavailable.";
+    return;
+  }
+
+  const modes = (fnLayerDescriptor.modes || [])
+    .map((option) => `${titleCase(option.mode)} = raw ${option.rawValue}`)
+    .join(", ");
+  const current = fnLayerDescriptor.currentMode
+    ? titleCase(fnLayerDescriptor.currentMode)
+    : "unavailable";
+  keymapQ("#fnModeSummary").textContent =
+    `OEM enum: ${modes}. Current device value: ${current}. ${fnLayerDescriptor.note}`;
+}
+
+function switchLayer(layer) {
+  if (!layerStates[layer]) return;
+  activeKeymapLayer = layer;
+
+  document.querySelectorAll(".layer-tab[data-layer]").forEach((button) => {
+    const active = button.dataset.layer === layer;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+
+  keymapQ("#actionEditorTitle").textContent = `${layerLabel()}-layer action`;
+  keymapQ("#saveKeymap").textContent = `Save desired ${layerLabel()} layer`;
+
+  populateCapabilityTargets();
+  updateFnLayerInfo();
+  updateHistoryButtons();
+  refreshMappedKeys();
+  refreshSelectionEditor();
+  updateDirtyState();
 }
 
 function bindKeymapEvents() {
@@ -385,7 +575,11 @@ function bindKeymapEvents() {
     }
   });
   keymapQ("#resetSelectedKeys").addEventListener("click", () => {
-    applyActionToSelection({ type: "default" });
+    try {
+      applyActionToSelection({ type: "default" });
+    } catch (error) {
+      updateDirtyState(String(error));
+    }
   });
   keymapQ("#copyKeyAction").addEventListener("click", () => {
     const keys = selectedKeys();
@@ -395,29 +589,59 @@ function bindKeymapEvents() {
     updateDirtyState(`Copied ${actionSummary(keymapClipboard)}.`);
   });
   keymapQ("#pasteKeyAction").addEventListener("click", () => {
-    if (keymapClipboard) applyActionToSelection(keymapClipboard);
+    try {
+      if (keymapClipboard) applyActionToSelection(keymapClipboard);
+    } catch (error) {
+      updateDirtyState(String(error));
+    }
   });
   keymapQ("#undoKeymap").addEventListener("click", () => {
-    if (keymapHistoryIndex <= 0) return;
-    keymapHistoryIndex -= 1;
-    restoreSnapshot(keymapHistory[keymapHistoryIndex]);
+    const state = activeState();
+    if (!state || state.historyIndex <= 0) return;
+    state.historyIndex -= 1;
+    restoreSnapshot(state.history[state.historyIndex]);
     updateHistoryButtons();
   });
   keymapQ("#redoKeymap").addEventListener("click", () => {
-    if (keymapHistoryIndex >= keymapHistory.length - 1) return;
-    keymapHistoryIndex += 1;
-    restoreSnapshot(keymapHistory[keymapHistoryIndex]);
+    const state = activeState();
+    if (!state || state.historyIndex >= state.history.length - 1) return;
+    state.historyIndex += 1;
+    restoreSnapshot(state.history[state.historyIndex]);
     updateHistoryButtons();
   });
-  keymapQ("#saveNormalKeymap").addEventListener("click", saveNormalKeymap);
+  keymapQ("#saveKeymap").addEventListener("click", () => void saveCurrentKeymap());
+  keymapQ("#resetCurrentLayer").addEventListener("click", () => void resetCurrentLayer());
+  keymapQ("#resetAllKeyAssignments").addEventListener("click", () => void resetAllKeyAssignments());
+
+  document.querySelectorAll(".layer-tab[data-layer]").forEach((button) => {
+    button.addEventListener("click", () => switchLayer(button.dataset.layer));
+  });
 
   const viewport = keymapQ("#keyboardViewport");
   viewport.addEventListener("click", () => setTimeout(refreshSelectionEditor, 0));
   viewport.addEventListener("keydown", () => setTimeout(refreshSelectionEditor, 0));
-  new MutationObserver(() => refreshMappedKeys()).observe(viewport, {
+  new MutationObserver(() => {
+    refreshMappedKeys();
+    refreshSelectionEditor();
+  }).observe(viewport, {
     childList: true,
     subtree: true
   });
+
+  window.addEventListener("mechkeymesh-layout-changed", (event) => {
+    keymapLayout = event.detail?.layout || keymapLayout;
+    populateKeyTargets();
+    refreshMappedKeys();
+    refreshSelectionEditor();
+  });
+}
+
+async function loadLayerState(layer) {
+  const [capabilities, desired] = await Promise.all([
+    keymapInvoke("get_keymap_capabilities", { layer }),
+    keymapInvoke("get_desired_keymap", { layer })
+  ]);
+  return createLayerState(desired, capabilities);
 }
 
 async function initializeKeymapEditor() {
@@ -426,31 +650,24 @@ async function initializeKeymapEditor() {
   bindKeymapEvents();
 
   try {
-    const [layout, capabilities, desired] = await Promise.all([
+    const [layout, normal, fnLayer, descriptor] = await Promise.all([
       keymapInvoke("get_primary_layout"),
-      keymapInvoke("get_normal_remap_capabilities"),
-      keymapInvoke("get_desired_normal_keymap")
+      loadLayerState("normal"),
+      loadLayerState("fn"),
+      keymapInvoke("get_fn_layer_descriptor")
     ]);
+
     keymapLayout = layout;
-    keymapCapabilities = capabilities;
-    keymapMappings = new Map(
-      (desired.mappings || []).map((mapping) => [mapping.keyId, mapping.action])
-    );
+    layerStates.normal = normal;
+    layerStates.fn = fnLayer;
+    fnLayerDescriptor = descriptor;
 
     populateKeyTargets();
-    populateCapabilityTargets();
-    updateActionFields();
-    const initial = mappingSnapshot();
-    keymapHistory = [initial];
-    keymapHistoryIndex = 0;
-    savedKeymapSnapshot = initial;
-    updateHistoryButtons();
-    refreshMappedKeys();
-    refreshSelectionEditor();
-    updateDirtyState();
+    switchLayer("normal");
   } catch (error) {
-    keymapQ("#keymapStatus").textContent = `Could not initialize normal remapping: ${String(error)}`;
-    keymapQ("#saveNormalKeymap").disabled = true;
+    keymapQ("#keymapStatus").textContent =
+      `Could not initialize Normal/Fn remapping: ${String(error)}`;
+    keymapQ("#saveKeymap").disabled = true;
   }
 }
 

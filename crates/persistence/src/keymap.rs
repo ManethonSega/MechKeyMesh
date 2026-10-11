@@ -1,87 +1,99 @@
 use super::{PersistenceError, PersistenceStore, unix_millis};
-use mechkeymesh_config::{ConfigurationScope, DesiredKeymap, KeyMapping, NORMAL_LAYER_ID};
+use mechkeymesh_config::{ConfigurationScope, DesiredKeymap, KeyMapping, layer_id};
 use mechkeymesh_driver_api::{Capability, KeyAction, KeymapLayer};
 use rusqlite::{TransactionBehavior, params};
 use std::collections::HashSet;
 
 impl PersistenceStore {
     pub fn save_keymap(&self, desired: &DesiredKeymap) -> Result<(), PersistenceError> {
-        validate_keymap_scope(desired)?;
-        let mut connection = self.connection.lock().expect("database lock poisoned");
-        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        self.save_keymaps(std::slice::from_ref(desired))
+    }
 
-        let profile_exists: bool = transaction.query_row(
-            r#"
-                SELECT EXISTS(
-                    SELECT 1
-                    FROM profiles
-                    WHERE device_model_id = ?1
-                      AND id = ?2
-                )
-            "#,
-            params![desired.scope.device_model_id, desired.scope.profile_id],
-            |row| row.get(0),
-        )?;
-
-        if !profile_exists {
-            return Err(PersistenceError::ProfileNotFound {
-                device_model_id: desired.scope.device_model_id.clone(),
-                profile_id: desired.scope.profile_id.clone(),
-            });
+    pub fn save_keymaps(&self, desired_keymaps: &[DesiredKeymap]) -> Result<(), PersistenceError> {
+        for desired in desired_keymaps {
+            validate_keymap_scope(desired)?;
+        }
+        if desired_keymaps.is_empty() {
+            return Ok(());
         }
 
-        transaction.execute(
-            r#"
-                DELETE FROM key_mappings
-                WHERE device_model_id = ?1
-                  AND profile_id = ?2
-                  AND capability = ?3
-                  AND layer_id = ?4
-            "#,
-            params![
-                desired.scope.device_model_id,
-                desired.scope.profile_id,
-                desired.scope.capability.storage_key(),
-                desired.layer_id
-            ],
-        )?;
-
+        let mut connection = self.connection.lock().expect("database lock poisoned");
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let now = unix_millis();
-        for mapping in &desired.mappings {
-            if mapping.action == KeyAction::Default {
-                continue;
-            }
 
-            let action_json = serde_json::to_string(&mapping.action).map_err(|error| {
-                PersistenceError::Integrity(format!(
-                    "could not serialize key action for {}: {error}",
-                    mapping.key_id
-                ))
-            })?;
+        for desired in desired_keymaps {
+            let profile_exists: bool = transaction.query_row(
+                r#"
+                    SELECT EXISTS(
+                        SELECT 1
+                        FROM profiles
+                        WHERE device_model_id = ?1
+                          AND id = ?2
+                    )
+                "#,
+                params![desired.scope.device_model_id, desired.scope.profile_id],
+                |row| row.get(0),
+            )?;
+
+            if !profile_exists {
+                return Err(PersistenceError::ProfileNotFound {
+                    device_model_id: desired.scope.device_model_id.clone(),
+                    profile_id: desired.scope.profile_id.clone(),
+                });
+            }
 
             transaction.execute(
                 r#"
-                    INSERT INTO key_mappings (
-                        device_model_id,
-                        profile_id,
-                        capability,
-                        layer_id,
-                        key_id,
-                        action_json,
-                        updated_at
-                    )
-                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                    DELETE FROM key_mappings
+                    WHERE device_model_id = ?1
+                      AND profile_id = ?2
+                      AND capability = ?3
+                      AND layer_id = ?4
                 "#,
                 params![
                     desired.scope.device_model_id,
                     desired.scope.profile_id,
                     desired.scope.capability.storage_key(),
-                    desired.layer_id,
-                    mapping.key_id,
-                    action_json,
-                    now
+                    desired.layer_id
                 ],
             )?;
+
+            for mapping in &desired.mappings {
+                if mapping.action == KeyAction::Default {
+                    continue;
+                }
+
+                let action_json = serde_json::to_string(&mapping.action).map_err(|error| {
+                    PersistenceError::Integrity(format!(
+                        "could not serialize key action for {}: {error}",
+                        mapping.key_id
+                    ))
+                })?;
+
+                transaction.execute(
+                    r#"
+                        INSERT INTO key_mappings (
+                            device_model_id,
+                            profile_id,
+                            capability,
+                            layer_id,
+                            key_id,
+                            action_json,
+                            updated_at
+                        )
+                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                    "#,
+                    params![
+                        desired.scope.device_model_id,
+                        desired.scope.profile_id,
+                        desired.scope.capability.storage_key(),
+                        desired.layer_id,
+                        mapping.key_id,
+                        action_json,
+                        now
+                    ],
+                )?;
+            }
         }
 
         transaction.commit()?;
@@ -165,17 +177,16 @@ fn validate_keymap_scope(desired: &DesiredKeymap) -> Result<(), PersistenceError
 }
 
 fn validate_scope(scope: &ConfigurationScope, layer: KeymapLayer) -> Result<(), PersistenceError> {
-    if scope.capability != Capability::Keys {
+    let expected_capability = match layer {
+        KeymapLayer::Normal => Capability::Keys,
+        KeymapLayer::Fn => Capability::FnLayer,
+    };
+    if scope.capability != expected_capability {
         return Err(PersistenceError::InvalidScope(format!(
-            "normal key mappings require capability {}, got {}",
-            Capability::Keys.storage_key(),
+            "{layer:?} key mappings require capability {}, got {}",
+            expected_capability.storage_key(),
             scope.capability.storage_key()
         )));
-    }
-    if layer != KeymapLayer::Normal {
-        return Err(PersistenceError::InvalidScope(
-            "R6 persistence accepts only the normal layer".into(),
-        ));
     }
     if scope.device_model_id.trim().is_empty() || scope.profile_id.trim().is_empty() {
         return Err(PersistenceError::InvalidScope(
@@ -183,13 +194,6 @@ fn validate_scope(scope: &ConfigurationScope, layer: KeymapLayer) -> Result<(), 
         ));
     }
     Ok(())
-}
-
-const fn layer_id(layer: KeymapLayer) -> &'static str {
-    match layer {
-        KeymapLayer::Normal => NORMAL_LAYER_ID,
-        KeymapLayer::Fn => "fn",
-    }
 }
 
 #[cfg(test)]
@@ -211,15 +215,19 @@ mod tests {
         (directory, path)
     }
 
-    fn scope() -> ConfigurationScope {
+    fn normal_scope() -> ConfigurationScope {
         ConfigurationScope::new("aula.f108pro", "default", Capability::Keys)
+    }
+
+    fn fn_scope() -> ConfigurationScope {
+        ConfigurationScope::new("aula.f108pro", "default", Capability::FnLayer)
     }
 
     #[test]
     fn keymap_survives_database_reopen() {
         let (_directory, path) = setup();
         let desired = DesiredKeymap::normal(
-            scope(),
+            normal_scope(),
             vec![
                 KeyMapping::new("key-055", KeyAction::Disabled),
                 KeyMapping::new(
@@ -239,8 +247,72 @@ mod tests {
 
         let reopened = PersistenceStore::open(&path).unwrap();
         assert_eq!(
-            reopened.load_keymap(&scope(), KeymapLayer::Normal).unwrap(),
+            reopened
+                .load_keymap(&normal_scope(), KeymapLayer::Normal)
+                .unwrap(),
             desired
+        );
+    }
+
+    #[test]
+    fn fn_keymap_survives_database_reopen_independently() {
+        let (_directory, path) = setup();
+        let normal = DesiredKeymap::normal(
+            normal_scope(),
+            vec![KeyMapping::new("key-055", KeyAction::Disabled)],
+        );
+        let fn_layer = DesiredKeymap::fn_layer(
+            fn_scope(),
+            vec![KeyMapping::new(
+                "key-002",
+                KeyAction::ModifiedKey {
+                    modifiers: vec![Modifier::LeftCtrl],
+                    key: 0x06,
+                },
+            )],
+        );
+
+        let store = PersistenceStore::open(&path).unwrap();
+        store
+            .save_keymaps(&[normal.clone(), fn_layer.clone()])
+            .unwrap();
+        drop(store);
+
+        let reopened = PersistenceStore::open(&path).unwrap();
+        assert_eq!(
+            reopened
+                .load_keymap(&normal_scope(), KeymapLayer::Normal)
+                .unwrap(),
+            normal
+        );
+        assert_eq!(
+            reopened.load_keymap(&fn_scope(), KeymapLayer::Fn).unwrap(),
+            fn_layer
+        );
+    }
+
+    #[test]
+    fn multi_layer_replacement_rolls_back_as_one_transaction() {
+        let (_directory, path) = setup();
+        let store = PersistenceStore::open(&path).unwrap();
+        let original = DesiredKeymap::normal(
+            normal_scope(),
+            vec![KeyMapping::new("key-001", KeyAction::Disabled)],
+        );
+        store.save_keymap(&original).unwrap();
+
+        let clear_normal = DesiredKeymap::normal(normal_scope(), vec![]);
+        let missing_fn = DesiredKeymap::fn_layer(
+            ConfigurationScope::new("aula.f108pro", "missing", Capability::FnLayer),
+            vec![],
+        );
+        assert!(store.save_keymaps(&[clear_normal, missing_fn]).is_err());
+
+        assert_eq!(
+            store
+                .load_keymap(&normal_scope(), KeymapLayer::Normal)
+                .unwrap(),
+            original
         );
     }
 
@@ -250,7 +322,7 @@ mod tests {
         let store = PersistenceStore::open(&path).unwrap();
         store
             .save_keymap(&DesiredKeymap::normal(
-                scope(),
+                normal_scope(),
                 vec![
                     KeyMapping::new("key-001", KeyAction::Disabled),
                     KeyMapping::new(
@@ -264,13 +336,15 @@ mod tests {
             .unwrap();
 
         let replacement = DesiredKeymap::normal(
-            scope(),
+            normal_scope(),
             vec![KeyMapping::new("key-003", KeyAction::Disabled)],
         );
         store.save_keymap(&replacement).unwrap();
 
         assert_eq!(
-            store.load_keymap(&scope(), KeymapLayer::Normal).unwrap(),
+            store
+                .load_keymap(&normal_scope(), KeymapLayer::Normal)
+                .unwrap(),
             replacement
         );
     }
@@ -281,14 +355,14 @@ mod tests {
         let store = PersistenceStore::open(&path).unwrap();
         store
             .save_keymap(&DesiredKeymap::normal(
-                scope(),
+                normal_scope(),
                 vec![KeyMapping::new("key-001", KeyAction::Default)],
             ))
             .unwrap();
 
         assert!(
             store
-                .load_keymap(&scope(), KeymapLayer::Normal)
+                .load_keymap(&normal_scope(), KeymapLayer::Normal)
                 .unwrap()
                 .mappings
                 .is_empty()
@@ -308,7 +382,7 @@ mod tests {
         );
 
         let duplicate = DesiredKeymap::normal(
-            scope(),
+            normal_scope(),
             vec![
                 KeyMapping::new("key-001", KeyAction::Disabled),
                 KeyMapping::new("key-001", KeyAction::Disabled),
