@@ -35,6 +35,18 @@ pub trait FeatureTransport: Send {
     ) -> Result<(), HidTransportError>;
 
     fn get_feature_report(&self) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError>;
+
+    fn get_feature_report_prefix(
+        &self,
+        payload_length: usize,
+    ) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
+        if payload_length == 0 || payload_length > FEATURE_REPORT_SIZE {
+            return Err(HidTransportError::Backend(format!(
+                "feature-report prefix length {payload_length} is outside 1..={FEATURE_REPORT_SIZE}"
+            )));
+        }
+        self.get_feature_report()
+    }
 }
 
 pub fn classify_backend_error(message: impl Into<String>) -> HidTransportError {
@@ -100,6 +112,29 @@ mod windows {
             report.copy_from_slice(&buffer[1..]);
             Ok(report)
         }
+
+        fn get_feature_report_prefix(
+            &self,
+            payload_length: usize,
+        ) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
+            if payload_length == 0 || payload_length > FEATURE_REPORT_SIZE {
+                return Err(HidTransportError::Backend(format!(
+                    "feature-report prefix length {payload_length} is outside 1..={FEATURE_REPORT_SIZE}"
+                )));
+            }
+
+            // HIDAPI includes the report-ID byte in the buffer length.
+            // The F108 OEM 04 F5 reader requests a 9-byte total report for
+            // its initial ACK, which is report ID + 8 payload bytes.
+            let mut buffer = vec![0u8; payload_length + 1];
+            self.device
+                .get_feature_report(&mut buffer)
+                .map_err(|error| classify_backend_error(error.to_string()))?;
+
+            let mut report = [0u8; FEATURE_REPORT_SIZE];
+            report[..payload_length].copy_from_slice(&buffer[1..]);
+            Ok(report)
+        }
     }
 
     pub fn enumerate_feature_devices(
@@ -161,6 +196,35 @@ pub fn open_feature_path(_path: &str) -> Result<Box<dyn FeatureTransport>, HidTr
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn feature_report_prefix_rejects_invalid_lengths_by_default() {
+        struct Fake;
+
+        impl FeatureTransport for Fake {
+            fn set_feature_report(
+                &self,
+                _report: &[u8; FEATURE_REPORT_SIZE],
+            ) -> Result<(), HidTransportError> {
+                Ok(())
+            }
+
+            fn get_feature_report(
+                &self,
+            ) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
+                Ok([0u8; FEATURE_REPORT_SIZE])
+            }
+        }
+
+        let fake = Fake;
+        assert!(fake.get_feature_report_prefix(1).is_ok());
+        assert!(fake.get_feature_report_prefix(FEATURE_REPORT_SIZE).is_ok());
+        assert!(fake.get_feature_report_prefix(0).is_err());
+        assert!(
+            fake.get_feature_report_prefix(FEATURE_REPORT_SIZE + 1)
+                .is_err()
+        );
+    }
 
     #[test]
     fn classifies_common_windows_errors() {
