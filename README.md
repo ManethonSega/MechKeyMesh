@@ -71,7 +71,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.8.0-alpha.1`, **R7 Fn layer and reset semantics in progress** on branch `r7/fn-layer-reset-semantics`. Normal and Fn are now modeled as independent desired-state layers. The known Fn table command `04 27`, OEM Fn-mode enum evidence and a conservative native-shortcut protection policy are implemented in software. R7 remains open until CI and physical layer/reset validation are complete.
+`v0.8.0-alpha.1`, **R7 Fn layer and reset semantics complete**. Normal and Fn are independent desired-state layers with separate persistence and hardware tables, safe reset semantics, native Fn shortcut protection, and the known OEM Fn-mode enum recorded. R7 was closed on 2026-10-11 by project decision with physical Normal/Fn/reset verification explicitly deferred, so these behaviors must not yet be described as physically verified.
 
 The previous Go/Wails prototype is preserved in the branch:
 
