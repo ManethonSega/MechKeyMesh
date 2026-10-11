@@ -7,5 +7,6 @@ repository.workspace = true
 
 [dependencies]
 mechkeymesh-driver-api = { path = "../driver-api" }
+mechkeymesh-layout = { path = "../layout" }
 serde.workspace = true
 thiserror.workspace = true
