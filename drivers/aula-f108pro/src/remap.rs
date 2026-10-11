@@ -1,7 +1,7 @@
 use super::{AulaF108ProSession, COMMAND_DELAY, validate_ack};
 use mechkeymesh_driver_api::{
-    DriverError, KeyAction, KeyAssignment, KeymapLayer, MediaAction, Modifier, MouseAction,
-    NormalRemapCapabilities, OperationContext, WindowsAction,
+    DriverError, KeyAction, KeyAssignment, KeyRestriction, KeymapCapabilities, KeymapLayer,
+    MediaAction, Modifier, MouseAction, OperationContext, WindowsAction,
 };
 use mechkeymesh_hid::FEATURE_REPORT_SIZE;
 use std::collections::HashSet;
@@ -9,6 +9,7 @@ use std::collections::HashSet;
 const REMAP_TABLE_SIZE: usize = 0x240;
 const REMAP_TRAILER_OFFSET: usize = REMAP_TABLE_SIZE - 2;
 const NORMAL_REMAP_COMMAND: u8 = 0x11;
+const FN_REMAP_COMMAND: u8 = 0x27;
 
 const ACTION_SPECIAL: u8 = 0x01;
 const ACTION_KEY: u8 = 0x02;
@@ -16,8 +17,8 @@ const ACTION_CONSUMER: u8 = 0x03;
 const ACTION_HOST_SPECIAL: u8 = 0x05;
 const ACTION_MOUSE: u8 = 0x07;
 
-pub fn normal_remap_capabilities() -> NormalRemapCapabilities {
-    NormalRemapCapabilities {
+pub fn keymap_capabilities(layer: KeymapLayer) -> KeymapCapabilities {
+    KeymapCapabilities {
         disable: true,
         keyboard_key: true,
         modifier: true,
@@ -51,6 +52,10 @@ pub fn normal_remap_capabilities() -> NormalRemapCapabilities {
         open_url: false,
         send_text: false,
         macro_action: false,
+        protected_keys: match layer {
+            KeymapLayer::Normal => vec![],
+            KeymapLayer::Fn => fn_protected_keys(),
+        },
         unsupported_host_actions_reason: Some(
             "The OEM program/file/URL/text actions use indexed host-side handlers. The F108 packet alone is not enough, so MechKeyMesh keeps them disabled until the host event channel is independently verified."
                 .into(),
@@ -58,15 +63,59 @@ pub fn normal_remap_capabilities() -> NormalRemapCapabilities {
     }
 }
 
+pub fn fn_protected_keys() -> Vec<KeyRestriction> {
+    let mut protected = Vec::new();
+    let mut add = |device_key_index: u16, reason: &str| {
+        protected.push(KeyRestriction {
+            device_key_index,
+            reason: reason.into(),
+        });
+    };
+
+    add(1, "Fn+Esc is the native firmware factory-reset shortcut.");
+    for index in 19..=23 {
+        add(index, "Native firmware connection-mode shortcut.");
+    }
+    for index in 38..=41 {
+        add(index, "Native firmware OS-mode shortcut.");
+    }
+    for index in [37, 67, 73, 74, 78, 83, 84, 91, 92, 93, 95, 98, 99, 100, 101, 102] {
+        add(index, "Native firmware lighting or keyboard-control shortcut.");
+    }
+    add(96, "The physical Fn key controls access to the Fn layer.");
+
+    protected.sort_by_key(|restriction| restriction.device_key_index);
+    protected.dedup_by_key(|restriction| restriction.device_key_index);
+    protected
+}
+
+fn remap_command(layer: KeymapLayer) -> u8 {
+    match layer {
+        KeymapLayer::Normal => NORMAL_REMAP_COMMAND,
+        KeymapLayer::Fn => FN_REMAP_COMMAND,
+    }
+}
+
+fn remap_init(layer: KeymapLayer) -> [u8; FEATURE_REPORT_SIZE] {
+    let mut init = [0u8; FEATURE_REPORT_SIZE];
+    init[0] = 0x04;
+    init[1] = remap_command(layer);
+    init[8] = 0x09;
+    init
+}
+
 pub fn validate_keymap(
     layer: KeymapLayer,
     assignments: &[KeyAssignment],
 ) -> Result<(), DriverError> {
-    if layer != KeymapLayer::Normal {
-        return Err(DriverError::UnsupportedCapability(
-            "F108 Fn remapping is implemented in R7, not R6",
-        ));
-    }
+    let protected: HashSet<u16> = if layer == KeymapLayer::Fn {
+        fn_protected_keys()
+            .into_iter()
+            .map(|restriction| restriction.device_key_index)
+            .collect()
+    } else {
+        HashSet::new()
+    };
 
     let mut seen = HashSet::new();
     for assignment in assignments {
@@ -74,6 +123,14 @@ pub fn validate_keymap(
         if !seen.insert(assignment.device_key_index) {
             return Err(DriverError::InvalidConfiguration(format!(
                 "duplicate F108 device key index {}",
+                assignment.device_key_index
+            )));
+        }
+        if protected.contains(&assignment.device_key_index)
+            && assignment.action != KeyAction::Default
+        {
+            return Err(DriverError::InvalidConfiguration(format!(
+                "F108 Fn key index {} is protected to preserve native firmware behavior",
                 assignment.device_key_index
             )));
         }
@@ -102,21 +159,16 @@ pub fn build_remap_table(
     Ok(table)
 }
 
-pub fn send_normal_keymap(
+pub fn send_keymap(
     session: &mut AulaF108ProSession,
     context: &OperationContext,
+    layer: KeymapLayer,
     assignments: &[KeyAssignment],
 ) -> Result<(), DriverError> {
-    let table = build_remap_table(KeymapLayer::Normal, assignments)?;
+    let table = build_remap_table(layer, assignments)?;
 
     session.begin_transaction(context)?;
-
-    let mut init = [0u8; FEATURE_REPORT_SIZE];
-    init[0] = 0x04;
-    init[1] = NORMAL_REMAP_COMMAND;
-    init[8] = 0x09;
-    session.send(context, init, true)?;
-
+    session.send(context, remap_init(layer), true)?;
     send_multi_packet(session, context, &table, false)?;
     session.apply_transaction(context)?;
 
@@ -125,6 +177,22 @@ pub fn send_normal_keymap(
     finalize[1] = 0xF0;
     session.send(context, finalize, true)?;
     Ok(())
+}
+
+pub fn send_normal_keymap(
+    session: &mut AulaF108ProSession,
+    context: &OperationContext,
+    assignments: &[KeyAssignment],
+) -> Result<(), DriverError> {
+    send_keymap(session, context, KeymapLayer::Normal, assignments)
+}
+
+pub fn send_fn_keymap(
+    session: &mut AulaF108ProSession,
+    context: &OperationContext,
+    assignments: &[KeyAssignment],
+) -> Result<(), DriverError> {
+    send_keymap(session, context, KeymapLayer::Fn, assignments)
 }
 
 fn send_multi_packet(
@@ -294,6 +362,49 @@ mod tests {
             device_key_index: index,
             action,
         }
+    }
+
+    #[test]
+    fn normal_and_fn_layers_use_distinct_verified_init_commands() {
+        let normal = remap_init(KeymapLayer::Normal);
+        let fn_layer = remap_init(KeymapLayer::Fn);
+        assert_eq!(&normal[..2], &[0x04, 0x11]);
+        assert_eq!(&fn_layer[..2], &[0x04, 0x27]);
+        assert_eq!(normal[8], 0x09);
+        assert_eq!(fn_layer[8], 0x09);
+    }
+
+    #[test]
+    fn fn_layer_rejects_protected_native_firmware_shortcuts() {
+        for index in [1u16, 19, 20, 23, 38, 41, 73, 83, 92, 96, 102] {
+            assert!(
+                validate_keymap(
+                    KeymapLayer::Fn,
+                    &[assignment(index, KeyAction::Disabled)]
+                )
+                .is_err(),
+                "protected Fn key index {index} must not be remappable"
+            );
+            assert!(
+                validate_keymap(
+                    KeymapLayer::Fn,
+                    &[assignment(index, KeyAction::Default)]
+                )
+                .is_ok(),
+                "default must remain a safe restore operation for {index}"
+            );
+        }
+    }
+
+    #[test]
+    fn fn_layer_accepts_unreserved_assignments() {
+        let table = build_remap_table(
+            KeymapLayer::Fn,
+            &[assignment(55, KeyAction::KeyboardKey { usage: 0x04 })],
+        )
+        .unwrap();
+        assert_eq!(&table[55 * 4..55 * 4 + 4], &[0x02, 0x00, 0x04, 0x00]);
+        assert_eq!(&table[574..576], &[0xAA, 0x55]);
     }
 
     #[test]
