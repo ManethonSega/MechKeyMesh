@@ -304,6 +304,15 @@ fn resolve_key_assignments(
         let key = layout
             .key(&mapping.key_id)
             .ok_or_else(|| format!("key does not exist in active layout: {}", mapping.key_id))?;
+        if desired.layer == KeymapLayer::Fn
+            && !key.fn_programmable
+            && mapping.action != mechkeymesh_layout::KeyAction::Default
+        {
+            return Err(format!(
+                "key {} is not programmable on the Fn layer",
+                mapping.key_id
+            ));
+        }
         let device_key_index = key
             .device_key_index
             .ok_or_else(|| format!("key {} has no device key index", mapping.key_id))?;
