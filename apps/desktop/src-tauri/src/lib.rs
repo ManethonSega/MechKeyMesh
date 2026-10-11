@@ -7,8 +7,8 @@ use mechkeymesh_core::{
 };
 use mechkeymesh_driver_api::{
     Capability, DriverManifest, FnLayerDescriptor, KeyAssignment, KeyboardDriver,
-    KeymapCapabilities, KeymapLayer, LightingConfig, LightingEffectDescriptor,
-    PerKeyRgbAssignment, PerKeyRgbCapabilities, PerKeyRgbConfig, RgbColor,
+    KeymapCapabilities, KeymapLayer, LightingConfig, LightingEffectDescriptor, PerKeyRgbAssignment,
+    PerKeyRgbCapabilities, PerKeyRgbConfig, RgbColor,
 };
 use mechkeymesh_driver_aula_f108pro::AulaF108ProRemapDriver;
 use mechkeymesh_layout::{Layout, LayoutRegistry};
@@ -237,9 +237,7 @@ fn save_per_key_rgb(
 }
 
 #[tauri::command]
-fn read_per_key_rgb(
-    state: State<'_, AppState>,
-) -> Result<PerKeyRgbHardwareReadback, String> {
+fn read_per_key_rgb(state: State<'_, AppState>) -> Result<PerKeyRgbHardwareReadback, String> {
     let layout_id = active_layout_id(&state)?;
     let layout = state
         .layouts
