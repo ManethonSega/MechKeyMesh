@@ -118,15 +118,21 @@ The F108 geometry, device indices, LED indices and action persistence format are
 
 ## Acceptance
 
-The hardening passed CI workflow run **38099196150** on commit `a7a7b89178c6cfc032ef3db440febf3978a3a8b0`:
+PR #8 was squash-merged into `main` as commit:
 
-- Rust formatting passed
-- all core/workspace tests passed
-- Linux Clippy passed with warnings denied
-- Windows workspace tests passed
-- Windows Clippy passed with warnings denied
-- Windows desktop release build passed
-- executable verification passed
-- Windows test-build artifact upload passed
+```text
+6447614a3d12e32bd232dee9a3b565bc33a75c09
+```
 
-A documentation-only completion commit is also required to pass the same CI workflow before merge.
+The final PR-head CI workflow **38099493412** and post-merge `main` workflow **38099827532** both passed:
+
+- Rust formatting
+- all core/workspace tests
+- Linux Clippy with warnings denied
+- Windows workspace tests
+- Windows Clippy with warnings denied
+- Windows desktop release build
+- executable verification
+- Windows test-build artifact upload
+
+The R4 hardening audit is therefore complete and authoritative on `main`.
