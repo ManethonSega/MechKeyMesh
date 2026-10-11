@@ -1,0 +1,43 @@
+name: R6 Clippy Correction
+
+on:
+  push:
+    branches: [r6/normal-layer-remapping]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: r6/normal-layer-remapping
+      - uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: rustfmt
+      - name: Remove obsolete packet index
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('drivers/aula-f108pro/src/remap.rs')
+          text = path.read_text()
+          old = 'for (index, chunk) in data.chunks_exact(FEATURE_REPORT_SIZE).enumerate() {'
+          new = 'for chunk in data.chunks_exact(FEATURE_REPORT_SIZE) {'
+          if old not in text:
+              raise SystemExit('expected remap loop not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          cargo fmt --all
+          git rm .github/workflows/r6-fix-clippy.yml
+      - name: Commit correction
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: remove obsolete remap packet index"
+          git push origin HEAD:r6/normal-layer-remapping
