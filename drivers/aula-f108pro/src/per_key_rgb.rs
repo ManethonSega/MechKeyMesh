@@ -140,7 +140,24 @@ pub fn read_per_key_rgb(
     request[0] = 0x04;
     request[1] = PER_KEY_READBACK_COMMAND;
     request[8] = RGB_MODE;
-    session.send(context, request, true)?;
+
+    context.check()?;
+    session
+        .transport
+        .set_feature_report(&request)
+        .map_err(map_transport_error)?;
+    context.sleep(COMMAND_DELAY)?;
+
+    // OEM FUN_0044f290 asks Windows for a 9-byte total HID feature
+    // report here: one report-ID byte plus eight payload bytes.
+    // That is sufficient to validate ACK payload byte 3 without consuming
+    // the following full 64-byte RGB data reports.
+    let ack = session
+        .transport
+        .get_feature_report_prefix(8)
+        .map_err(map_transport_error)?;
+    super::validate_ack(&ack)?;
+    context.sleep(COMMAND_DELAY)?;
 
     let mut table = [0u8; PER_KEY_TABLE_SIZE];
     for (packet_index, chunk) in table.chunks_exact_mut(FEATURE_REPORT_SIZE).enumerate() {
