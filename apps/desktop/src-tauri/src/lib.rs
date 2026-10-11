@@ -12,7 +12,7 @@ use mechkeymesh_driver_aula_f108pro::AulaF108ProRemapDriver;
 use mechkeymesh_layout::{Layout, LayoutRegistry};
 use mechkeymesh_persistence::{PersistenceStatus, PersistenceStore};
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 use tauri::{Manager, State};
 
@@ -20,6 +20,7 @@ struct AppState {
     manager: DeviceManagerHandle,
     persistence: PersistenceStore,
     layouts: LayoutRegistry,
+    driver_layout_ids: BTreeMap<String, String>,
     primary_driver: Arc<dyn KeyboardDriver>,
     lighting_effects: Vec<LightingEffectDescriptor>,
     normal_remap_capabilities: NormalRemapCapabilities,
@@ -96,7 +97,7 @@ fn get_layout(state: State<'_, AppState>, layout_id: String) -> Result<Layout, S
 
 #[tauri::command]
 fn get_primary_layout(state: State<'_, AppState>) -> Result<Layout, String> {
-    let layout_id = state.primary_layout_id.clone();
+    let layout_id = active_layout_id(&state)?;
     get_layout(state, layout_id)
 }
 
@@ -185,14 +186,27 @@ fn save_normal_keymap(
     }
 }
 
+fn active_layout_id(state: &AppState) -> Result<String, String> {
+    if let Some(device) = state.manager.status().device {
+        return state
+            .driver_layout_ids
+            .get(&device.driver_id)
+            .cloned()
+            .ok_or_else(|| format!("active driver {} has no registered layout", device.driver_id));
+    }
+
+    Ok(state.primary_layout_id.clone())
+}
+
 fn resolve_key_assignments(
     state: &AppState,
     desired: &DesiredKeymap,
 ) -> Result<Vec<KeyAssignment>, String> {
+    let layout_id = active_layout_id(state)?;
     let layout = state
         .layouts
-        .get(&state.primary_layout_id)
-        .ok_or_else(|| format!("layout not found: {}", state.primary_layout_id))?;
+        .get(&layout_id)
+        .ok_or_else(|| format!("layout not found: {layout_id}"))?;
     let mut seen = HashSet::new();
     let mut assignments = Vec::with_capacity(desired.mappings.len());
 
@@ -201,9 +215,7 @@ fn resolve_key_assignments(
             return Err(format!("duplicate key mapping: {}", mapping.key_id));
         }
         let key = layout
-            .keys
-            .iter()
-            .find(|key| key.id == mapping.key_id)
+            .key(&mapping.key_id)
             .ok_or_else(|| format!("key does not exist in active layout: {}", mapping.key_id))?;
         let device_key_index = key
             .device_key_index
@@ -254,6 +266,16 @@ pub fn run() {
                 layouts.register(layout)?;
             }
 
+            let driver_layout_ids: BTreeMap<String, String> = manifests
+                .iter()
+                .filter_map(|manifest| {
+                    manifest
+                        .layout_ids
+                        .first()
+                        .map(|layout_id| (manifest.driver_id.clone(), layout_id.clone()))
+                })
+                .collect();
+
             let data_dir = app.path().app_data_dir()?;
             let persistence = PersistenceStore::open(data_dir.join("mechkeymesh.sqlite3"))?;
 
@@ -286,6 +308,7 @@ pub fn run() {
                 manager,
                 persistence,
                 layouts,
+                driver_layout_ids,
                 primary_driver,
                 lighting_effects,
                 normal_remap_capabilities,
