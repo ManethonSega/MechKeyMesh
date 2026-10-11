@@ -298,10 +298,7 @@ mod tests {
         assert_eq!(loaded.brightness, 2);
         assert_eq!(
             loaded.colors,
-            vec![KeyColor::new(
-                "key-056",
-                RgbColor { r: 0, g: 255, b: 0 }
-            )]
+            vec![KeyColor::new("key-056", RgbColor { r: 0, g: 255, b: 0 })]
         );
     }
 
