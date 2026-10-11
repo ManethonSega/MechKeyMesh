@@ -1,5 +1,6 @@
 use mechkeymesh_config::{
-    ConfigurationScope, DesiredKeymap, DesiredLighting, DeviceModel, KeyMapping,
+    ConfigurationScope, DesiredKeymap, DesiredLighting, DesiredPerKeyRgb, DeviceModel, KeyColor,
+    KeyMapping,
 };
 use mechkeymesh_core::{
     DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LogEntry, ManagerConfig,
@@ -7,6 +8,7 @@ use mechkeymesh_core::{
 use mechkeymesh_driver_api::{
     Capability, DriverManifest, FnLayerDescriptor, KeyAssignment, KeyboardDriver,
     KeymapCapabilities, KeymapLayer, LightingConfig, LightingEffectDescriptor,
+    PerKeyRgbAssignment, PerKeyRgbCapabilities, PerKeyRgbConfig, PerKeyRgbReadback, RgbColor,
 };
 use mechkeymesh_driver_aula_f108pro::AulaF108ProRemapDriver;
 use mechkeymesh_layout::{Layout, LayoutRegistry};
@@ -33,6 +35,21 @@ struct LightingApplyResult {
     stored: bool,
     applied: bool,
     message: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PerKeyRgbApplyResult {
+    stored: bool,
+    applied: bool,
+    color_count: usize,
+    message: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PerKeyRgbHardwareReadback {
+    colors: Vec<KeyColor>,
 }
 
 #[derive(Debug, Serialize)]
@@ -74,6 +91,25 @@ fn get_desired_lighting(state: State<'_, AppState>) -> Result<Option<DesiredLigh
         .persistence
         .load_lighting(&scope)
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn get_desired_per_key_rgb(state: State<'_, AppState>) -> Result<DesiredPerKeyRgb, String> {
+    let scope = configuration_scope(&state, Capability::PerKeyRgb)?;
+    state
+        .persistence
+        .load_per_key_rgb(&scope)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn get_per_key_rgb_capabilities(
+    state: State<'_, AppState>,
+) -> Result<PerKeyRgbCapabilities, String> {
+    state
+        .primary_driver
+        .per_key_rgb_capabilities()
+        .ok_or_else(|| "active driver does not support stored per-key RGB".to_string())
 }
 
 #[tauri::command]
@@ -162,6 +198,80 @@ fn apply_lighting(
             message: Some(error),
         }),
     }
+}
+
+#[tauri::command]
+fn save_per_key_rgb(
+    state: State<'_, AppState>,
+    brightness: u8,
+    colors: Vec<KeyColor>,
+) -> Result<PerKeyRgbApplyResult, String> {
+    let scope = configuration_scope(&state, Capability::PerKeyRgb)?;
+    let desired = DesiredPerKeyRgb::new(scope, brightness, colors);
+    let config = resolve_per_key_rgb(&state, &desired)?;
+
+    state
+        .primary_driver
+        .validate_per_key_rgb(&config)
+        .map_err(|error| error.to_string())?;
+
+    state
+        .persistence
+        .save_per_key_rgb(&desired)
+        .map_err(|error| error.to_string())?;
+
+    match state.manager.set_per_key_rgb(config.clone()) {
+        Ok(()) => Ok(PerKeyRgbApplyResult {
+            stored: true,
+            applied: true,
+            color_count: config.colors.len(),
+            message: None,
+        }),
+        Err(error) => Ok(PerKeyRgbApplyResult {
+            stored: true,
+            applied: false,
+            color_count: config.colors.len(),
+            message: Some(error),
+        }),
+    }
+}
+
+#[tauri::command]
+fn read_per_key_rgb(
+    state: State<'_, AppState>,
+) -> Result<PerKeyRgbHardwareReadback, String> {
+    let layout_id = active_layout_id(&state)?;
+    let layout = state
+        .layouts
+        .get(&layout_id)
+        .ok_or_else(|| format!("layout not found: {layout_id}"))?;
+
+    let mut led_to_key = BTreeMap::new();
+    let mut led_indices = Vec::new();
+    for key in &layout.keys {
+        if let Some(led_index) = key.led_index {
+            if led_to_key.insert(led_index, key.id.clone()).is_some() {
+                return Err(format!(
+                    "layout {} contains duplicate LED index {}",
+                    layout.id, led_index
+                ));
+            }
+            led_indices.push(led_index);
+        }
+    }
+
+    let readback = state.manager.read_per_key_rgb(led_indices)?;
+    let colors = readback
+        .colors
+        .into_iter()
+        .filter_map(|assignment| {
+            led_to_key
+                .get(&assignment.led_index)
+                .map(|key_id| KeyColor::new(key_id.clone(), assignment.color))
+        })
+        .collect();
+
+    Ok(PerKeyRgbHardwareReadback { colors })
 }
 
 #[tauri::command]
@@ -320,6 +430,49 @@ fn resolve_key_assignments(
     Ok(assignments)
 }
 
+fn resolve_per_key_rgb(
+    state: &AppState,
+    desired: &DesiredPerKeyRgb,
+) -> Result<PerKeyRgbConfig, String> {
+    let layout_id = active_layout_id(state)?;
+    let layout = state
+        .layouts
+        .get(&layout_id)
+        .ok_or_else(|| format!("layout not found: {layout_id}"))?;
+    let mut seen_keys = HashSet::new();
+    let mut seen_leds = HashSet::new();
+    let mut colors = Vec::with_capacity(desired.colors.len());
+
+    for key_color in &desired.colors {
+        if !seen_keys.insert(key_color.key_id.as_str()) {
+            return Err(format!("duplicate per-key RGB key: {}", key_color.key_id));
+        }
+        let key = layout
+            .key(&key_color.key_id)
+            .ok_or_else(|| format!("key does not exist in active layout: {}", key_color.key_id))?;
+        let led_index = key
+            .led_index
+            .ok_or_else(|| format!("key {} has no LED index", key_color.key_id))?;
+        if !seen_leds.insert(led_index) {
+            return Err(format!(
+                "multiple physical keys resolve to LED index {led_index}"
+            ));
+        }
+        if key_color.color != RgbColor::BLACK {
+            colors.push(PerKeyRgbAssignment {
+                led_index,
+                color: key_color.color,
+            });
+        }
+    }
+
+    colors.sort_by_key(|assignment| assignment.led_index);
+    Ok(PerKeyRgbConfig {
+        brightness: desired.brightness,
+        colors,
+    })
+}
+
 fn configuration_scope(
     state: &AppState,
     capability: Capability,
@@ -402,6 +555,10 @@ pub fn run() {
                     .is_some(),
                 "the R7 F108 driver must expose Fn-layer remap capabilities"
             );
+            assert!(
+                primary_driver.per_key_rgb_capabilities().is_some(),
+                "the R8 F108 driver must expose stored per-key RGB capabilities"
+            );
 
             let manager = DeviceManager::start(registry, ManagerConfig::default());
 
@@ -423,15 +580,19 @@ pub fn run() {
             get_driver_registry,
             get_persistence_status,
             get_desired_lighting,
+            get_desired_per_key_rgb,
             get_desired_keymap,
             get_layout,
             get_primary_layout,
             get_keymap_capabilities,
             get_fn_layer_descriptor,
+            get_per_key_rgb_capabilities,
             reconnect,
             cancel_active_operation,
             get_lighting_effects,
             apply_lighting,
+            save_per_key_rgb,
+            read_per_key_rgb,
             save_keymap,
             reset_key_assignments
         ])
