@@ -395,7 +395,9 @@ mod tests {
     #[test]
     fn rejects_duplicate_driver_ids() {
         let mut registry = DriverRegistry::new();
-        registry.register(Arc::new(fake_driver("fake.driver"))).unwrap();
+        registry
+            .register(Arc::new(fake_driver("fake.driver")))
+            .unwrap();
 
         let error = registry
             .register(Arc::new(fake_driver("fake.driver")))
