@@ -57,17 +57,26 @@ function perKeyUpdateDirty(message = null) {
 function perKeyOrderedSelection() {
   if (!perKeyLayout) return [];
   return perKeyLayout.keys
-    .filter((key) => perKeySelected.has(key.id))
-    .sort((left, right) => left.x - right.x || left.y - right.y || left.id.localeCompare(right.id));
+    .filter((key) => perKeySelected.has(key.id) && key.ledIndex != null)
+    .sort((left, right) => {
+      const leftCenter = perKeyRotatedCenter(left);
+      const rightCenter = perKeyRotatedCenter(right);
+      return leftCenter.x - rightCenter.x ||
+        leftCenter.y - rightCenter.y ||
+        left.id.localeCompare(right.id);
+    });
 }
 
 function perKeySetSelection(keys, additive = false) {
   if (!additive) perKeySelected.clear();
-  for (const key of keys) perKeySelected.add(key.id);
+  for (const key of keys) {
+    if (key.ledIndex != null) perKeySelected.add(key.id);
+  }
   perKeyRefreshSelection();
 }
 
 function perKeyToggleSelection(key, additive) {
+  if (key.ledIndex == null) return;
   if (!additive) {
     perKeySelected.clear();
     perKeySelected.add(key.id);
@@ -131,11 +140,15 @@ function perKeyRender(layout) {
 
   for (const key of layout.keys) {
     const group = document.createElementNS(PER_KEY_SVG_NS, "g");
-    group.setAttribute("class", "keyboard-key perkey-key");
+    group.setAttribute(
+      "class",
+      key.ledIndex == null ? "keyboard-key perkey-key no-led" : "keyboard-key perkey-key"
+    );
     group.setAttribute("data-key-id", key.id);
-    group.setAttribute("tabindex", "0");
+    group.setAttribute("tabindex", key.ledIndex == null ? "-1" : "0");
     group.setAttribute("role", "button");
     group.setAttribute("aria-pressed", String(perKeySelected.has(key.id)));
+    if (key.ledIndex == null) group.setAttribute("aria-disabled", "true");
     group.setAttribute(
       "aria-label",
       `${key.label}, LED ${key.ledIndex ?? "unavailable"}, color ${perKeyColorHex(perKeyColors.get(key.id))}`
@@ -183,14 +196,14 @@ function perKeyRender(layout) {
         event.stopPropagation();
         return;
       }
-      if (perKeyRegionMode) {
+      if (perKeyRegionMode || key.ledIndex == null) {
         event.preventDefault();
         return;
       }
       perKeyToggleSelection(key, event.ctrlKey || event.metaKey);
     });
     group.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
+      if ((event.key === "Enter" || event.key === " ") && key.ledIndex != null) {
         event.preventDefault();
         perKeyToggleSelection(key, event.ctrlKey || event.metaKey);
       }
@@ -269,11 +282,15 @@ function perKeyRegionPointerUp(event) {
   const maxY = Math.max(perKeyRegionStart.y, point.y);
 
   const keys = (perKeyLayout?.keys || []).filter((key) => {
+    if (key.ledIndex == null) return false;
     const center = perKeyRotatedCenter(key);
     return center.x >= minX && center.x <= maxX && center.y >= minY && center.y <= maxY;
   });
   perKeySetSelection(keys, event.ctrlKey || event.metaKey);
   perKeySuppressNextClick = true;
+  setTimeout(() => {
+    perKeySuppressNextClick = false;
+  }, 0);
 
   perKeyRegionRect?.remove();
   perKeyRegionRect = null;
@@ -316,6 +333,7 @@ function perKeyPopulateRows() {
 function perKeySelectRow() {
   const [unit, row] = perKeyQ("#perKeyRowSelect").value.split(":").map(Number);
   const keys = perKeyLayout.keys.filter((key) =>
+    key.ledIndex != null &&
     Number(key.gridPosition?.unit ?? 0) === unit &&
     Number(key.gridPosition?.row) === row
   );
@@ -324,11 +342,17 @@ function perKeySelectRow() {
 
 function perKeySelectWasd() {
   const usages = new Set([0x1A, 0x04, 0x16, 0x07]);
-  perKeySetSelection(perKeyLayout.keys.filter((key) => usages.has(Number(key.hidUsage))));
+  perKeySetSelection(
+    perKeyLayout.keys.filter(
+      (key) => key.ledIndex != null && usages.has(Number(key.hidUsage))
+    )
+  );
 }
 
 function perKeySelectNumpad() {
-  perKeySetSelection(perKeyLayout.keys.filter((key) => key.section === "numpad"));
+  perKeySetSelection(
+    perKeyLayout.keys.filter((key) => key.ledIndex != null && key.section === "numpad")
+  );
 }
 
 function perKeyApplyColor(color) {
