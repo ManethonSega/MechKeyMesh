@@ -10,7 +10,7 @@ const selectedKeyIds = new Set();
 const pages = {
   home: ["Home", "Device overview and connection health"],
   keys: ["Keys", "Data-driven physical layout and universal key actions"],
-  lighting: ["Lighting", "AULA F108 Pro onboard effects and physical verification"],
+  lighting: ["Lighting", "Onboard effects and persistent per-key RGB"],
   diagnostics: ["Diagnostics", "Connection, command and recovery log"]
 };
 
