@@ -40,9 +40,7 @@ pub fn validate_config(config: &PerKeyRgbConfig) -> Result<(), DriverError> {
     Ok(())
 }
 
-pub fn build_rgb_table(
-    config: &PerKeyRgbConfig,
-) -> Result<[u8; PER_KEY_TABLE_SIZE], DriverError> {
+pub fn build_rgb_table(config: &PerKeyRgbConfig) -> Result<[u8; PER_KEY_TABLE_SIZE], DriverError> {
     validate_config(config)?;
     let mut table = [0u8; PER_KEY_TABLE_SIZE];
 
@@ -262,10 +260,7 @@ mod tests {
     fn builds_oem_rgb_slot_format_and_exact_trailer_byte_order() {
         let table = build_rgb_table(&PerKeyRgbConfig {
             brightness: 5,
-            colors: vec![
-                assignment(1, 255, 0, 0),
-                assignment(56, 0, 255, 0),
-            ],
+            colors: vec![assignment(1, 255, 0, 0), assignment(56, 0, 255, 0)],
         })
         .unwrap();
 
@@ -288,10 +283,7 @@ mod tests {
         assert!(
             build_rgb_table(&PerKeyRgbConfig {
                 brightness: 5,
-                colors: vec![
-                    assignment(1, 1, 2, 3),
-                    assignment(1, 4, 5, 6),
-                ],
+                colors: vec![assignment(1, 1, 2, 3), assignment(1, 4, 5, 6),],
             })
             .is_err()
         );
@@ -326,10 +318,7 @@ mod tests {
         let readback = parse_rgb_readback(&table, &[56, 1]).unwrap();
         assert_eq!(
             readback.colors,
-            vec![
-                assignment(1, 10, 20, 30),
-                assignment(56, 40, 50, 60),
-            ]
+            vec![assignment(1, 10, 20, 30), assignment(56, 40, 50, 60),]
         );
     }
 
