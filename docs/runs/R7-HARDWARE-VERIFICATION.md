@@ -2,9 +2,9 @@
 
 **Device:** AULA F108 Pro  
 **Capability:** Normal/Fn remapping and safe assignment reset  
-**Status:** PHYSICAL VERIFICATION PENDING
+**Status:** DEFERRED - R7 MILESTONE CLOSED
 
-ACKs and successful CI are not physical passes.
+R7 was closed on 2026-10-11 with this matrix explicitly deferred. ACKs and successful CI are not physical passes, and every unperformed row below remains Pending.
 
 | Test | Expected physical result | Result | Notes |
 |---|---|---|---|
@@ -45,3 +45,10 @@ R7 intentionally does not write the Fn activation setting yet. A future hardware
 This matrix verifies only MechKeyMesh mapping reset operations.
 
 It does not claim that the OEM "Reset Keyboard" or "Factory Reset" semantics are fully reproduced. Those names remain unavailable in the UI until their complete physical effects are verified.
+
+
+## Deferred verification rule
+
+R7 milestone closure does not convert these Pending rows into passes.
+
+A future claim that Fn-layer remapping and reset semantics are **physically verified** requires completing the applicable rows on the actual AULA F108 Pro and recording the observed results. Any failure discovered later remains a real R7 defect to fix or accurately reclassify.
