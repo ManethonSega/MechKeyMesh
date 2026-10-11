@@ -447,3 +447,60 @@ Rolling / Rotating / Flowing / Tilt
 ```
 
 Physical effect behavior remains a separate evidence level. Software metadata and successful HID ACKs do not make an effect physically verified.
+
+
+## Normal and Fn remap layers
+
+R7 treats the two F108 remap tables as genuinely independent desired-state capabilities:
+
+```text
+Normal layer
+  capability: keys
+  command:    04 11
+
+Fn layer
+  capability: fn-layer
+  command:    04 27
+```
+
+Each layer owns a complete 576-byte table. Both use the verified remap trailer bytes `AA 55` at offsets 574-575. The driver selects the layer-specific init command and keeps the remaining table encoding shared.
+
+The database scopes the layers separately:
+
+```text
+device model + profile + Keys    + normal
+device model + profile + FnLayer + fn
+```
+
+Normal and Fn mappings therefore survive independently and cannot overwrite each other in persistence.
+
+### Fn native-control protection
+
+The F108 OEM layout XML contains 104 keys and does not mark any of them with a non-zero `fnlayer_disable` value. That is evidence about the OEM software restriction table, not proof that the firmware has no important native Fn combinations.
+
+MechKeyMesh therefore adds a distinct driver safety policy for firmware functions that should remain available by default. Protected Fn assignments include native reset, connection-mode, OS-mode, lighting, Windows-lock and the physical Fn selector shortcuts. The multifunction knob is not part of the remap table at all, so its LCD navigation and Fn+knob behavior are left firmware-owned.
+
+A protected Fn key may always be restored to `Default`, but the driver rejects non-default assignments for it.
+
+### Fn activation mode evidence
+
+OEM binary analysis maps the `fn_switch` setting as:
+
+```text
+0 = Toggle
+1 = Momentary
+```
+
+MechKeyMesh exposes that enum as evidence metadata, but does not write it in R7. The associated `04 17 / 00 01` function-settings transaction is not physically verified, and the current device value is not reliably readable.
+
+### Reset semantics
+
+MechKeyMesh intentionally separates safe remap restoration from broader OEM reset terminology:
+
+- Reset selected: editor operation only; selected assignments become Default.
+- Reset current layer: persist and send an empty 576-byte table for only Normal or Fn.
+- Reset key assignments: atomically clear both desired tables, then apply Normal and Fn through the serialized hardware manager.
+- Reset Keyboard: not exposed until its full OEM/hardware scope is verified.
+- Factory Reset: not exposed until its full OEM/hardware scope is verified.
+
+A hardware application failure after persistence does not discard the desired reset state. The database remains authoritative and can be reconciled later.
