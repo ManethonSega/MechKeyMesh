@@ -504,10 +504,9 @@ fn resolve_key_assignments(
             .ok_or_else(|| format!("key {} has no device key index", mapping.key_id))?;
         let action = match &mapping.action {
             KeyAction::Macro { macro_id, .. } => {
-                let slot = macro_slots
-                    .get(macro_id)
-                    .copied()
-                    .ok_or_else(|| format!("macro assignment references missing macro: {macro_id}"))?;
+                let slot = macro_slots.get(macro_id).copied().ok_or_else(|| {
+                    format!("macro assignment references missing macro: {macro_id}")
+                })?;
                 KeyAction::Macro {
                     macro_id: macro_id.clone(),
                     hardware_slot: Some(slot),
@@ -538,16 +537,12 @@ fn load_hardware_macros(state: &AppState) -> Result<Vec<HardwareMacroProgram>, S
     let mut hardware = programs
         .into_iter()
         .map(|program| {
-            let slot = slots
-                .get(&program.id)
-                .copied()
-                .flatten()
-                .ok_or_else(|| {
-                    format!(
-                        "macro {} has no free F108 hardware slot; the device supports 100 slots",
-                        program.name
-                    )
-                })?;
+            let slot = slots.get(&program.id).copied().flatten().ok_or_else(|| {
+                format!(
+                    "macro {} has no free F108 hardware slot; the device supports 100 slots",
+                    program.name
+                )
+            })?;
             let slot = u8::try_from(slot)
                 .map_err(|_| format!("macro {} has an invalid hardware slot", program.name))?;
             to_hardware_macro(program, slot)

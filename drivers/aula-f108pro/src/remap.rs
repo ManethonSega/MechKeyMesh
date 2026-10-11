@@ -268,9 +268,7 @@ fn encode_action(action: &KeyAction) -> Result<[u8; 4], DriverError> {
         KeyAction::Macro {
             hardware_slot: Some(slot),
             ..
-        } if usize::from(*slot) < crate::macro_bank::SLOT_COUNT => {
-            Ok([ACTION_MACRO, *slot, 1, 0])
-        }
+        } if usize::from(*slot) < crate::macro_bank::SLOT_COUNT => Ok([ACTION_MACRO, *slot, 1, 0]),
         KeyAction::Macro {
             hardware_slot: Some(slot),
             ..

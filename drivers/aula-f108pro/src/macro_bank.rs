@@ -84,7 +84,9 @@ pub fn serialize_bank(
         }
         total_events = total_events
             .checked_add(program.events.len())
-            .ok_or_else(|| DriverError::InvalidConfiguration("macro event count overflow".into()))?;
+            .ok_or_else(|| {
+                DriverError::InvalidConfiguration("macro event count overflow".into())
+            })?;
         for (event_index, event) in program.events.iter().enumerate() {
             validate_event(slot, event_index, event)?;
         }
@@ -111,8 +113,12 @@ pub fn serialize_bank(
             DriverError::InvalidConfiguration("F108 macro data offset exceeds 16 bits".into())
         })?;
         let directory_offset = usize::from(program.slot) * 4;
-        data[directory_offset..directory_offset + 4]
-            .copy_from_slice(&[offset_u16 as u8, (offset_u16 >> 8) as u8, 0, 0]);
+        data[directory_offset..directory_offset + 4].copy_from_slice(&[
+            offset_u16 as u8,
+            (offset_u16 >> 8) as u8,
+            0,
+            0,
+        ]);
 
         let event_count = program.events.len() as u16;
         data.extend_from_slice(&event_count.to_le_bytes());
@@ -288,7 +294,10 @@ mod tests {
 
     #[test]
     fn invalid_bank_is_rejected_before_transport_is_needed() {
-        let oversized = vec![program("x", vec![HardwareMacroEvent::KeyDown { usage: 4 }; 338])];
+        let oversized = vec![program(
+            "x",
+            vec![HardwareMacroEvent::KeyDown { usage: 4 }; 338],
+        )];
         assert!(matches!(
             serialize_bank(&oversized),
             Err(DriverError::InvalidConfiguration(_))
@@ -306,7 +315,11 @@ mod tests {
     #[test]
     fn empty_slots_are_ff_and_empty_bank_can_clear_hardware() {
         let bank = serialize_bank(&[]).unwrap();
-        assert!(bank.payload[..DIRECTORY_SIZE].iter().all(|byte| *byte == 0xFF));
+        assert!(
+            bank.payload[..DIRECTORY_SIZE]
+                .iter()
+                .all(|byte| *byte == 0xFF)
+        );
         assert_eq!(&bank.payload[bank.payload.len() - 2..], &[0x55, 0xAA]);
     }
 }
