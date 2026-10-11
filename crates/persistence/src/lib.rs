@@ -10,7 +10,7 @@ use std::{
 };
 use thiserror::Error;
 
-pub const CURRENT_SCHEMA_VERSION: i64 = 3;
+pub const CURRENT_SCHEMA_VERSION: i64 = 4;
 
 struct Migration {
     version: i64,
@@ -290,6 +290,36 @@ const MIGRATIONS: &[Migration] = &[
                     REFERENCES profiles(device_model_id, id)
                     ON DELETE CASCADE
             );
+        "#,
+    },
+    Migration {
+        version: 4,
+        name: "stable-macro-hardware-slots",
+        sql: r#"
+            ALTER TABLE macros ADD COLUMN hardware_slot INTEGER
+                CHECK (hardware_slot IS NULL OR hardware_slot BETWEEN 0 AND 99);
+
+            UPDATE macros
+            SET hardware_slot = (
+                SELECT COUNT(*) - 1
+                FROM macros AS preceding
+                WHERE preceding.device_model_id = macros.device_model_id
+                  AND preceding.profile_id = macros.profile_id
+                  AND preceding.capability = macros.capability
+                  AND preceding.id <= macros.id
+            )
+            WHERE (
+                SELECT COUNT(*)
+                FROM macros AS preceding
+                WHERE preceding.device_model_id = macros.device_model_id
+                  AND preceding.profile_id = macros.profile_id
+                  AND preceding.capability = macros.capability
+                  AND preceding.id <= macros.id
+            ) <= 100;
+
+            CREATE UNIQUE INDEX macros_one_hardware_slot
+                ON macros(device_model_id, profile_id, capability, hardware_slot)
+                WHERE hardware_slot IS NOT NULL;
         "#,
     },
 ];

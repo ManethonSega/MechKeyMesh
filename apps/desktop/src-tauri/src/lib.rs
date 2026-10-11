@@ -1,17 +1,18 @@
 use mechkeymesh_config::{
     ConfigurationScope, DesiredKeymap, DesiredLighting, DesiredPerKeyRgb, DeviceModel, KeyColor,
-    KeyMapping, MacroProgram, MacroSimulation,
+    KeyMapping, MacroEvent, MacroMouseButton, MacroPlayback, MacroProgram, MacroSimulation,
 };
 use mechkeymesh_core::{
     DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LogEntry, ManagerConfig,
 };
 use mechkeymesh_driver_api::{
-    Capability, DriverManifest, FnLayerDescriptor, KeyAssignment, KeyboardDriver,
-    KeymapCapabilities, KeymapLayer, LightingConfig, LightingEffectDescriptor, PerKeyRgbAssignment,
+    Capability, DriverManifest, FnLayerDescriptor, HardwareMacroEvent, HardwareMacroMouseButton,
+    HardwareMacroProgram, KeyAssignment, KeyboardDriver, KeymapCapabilities, KeymapLayer,
+    LightingConfig, LightingEffectDescriptor, MacroBankDescriptor, PerKeyRgbAssignment,
     PerKeyRgbCapabilities, PerKeyRgbConfig, RgbColor,
 };
 use mechkeymesh_driver_aula_f108pro::AulaF108ProRemapDriver;
-use mechkeymesh_layout::{Layout, LayoutRegistry};
+use mechkeymesh_layout::{KeyAction, Layout, LayoutRegistry};
 use mechkeymesh_persistence::{PersistenceStatus, PersistenceStore};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashSet};
@@ -58,6 +59,15 @@ struct KeymapApplyResult {
     stored: bool,
     applied: bool,
     assignment_count: usize,
+    message: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MacroBankApplyResult {
+    applied: bool,
+    macro_count: usize,
+    event_count: usize,
     message: Option<String>,
 }
 
@@ -134,6 +144,39 @@ fn delete_macro(state: State<'_, AppState>, macro_id: String) -> Result<bool, St
 #[tauri::command]
 fn simulate_macro(program: MacroProgram) -> Result<MacroSimulation, String> {
     program.simulation().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn get_macro_bank_descriptor(state: State<'_, AppState>) -> Result<MacroBankDescriptor, String> {
+    state
+        .primary_driver
+        .macro_bank_descriptor()
+        .ok_or_else(|| "active driver does not support hardware macros".to_string())
+}
+
+#[tauri::command]
+fn upload_macros(state: State<'_, AppState>) -> Result<MacroBankApplyResult, String> {
+    let programs = load_hardware_macros(&state)?;
+    state
+        .primary_driver
+        .validate_macro_bank(&programs)
+        .map_err(|error| error.to_string())?;
+    let event_count = programs.iter().map(|program| program.events.len()).sum();
+
+    match state.manager.set_macros(programs.clone()) {
+        Ok(()) => Ok(MacroBankApplyResult {
+            applied: true,
+            macro_count: programs.len(),
+            event_count,
+            message: None,
+        }),
+        Err(error) => Ok(MacroBankApplyResult {
+            applied: false,
+            macro_count: programs.len(),
+            event_count,
+            message: Some(error),
+        }),
+    }
 }
 
 #[tauri::command]
@@ -432,6 +475,11 @@ fn resolve_key_assignments(
         .layouts
         .get(&layout_id)
         .ok_or_else(|| format!("layout not found: {layout_id}"))?;
+    let macro_slots: BTreeMap<String, u8> = load_hardware_macros(state)?
+        .into_iter()
+        .filter(|program| !program.events.is_empty())
+        .map(|program| (program.id, program.slot))
+        .collect();
     let mut seen = HashSet::new();
     let mut assignments = Vec::with_capacity(desired.mappings.len());
 
@@ -454,12 +502,98 @@ fn resolve_key_assignments(
         let device_key_index = key
             .device_key_index
             .ok_or_else(|| format!("key {} has no device key index", mapping.key_id))?;
+        let action = match &mapping.action {
+            KeyAction::Macro { macro_id, .. } => {
+                let slot = macro_slots
+                    .get(macro_id)
+                    .copied()
+                    .ok_or_else(|| format!("macro assignment references missing macro: {macro_id}"))?;
+                KeyAction::Macro {
+                    macro_id: macro_id.clone(),
+                    hardware_slot: Some(slot),
+                }
+            }
+            action => action.clone(),
+        };
         assignments.push(KeyAssignment {
             device_key_index,
-            action: mapping.action.clone(),
+            action,
         });
     }
     Ok(assignments)
+}
+
+fn load_hardware_macros(state: &AppState) -> Result<Vec<HardwareMacroProgram>, String> {
+    let scope = configuration_scope(state, Capability::Macros)?;
+    let programs = state
+        .persistence
+        .load_macros(&scope)
+        .map_err(|error| error.to_string())?;
+    let slots: BTreeMap<String, Option<u16>> = state
+        .persistence
+        .load_macro_hardware_slots(&scope)
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .collect();
+    let mut hardware = programs
+        .into_iter()
+        .map(|program| {
+            let slot = slots
+                .get(&program.id)
+                .copied()
+                .flatten()
+                .ok_or_else(|| {
+                    format!(
+                        "macro {} has no free F108 hardware slot; the device supports 100 slots",
+                        program.name
+                    )
+                })?;
+            let slot = u8::try_from(slot)
+                .map_err(|_| format!("macro {} has an invalid hardware slot", program.name))?;
+            to_hardware_macro(program, slot)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    hardware.sort_by_key(|program| program.slot);
+    Ok(hardware)
+}
+
+fn to_hardware_macro(program: MacroProgram, slot: u8) -> Result<HardwareMacroProgram, String> {
+    if program.playback != MacroPlayback::Once {
+        return Err(format!(
+            "macro {} uses a playback mode that is not verified for F108 hardware",
+            program.name
+        ));
+    }
+    let events = program
+        .events
+        .into_iter()
+        .map(|event| match event {
+            MacroEvent::KeyDown { usage } => HardwareMacroEvent::KeyDown { usage },
+            MacroEvent::KeyUp { usage } => HardwareMacroEvent::KeyUp { usage },
+            MacroEvent::MouseDown { button } => HardwareMacroEvent::MouseDown {
+                button: to_hardware_mouse_button(button),
+            },
+            MacroEvent::MouseUp { button } => HardwareMacroEvent::MouseUp {
+                button: to_hardware_mouse_button(button),
+            },
+            MacroEvent::Delay { milliseconds } => HardwareMacroEvent::Delay { milliseconds },
+        })
+        .collect();
+    Ok(HardwareMacroProgram {
+        id: program.id,
+        slot,
+        events,
+    })
+}
+
+const fn to_hardware_mouse_button(button: MacroMouseButton) -> HardwareMacroMouseButton {
+    match button {
+        MacroMouseButton::Left => HardwareMacroMouseButton::Left,
+        MacroMouseButton::Right => HardwareMacroMouseButton::Right,
+        MacroMouseButton::Middle => HardwareMacroMouseButton::Middle,
+        MacroMouseButton::Button4 => HardwareMacroMouseButton::Button4,
+        MacroMouseButton::Button5 => HardwareMacroMouseButton::Button5,
+    }
 }
 
 fn resolve_per_key_rgb(
@@ -591,6 +725,10 @@ pub fn run() {
                 primary_driver.per_key_rgb_capabilities().is_some(),
                 "the R8 F108 driver must expose stored per-key RGB capabilities"
             );
+            assert!(
+                primary_driver.macro_bank_descriptor().is_some(),
+                "the R10 F108 driver must expose hardware macro limits"
+            );
 
             let manager = DeviceManager::start(registry, ManagerConfig::default());
 
@@ -629,6 +767,8 @@ pub fn run() {
             save_macro,
             delete_macro,
             simulate_macro,
+            get_macro_bank_descriptor,
+            upload_macros,
             save_keymap,
             reset_key_assignments
         ])

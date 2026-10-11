@@ -1,8 +1,8 @@
 use crate::{DriverRegistry, LogEntry, LogRing};
 use mechkeymesh_driver_api::{
     CancellationToken, DeviceCandidate, DeviceDescriptor, DeviceSession, DriverError,
-    DriverManifest, ErrorClass, KeyAssignment, KeyboardDriver, KeymapLayer, LightingConfig,
-    OperationContext, PerKeyRgbConfig, PerKeyRgbReadback,
+    DriverManifest, ErrorClass, HardwareMacroProgram, KeyAssignment, KeyboardDriver, KeymapLayer,
+    LightingConfig, OperationContext, PerKeyRgbConfig, PerKeyRgbReadback,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -116,6 +116,13 @@ enum Command {
         cancellation: CancellationToken,
         reply: Sender<Result<(), String>>,
     },
+    SetMacros {
+        id: u64,
+        programs: Vec<HardwareMacroProgram>,
+        submitted: Instant,
+        cancellation: CancellationToken,
+        reply: Sender<Result<(), String>>,
+    },
     SetPerKeyRgb {
         id: u64,
         config: PerKeyRgbConfig,
@@ -204,6 +211,22 @@ impl DeviceManagerHandle {
                 id,
                 layer,
                 assignments,
+                submitted: Instant::now(),
+                cancellation: cancellation.clone(),
+                reply: reply_tx,
+            })
+            .map_err(|_| "device manager is not running".to_string())?;
+        wait_for_reply(reply_rx, cancellation, self.command_timeout)
+    }
+
+    pub fn set_macros(&self, programs: Vec<HardwareMacroProgram>) -> Result<(), String> {
+        let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
+        let cancellation = CancellationToken::new();
+        let (reply_tx, reply_rx) = mpsc::channel();
+        self.tx
+            .send(Command::SetMacros {
+                id,
+                programs,
                 submitted: Instant::now(),
                 cancellation: cancellation.clone(),
                 reply: reply_tx,
@@ -373,6 +396,27 @@ fn worker(
                     submitted,
                     cancellation,
                     |session, context| session.set_keymap(context, layer, &assignments),
+                );
+                let _ = reply.send(result);
+            }
+            Ok(Command::SetMacros {
+                id,
+                programs,
+                submitted,
+                cancellation,
+                reply,
+            }) => {
+                let result = execute_operation(
+                    &mut active,
+                    &status,
+                    &log,
+                    &active_cancellation,
+                    &config,
+                    id,
+                    "upload hardware macro bank",
+                    submitted,
+                    cancellation,
+                    |session, context| session.set_macros(context, &programs),
                 );
                 let _ = reply.send(result);
             }

@@ -6,6 +6,7 @@ let fnLayerDescriptor = null;
 let activeKeymapLayer = "normal";
 let keymapClipboard = null;
 let keymapInitialized = false;
+let keymapMacros = [];
 
 const layerStates = {
   normal: null,
@@ -104,6 +105,10 @@ function actionSummary(action) {
     case "mouse":
     case "windows":
       return `${labels[action.type]}: ${action.action}`;
+    case "macro": {
+      const program = keymapMacros.find((item) => item.id === action.macroId);
+      return `Macro: ${program?.name || action.macroId}`;
+    }
     default:
       return labels[action.type] || action.type || "Default";
   }
@@ -173,6 +178,9 @@ function populateCapabilityTargets() {
   populateSelect("#mediaTarget", capabilities.mediaActions, (value) => mediaLabels[value] || titleCase(value));
   populateSelect("#mouseTarget", capabilities.mouseActions, (value) => mouseLabels[value] || titleCase(value));
   populateSelect("#windowsTarget", capabilities.windowsActions, (value) => windowsLabels[value] || titleCase(value));
+  populateSelect("#macroTarget", keymapMacros.map((program) => program.id), (id) => {
+    return keymapMacros.find((program) => program.id === id)?.name || id;
+  });
 
   const typeSelect = keymapQ("#keyActionType");
   setOptionEnabled(typeSelect, "disabled", capabilities.disable);
@@ -219,7 +227,8 @@ function updateActionFields() {
     "shortcut": "#shortcutFields",
     "media": "#mediaFields",
     "mouse": "#mouseFields",
-    "windows": "#windowsFields"
+    "windows": "#windowsFields",
+    "macro": "#macroFields"
   };
   for (const selector of Object.values(mapping)) {
     keymapQ(selector).classList.add("hidden-control");
@@ -254,6 +263,11 @@ function actionFromEditor() {
       return { type: "mouse", action: keymapQ("#mouseTarget").value };
     case "windows":
       return { type: "windows", action: keymapQ("#windowsTarget").value };
+    case "macro": {
+      const macroId = keymapQ("#macroTarget").value;
+      if (!macroId) throw new Error("Create and save a macro before assigning one to a key.");
+      return { type: "macro", macroId };
+    }
     default:
       throw new Error("This action is not currently supported by the F108 driver.");
   }
@@ -298,6 +312,10 @@ function editorFromAction(action) {
     case "windows":
       keymapQ("#keyActionType").value = "windows";
       keymapQ("#windowsTarget").value = action.action;
+      break;
+    case "macro":
+      keymapQ("#keyActionType").value = "macro";
+      keymapQ("#macroTarget").value = action.macroId;
       break;
     default:
       keymapQ("#keyActionType").value = "default";
@@ -634,6 +652,10 @@ function bindKeymapEvents() {
     refreshMappedKeys();
     refreshSelectionEditor();
   });
+  window.addEventListener("mechkeymesh-macros-changed", (event) => {
+    keymapMacros = event.detail?.programs || [];
+    populateCapabilityTargets();
+  });
 }
 
 async function loadLayerState(layer) {
@@ -650,17 +672,19 @@ async function initializeKeymapEditor() {
   bindKeymapEvents();
 
   try {
-    const [layout, normal, fnLayer, descriptor] = await Promise.all([
+    const [layout, normal, fnLayer, descriptor, macros] = await Promise.all([
       keymapInvoke("get_primary_layout"),
       loadLayerState("normal"),
       loadLayerState("fn"),
-      keymapInvoke("get_fn_layer_descriptor")
+      keymapInvoke("get_fn_layer_descriptor"),
+      keymapInvoke("get_macros")
     ]);
 
     keymapLayout = layout;
     layerStates.normal = normal;
     layerStates.fn = fnLayer;
     fnLayerDescriptor = descriptor;
+    keymapMacros = macros;
 
     populateKeyTargets();
     switchLayer("normal");

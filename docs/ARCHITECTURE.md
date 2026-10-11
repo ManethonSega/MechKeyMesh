@@ -295,6 +295,7 @@ Schema changes are versioned. A newer database is refused by an older MechKeyMes
 schema 1  devices, profiles, lighting, device_settings, application_rules
 schema 2  key_mappings, layer_mappings, macros, macro_events
 schema 3  per_key_lighting, live_lighting, music_presets, lcd_projects
+schema 4  stable macro hardware slots
 ```
 
 The tables exist before their higher-level feature editors are implemented so later runs can add functionality without repeatedly redesigning persistence ownership.
@@ -315,7 +316,13 @@ MacroProgram
 
 Macros are stored in the existing schema-2 `macros` and `macro_events` tables. A macro and its complete ordered event list are replaced in one immediate SQLite transaction. The editor can record, insert, delete, reorder, duplicate, copy/paste, rename and import/export events.
 
-Simulation accumulates explicit delay events and returns a timeline marked `hardwareTouched = false`. No R9 Tauri macro command calls the device manager, and the F108 driver does not advertise `Macros` yet. Hardware serialization, upload and key references are deliberately reserved for R10.
+Simulation accumulates explicit delay events and returns a timeline marked `hardwareTouched = false`.
+
+R10 adds a generic hardware-macro driver contract while keeping the F108 wire format inside its driver. The F108 serializer builds the complete 100-slot bank before transport is available to the send path. Invalid slots, events, delays, mouse buttons, size scores or packet counts therefore fail with zero packets sent.
+
+Persisted macro IDs receive stable schema-4 hardware slots. Keymap storage remains vendor-neutral and references the macro ID; the desktop resolves that ID to a slot only for the F108 write. Renames and deletion never renumber surviving macro references.
+
+The driver advertises `Macros`, but its descriptor explicitly marks hardware writes unverified because the protocol source states that macro transfer was never tried. Only `Once` is exposed until loop and held/toggle behaviors are physically verified.
 
 ### Desired lighting behavior
 

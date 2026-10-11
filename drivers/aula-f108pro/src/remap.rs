@@ -15,6 +15,7 @@ const ACTION_SPECIAL: u8 = 0x01;
 const ACTION_KEY: u8 = 0x02;
 const ACTION_CONSUMER: u8 = 0x03;
 const ACTION_HOST_SPECIAL: u8 = 0x05;
+const ACTION_MACRO: u8 = 0x06;
 const ACTION_MOUSE: u8 = 0x07;
 
 pub fn keymap_capabilities(layer: KeymapLayer) -> KeymapCapabilities {
@@ -51,7 +52,7 @@ pub fn keymap_capabilities(layer: KeymapLayer) -> KeymapCapabilities {
         open_file: false,
         open_url: false,
         send_text: false,
-        macro_action: false,
+        macro_action: true,
         protected_keys: match layer {
             KeymapLayer::Normal => vec![],
             KeymapLayer::Fn => fn_protected_keys(),
@@ -264,8 +265,23 @@ fn encode_action(action: &KeyAction) -> Result<[u8; 4], DriverError> {
         | KeyAction::SendText { .. } => Err(DriverError::UnsupportedCapability(
             "F108 host-side application/file/URL/text actions are not yet verified",
         )),
-        KeyAction::Macro { .. } => Err(DriverError::UnsupportedCapability(
-            "F108 macro assignments require the R9/R10 macro implementation",
+        KeyAction::Macro {
+            hardware_slot: Some(slot),
+            ..
+        } if usize::from(*slot) < crate::macro_bank::SLOT_COUNT => {
+            Ok([ACTION_MACRO, *slot, 1, 0])
+        }
+        KeyAction::Macro {
+            hardware_slot: Some(slot),
+            ..
+        } => Err(DriverError::InvalidConfiguration(format!(
+            "F108 macro slot {slot} is outside the 100-slot bank"
+        ))),
+        KeyAction::Macro {
+            hardware_slot: None,
+            ..
+        } => Err(DriverError::InvalidConfiguration(
+            "macro assignment was not resolved to an F108 bank slot".into(),
         )),
         KeyAction::Layer { .. } => Err(DriverError::UnsupportedCapability(
             "layer actions are not part of F108 normal-layer remapping",
@@ -463,6 +479,25 @@ mod tests {
             })
             .unwrap(),
             [0x01, 0x03, 0x01, 0x00]
+        );
+    }
+
+    #[test]
+    fn macro_reference_requires_a_resolved_bank_slot() {
+        assert_eq!(
+            encode_action(&KeyAction::Macro {
+                macro_id: "copy".into(),
+                hardware_slot: Some(7),
+            })
+            .unwrap(),
+            [0x06, 0x07, 0x01, 0x00]
+        );
+        assert!(
+            encode_action(&KeyAction::Macro {
+                macro_id: "copy".into(),
+                hardware_slot: None,
+            })
+            .is_err()
         );
     }
 

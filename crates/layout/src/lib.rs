@@ -150,6 +150,10 @@ pub enum KeyAction {
     },
     Macro {
         macro_id: String,
+        /// Resolved hardware-bank slot. Stored mappings leave this unset;
+        /// the application resolves it immediately before a device write.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        hardware_slot: Option<u8>,
     },
     Layer {
         action: LayerAction,
@@ -205,7 +209,7 @@ impl KeyAction {
             Self::OpenFile { path } => require_text(path, "file path"),
             Self::OpenUrl { url } => require_text(url, "URL"),
             Self::SendText { text } => require_text(text, "text"),
-            Self::Macro { macro_id } => require_text(macro_id, "macro ID"),
+            Self::Macro { macro_id, .. } => require_text(macro_id, "macro ID"),
             Self::Layer { layer_id, .. } => require_text(layer_id, "layer ID"),
             Self::VendorSpecific {
                 namespace, action, ..

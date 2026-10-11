@@ -53,6 +53,43 @@ impl PersistenceStore {
             ],
         )?;
 
+        // Preserve an existing slot forever; otherwise take the lowest free
+        // F108 slot. A 101st software macro remains valid but has no hardware
+        // slot and will be rejected by the hardware-bank validator.
+        transaction.execute(
+            r#"
+                UPDATE macros
+                SET hardware_slot = (
+                    WITH RECURSIVE slots(slot) AS (
+                        SELECT 0
+                        UNION ALL
+                        SELECT slot + 1 FROM slots WHERE slot < 99
+                    )
+                    SELECT MIN(slot)
+                    FROM slots
+                    WHERE slot NOT IN (
+                        SELECT hardware_slot
+                        FROM macros
+                        WHERE device_model_id = ?1
+                          AND profile_id = ?2
+                          AND capability = ?3
+                          AND hardware_slot IS NOT NULL
+                    )
+                )
+                WHERE device_model_id = ?1
+                  AND profile_id = ?2
+                  AND capability = ?3
+                  AND id = ?4
+                  AND hardware_slot IS NULL
+            "#,
+            params![
+                scope.device_model_id,
+                scope.profile_id,
+                scope.capability.storage_key(),
+                program.id
+            ],
+        )?;
+
         transaction.execute(
             r#"
                 DELETE FROM macro_events
@@ -117,7 +154,9 @@ impl PersistenceStore {
                 WHERE device_model_id = ?1
                   AND profile_id = ?2
                   AND capability = ?3
-                ORDER BY name COLLATE NOCASE, id
+                -- Hardware macro slots are derived from this stable ID order.
+                -- Renaming a macro must never silently move its on-device slot.
+                ORDER BY id
             "#,
         )?;
         let macro_rows = macros_statement.query_map(
@@ -189,6 +228,33 @@ impl PersistenceStore {
             programs.push(program);
         }
         Ok(programs)
+    }
+
+    pub fn load_macro_hardware_slots(
+        &self,
+        scope: &ConfigurationScope,
+    ) -> Result<Vec<(String, Option<u16>)>, PersistenceError> {
+        validate_scope(scope)?;
+        let connection = self.connection.lock().expect("database lock poisoned");
+        let mut statement = connection.prepare(
+            r#"
+                SELECT id, hardware_slot
+                FROM macros
+                WHERE device_model_id = ?1
+                  AND profile_id = ?2
+                  AND capability = ?3
+                ORDER BY hardware_slot, id
+            "#,
+        )?;
+        let rows = statement.query_map(
+            params![
+                scope.device_model_id,
+                scope.profile_id,
+                scope.capability.storage_key()
+            ],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<u16>>(1)?)),
+        )?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
     }
 
     pub fn delete_macro(
@@ -312,6 +378,31 @@ mod tests {
             .unwrap();
         let reopened = PersistenceStore::open(&path).unwrap();
         assert_eq!(reopened.load_macros(&scope()).unwrap(), vec![expected]);
+    }
+
+    #[test]
+    fn hardware_slots_survive_rename_and_do_not_shift_after_delete() {
+        let (_directory, path) = setup();
+        let store = PersistenceStore::open(&path).unwrap();
+        let first = sample();
+        let mut second = sample();
+        second.id = "macro-2".into();
+        second.name = "Second".into();
+        store.save_macro(&scope(), &first).unwrap();
+        store.save_macro(&scope(), &second).unwrap();
+        assert_eq!(
+            store.load_macro_hardware_slots(&scope()).unwrap(),
+            vec![("macro-1".into(), Some(0)), ("macro-2".into(), Some(1))]
+        );
+
+        let mut renamed = second.clone();
+        renamed.name = "A renamed macro".into();
+        store.save_macro(&scope(), &renamed).unwrap();
+        store.delete_macro(&scope(), "macro-1").unwrap();
+        assert_eq!(
+            store.load_macro_hardware_slots(&scope()).unwrap(),
+            vec![("macro-2".into(), Some(1))]
+        );
     }
 
     #[test]

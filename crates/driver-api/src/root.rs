@@ -364,6 +364,48 @@ pub struct FnLayerDescriptor {
     pub note: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum HardwareMacroMouseButton {
+    Left,
+    Right,
+    Middle,
+    Button4,
+    Button5,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+pub enum HardwareMacroEvent {
+    KeyDown { usage: u16 },
+    KeyUp { usage: u16 },
+    MouseDown { button: HardwareMacroMouseButton },
+    MouseUp { button: HardwareMacroMouseButton },
+    Delay { milliseconds: u32 },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HardwareMacroProgram {
+    pub id: String,
+    pub slot: u8,
+    pub events: Vec<HardwareMacroEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MacroBankDescriptor {
+    pub slot_count: usize,
+    pub maximum_bank_bytes: usize,
+    pub maximum_events_per_macro: usize,
+    pub minimum_delay_milliseconds: u32,
+    pub maximum_delay_milliseconds: u32,
+    pub minimum_loop_count: u16,
+    pub maximum_loop_count: u16,
+    pub hardware_write_verified: bool,
+    pub note: String,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct CancellationToken {
     cancelled: Arc<AtomicBool>,
@@ -468,6 +510,14 @@ pub trait DeviceSession: Send {
         Err(DriverError::UnsupportedCapability("key-remapping"))
     }
 
+    fn set_macros(
+        &mut self,
+        _context: &OperationContext,
+        _programs: &[HardwareMacroProgram],
+    ) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("macros"))
+    }
+
     fn set_per_key_rgb(
         &mut self,
         _context: &OperationContext,
@@ -506,6 +556,14 @@ pub trait KeyboardDriver: Send + Sync {
 
     fn fn_layer_descriptor(&self) -> Option<FnLayerDescriptor> {
         None
+    }
+
+    fn macro_bank_descriptor(&self) -> Option<MacroBankDescriptor> {
+        None
+    }
+
+    fn validate_macro_bank(&self, _programs: &[HardwareMacroProgram]) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("macros"))
     }
 
     fn per_key_rgb_capabilities(&self) -> Option<PerKeyRgbCapabilities> {

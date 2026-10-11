@@ -2,13 +2,13 @@ use super::{
     AulaF108ProSession, CONFIG_USAGE_PAGE, PRODUCT_ID, VENDOR_ID, f108pro_layout, lighting_effects,
     map_transport_error, validate_candidate,
 };
-use crate::{per_key_rgb, remap};
+use crate::{macro_bank, per_key_rgb, remap};
 use mechkeymesh_driver_api::{
     Capability, Connection, DeviceCandidate, DeviceDescriptor, DeviceMatch, DeviceSession,
     DriverError, DriverManifest, FnActivationMode, FnActivationModeOption, FnLayerDescriptor,
-    KeyAssignment, KeyboardDriver, KeymapCapabilities, KeymapLayer, LightingConfig,
-    LightingEffectDescriptor, OperationContext, PerKeyRgbCapabilities, PerKeyRgbConfig,
-    PerKeyRgbReadback, TransportKind, TransportRequirement,
+    HardwareMacroProgram, KeyAssignment, KeyboardDriver, KeymapCapabilities, KeymapLayer,
+    LightingConfig, LightingEffectDescriptor, MacroBankDescriptor, OperationContext,
+    PerKeyRgbCapabilities, PerKeyRgbConfig, PerKeyRgbReadback, TransportKind, TransportRequirement,
 };
 use mechkeymesh_hid::{FEATURE_REPORT_SIZE, enumerate_feature_devices, open_feature_path};
 
@@ -37,6 +37,7 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
             capabilities: vec![
                 Capability::Keys,
                 Capability::FnLayer,
+                Capability::Macros,
                 Capability::HardwareRgb,
                 Capability::PerKeyRgb,
             ],
@@ -84,6 +85,14 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
             hardware_write_verified: false,
             note: "OEM binary maps fn_switch raw 0 to Toggle and raw 1 to Momentary. MechKeyMesh does not write this setting yet because the 04 17 / 00 01 function-settings transaction is not physically verified.".into(),
         })
+    }
+
+    fn macro_bank_descriptor(&self) -> Option<MacroBankDescriptor> {
+        Some(macro_bank::descriptor())
+    }
+
+    fn validate_macro_bank(&self, programs: &[HardwareMacroProgram]) -> Result<(), DriverError> {
+        macro_bank::validate_bank(programs)
     }
 
     fn per_key_rgb_capabilities(&self) -> Option<PerKeyRgbCapabilities> {
@@ -153,6 +162,7 @@ impl DeviceSession for AulaF108ProRemapSession {
         descriptor.capabilities = vec![
             Capability::Keys,
             Capability::FnLayer,
+            Capability::Macros,
             Capability::HardwareRgb,
             Capability::PerKeyRgb,
         ];
@@ -187,6 +197,14 @@ impl DeviceSession for AulaF108ProRemapSession {
         }
     }
 
+    fn set_macros(
+        &mut self,
+        context: &OperationContext,
+        programs: &[HardwareMacroProgram],
+    ) -> Result<(), DriverError> {
+        macro_bank::send_bank(&mut self.inner, context, programs)
+    }
+
     fn set_per_key_rgb(
         &mut self,
         context: &OperationContext,
@@ -214,7 +232,7 @@ mod tests {
     use mechkeymesh_driver_api::{KeyAction, MediaAction, Modifier, MouseAction, WindowsAction};
 
     #[test]
-    fn r8_manifest_exposes_normal_fn_hardware_and_per_key_rgb_capabilities() {
+    fn r10_manifest_exposes_macro_capability() {
         let driver = AulaF108ProRemapDriver::new();
         let manifest = driver.manifest();
         assert_eq!(
@@ -222,10 +240,22 @@ mod tests {
             vec![
                 Capability::Keys,
                 Capability::FnLayer,
+                Capability::Macros,
                 Capability::HardwareRgb,
                 Capability::PerKeyRgb,
             ]
         );
+    }
+
+    #[test]
+    fn macro_descriptor_keeps_unverified_hardware_status_explicit() {
+        let descriptor = AulaF108ProRemapDriver::new()
+            .macro_bank_descriptor()
+            .unwrap();
+        assert_eq!(descriptor.slot_count, 100);
+        assert_eq!(descriptor.minimum_delay_milliseconds, 10);
+        assert_eq!(descriptor.maximum_loop_count, 99);
+        assert!(!descriptor.hardware_write_verified);
     }
 
     #[test]

@@ -28,14 +28,14 @@
     <nav id="nav">
       <button class="active" data-page="home">Home</button>
       <button data-page="keys">Keys <b>R7</b></button>
-      <button data-page="macros">Macros <b>R9</b></button>
+      <button data-page="macros">Macros <b>R10</b></button>
       <button data-page="lighting">Lighting <b>R8</b></button>
       <button data-page="lcd" disabled>LCD <b>Soon</b></button>
       <button data-page="profiles" disabled>Profiles <b>Soon</b></button>
       <button data-page="settings" disabled>Device Settings <b>Soon</b></button>
       <button data-page="diagnostics">Diagnostics</button>
     </nav>
-    <div class="version">v0.10.0-alpha.1 · Universal Macros</div>
+    <div class="version">v0.11.0-alpha.1 · F108 Hardware Macros</div>
   </aside>
 
   <main>
@@ -168,7 +168,7 @@
               <option value="open-file" disabled>Open file (not verified)</option>
               <option value="open-url" disabled>Open website (not verified)</option>
               <option value="send-text" disabled>Send text (not verified)</option>
-              <option value="macro" disabled>Macro (R9/R10)</option>
+              <option value="macro" disabled>Macro</option>
             </select>
           </label>
 
@@ -209,6 +209,10 @@
           <div id="windowsFields" class="action-fields hidden-control">
             <label class="editor-field">Windows action<select id="windowsTarget"></select></label>
           </div>
+          <div id="macroFields" class="action-fields hidden-control">
+            <label class="editor-field">Saved macro<select id="macroTarget"></select></label>
+            <p class="muted">The macro ID is stored here; its stable F108 bank slot is resolved immediately before the keymap write.</p>
+          </div>
 
           <div id="hostActionNotice" class="protocol-notice">
             Open application, file, URL and send-text assignments in the OEM software depend on an indexed host-side handler. They stay disabled until MechKeyMesh verifies that event channel rather than pretending the four-byte mapping alone is sufficient.
@@ -234,7 +238,7 @@
         <article class="card macro-library">
           <div class="sectiontitle">
             <div><span class="eyebrow">MACRO LIBRARY</span><h3>Saved macros</h3></div>
-            <span class="verification safe">Software only</span>
+            <span class="verification pending">Hardware verification pending</span>
           </div>
           <select id="macroLibrary" size="10" aria-label="Saved macros"></select>
           <div class="macro-library-actions">
@@ -242,7 +246,7 @@
             <button id="duplicateMacro" class="secondary compact" type="button">Duplicate</button>
             <button id="deleteMacro" class="secondary compact danger-soft" type="button">Delete</button>
           </div>
-          <p class="layout-note">R9 saves macros locally. No macro packet or key assignment is sent to the keyboard.</p>
+          <p class="layout-note">Macros are saved locally until you explicitly upload the complete bank.</p>
         </article>
 
         <article class="card macro-editor-card">
@@ -310,7 +314,15 @@
               <pre id="macroSimulation">No simulation run.</pre>
             </section>
           </div>
-          <div class="macro-footer"><span id="macroStatus" class="muted">Loading macro library...</span></div>
+          <div class="macro-footer">
+            <div>
+              <strong>F108 hardware bank</strong>
+              <p id="macroHardwareLimits" class="muted">Loading device limits...</p>
+              <p class="muted">The reverse-engineered upload path has not yet been physically verified. An invalid bank is rejected before any packet is sent.</p>
+            </div>
+            <button id="uploadMacros" class="primary" type="button">Upload complete bank</button>
+            <span id="macroStatus" class="muted">Loading macro library...</span>
+          </div>
         </article>
       </div>
     </section>

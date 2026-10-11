@@ -23,6 +23,7 @@ Current Rust implementation:
 - independent Normal/Fn desired keymap persistence and complete 576-byte F108 table generation
 - persistent per-key RGB desired state using physical key IDs and layout LED indices
 - universal macro model, transactional persistence, timeline editor and hardware-free simulation
+- preflighted F108 macro-bank serializer, upload queue and stable macro key references; physical verification remains pending
 - verified software encoders for keyboard keys, modifiers, shortcuts, media, selected mouse actions and selected Windows/system actions
 - strict lighting and remap parameter validation
 - runtime diagnostics
@@ -73,7 +74,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.10.0-alpha.1`, **R9 Universal macro engine in progress**. Macros can be recorded, edited, imported/exported, stored transactionally and simulated without opening or writing to the keyboard. The generic model already represents the F108 playback concepts, while the UI exposes only software-safe `Once` playback until R10 verifies hardware encodings.
+`v0.11.0-alpha.1`, **R10 F108 hardware macros in validation**. The complete macro bank is serialized and rejected on any invalid slot, event, delay or size before the first HID packet. Macro IDs resolve through stable persisted slots for key assignments. The reverse-engineered sender has not yet been physically verified, so persistence after the app closes remains an explicit hardware checklist item.
 
 The previous Go/Wails prototype is preserved in the branch:
 

@@ -311,6 +311,9 @@ async function macroSave() {
     macroPrograms.sort((a, b) => a.name.localeCompare(b.name));
     macroSetDraft(saved);
     macroSetStatus(`${saved.name} saved locally. No keyboard command was sent.`);
+    window.dispatchEvent(new CustomEvent("mechkeymesh-macros-changed", {
+      detail: { programs: macroClone(macroPrograms) }
+    }));
   } catch (error) {
     macroSetStatus(String(error), true);
   }
@@ -324,6 +327,9 @@ async function macroDelete() {
     const next = macroPrograms[0] || newMacroProgram();
     macroSetDraft(next);
     macroSetStatus("Macro deleted from local storage.");
+    window.dispatchEvent(new CustomEvent("mechkeymesh-macros-changed", {
+      detail: { programs: macroClone(macroPrograms) }
+    }));
   } catch (error) {
     macroSetStatus(String(error), true);
   }
@@ -378,12 +384,41 @@ async function macroImport() {
 
 async function macroLoadLibrary() {
   try {
-    macroPrograms = await macroInvoke("get_macros");
+    const [programs, descriptor] = await Promise.all([
+      macroInvoke("get_macros"),
+      macroInvoke("get_macro_bank_descriptor")
+    ]);
+    macroPrograms = programs;
+    macroQ("#macroHardwareLimits").textContent =
+      `${descriptor.slotCount} slots · ${descriptor.maximumBankBytes} byte format ceiling · ` +
+      `${descriptor.maximumEventsPerMacro} events max for a single-macro bank · ` +
+      `${descriptor.minimumDelayMilliseconds}–${descriptor.maximumDelayMilliseconds} ms delays · ` +
+      `${descriptor.minimumLoopCount}–${descriptor.maximumLoopCount} loop field`;
     macroSetDraft(macroPrograms[0] || newMacroProgram());
     macroSetStatus(macroPrograms.length ? `${macroPrograms.length} macro${macroPrograms.length === 1 ? "" : "s"} loaded.` : "No saved macros. Create the first one.");
   } catch (error) {
     macroSetDraft(newMacroProgram());
     macroSetStatus(String(error), true);
+  }
+}
+
+async function macroUploadBank() {
+  macroQ("#uploadMacros").disabled = true;
+  macroSetStatus("Validating the complete F108 macro bank...");
+  try {
+    const result = await macroInvoke("upload_macros");
+    if (!result.applied) {
+      macroSetStatus(`Bank was valid but hardware upload failed: ${result.message}`, true);
+      return;
+    }
+    macroSetStatus(
+      `Uploaded ${result.macroCount} macros and ${result.eventCount} events. ` +
+      "Persistence after app exit still requires physical verification."
+    );
+  } catch (error) {
+    macroSetStatus(`No upload performed: ${String(error)}`, true);
+  } finally {
+    macroQ("#uploadMacros").disabled = false;
   }
 }
 
@@ -412,6 +447,7 @@ function macroBind() {
   macroQ("#simulateMacro").addEventListener("click", macroSimulate);
   macroQ("#exportMacro").addEventListener("click", macroExport);
   macroQ("#importMacro").addEventListener("click", macroImport);
+  macroQ("#uploadMacros").addEventListener("click", macroUploadBank);
 
   const pad = macroQ("#macroCapturePad");
   pad.addEventListener("keydown", (event) => {
