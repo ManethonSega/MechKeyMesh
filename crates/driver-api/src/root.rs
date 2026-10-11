@@ -270,9 +270,16 @@ pub struct KeyAssignment {
     pub action: KeyAction,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyRestriction {
+    pub device_key_index: u16,
+    pub reason: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NormalRemapCapabilities {
+pub struct KeymapCapabilities {
     pub disable: bool,
     pub keyboard_key: bool,
     pub modifier: bool,
@@ -285,7 +292,32 @@ pub struct NormalRemapCapabilities {
     pub open_url: bool,
     pub send_text: bool,
     pub macro_action: bool,
+    #[serde(default)]
+    pub protected_keys: Vec<KeyRestriction>,
     pub unsupported_host_actions_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FnActivationMode {
+    Toggle,
+    Momentary,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FnActivationModeOption {
+    pub mode: FnActivationMode,
+    pub raw_value: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FnLayerDescriptor {
+    pub modes: Vec<FnActivationModeOption>,
+    pub current_mode: Option<FnActivationMode>,
+    pub hardware_write_verified: bool,
+    pub note: String,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -408,7 +440,11 @@ pub trait KeyboardDriver: Send + Sync {
         Vec::new()
     }
 
-    fn normal_remap_capabilities(&self) -> Option<NormalRemapCapabilities> {
+    fn keymap_capabilities(&self, _layer: KeymapLayer) -> Option<KeymapCapabilities> {
+        None
+    }
+
+    fn fn_layer_descriptor(&self) -> Option<FnLayerDescriptor> {
         None
     }
 
@@ -465,6 +501,31 @@ mod tests {
         assert_eq!(Capability::HardwareRgb.storage_key(), "hardware-rgb");
         assert_eq!(Capability::Keys.storage_key(), "keys");
         assert_eq!(Capability::FnLayer.storage_key(), "fn-layer");
+    }
+
+    #[test]
+    fn fn_activation_mode_values_are_serializable_without_losing_raw_enum() {
+        let descriptor = FnLayerDescriptor {
+            modes: vec![
+                FnActivationModeOption {
+                    mode: FnActivationMode::Toggle,
+                    raw_value: 0,
+                },
+                FnActivationModeOption {
+                    mode: FnActivationMode::Momentary,
+                    raw_value: 1,
+                },
+            ],
+            current_mode: None,
+            hardware_write_verified: false,
+            note: "test".into(),
+        };
+
+        let json = serde_json::to_string(&descriptor).unwrap();
+        assert!(json.contains("\"mode\":\"toggle\""));
+        assert!(json.contains("\"rawValue\":0"));
+        assert!(json.contains("\"mode\":\"momentary\""));
+        assert!(json.contains("\"rawValue\":1"));
     }
 
     #[test]
