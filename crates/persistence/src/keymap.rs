@@ -247,7 +247,9 @@ mod tests {
 
         let reopened = PersistenceStore::open(&path).unwrap();
         assert_eq!(
-            reopened.load_keymap(&normal_scope(), KeymapLayer::Normal).unwrap(),
+            reopened
+                .load_keymap(&normal_scope(), KeymapLayer::Normal)
+                .unwrap(),
             desired
         );
     }
@@ -271,7 +273,9 @@ mod tests {
         );
 
         let store = PersistenceStore::open(&path).unwrap();
-        store.save_keymaps(&[normal.clone(), fn_layer.clone()]).unwrap();
+        store
+            .save_keymaps(&[normal.clone(), fn_layer.clone()])
+            .unwrap();
         drop(store);
 
         let reopened = PersistenceStore::open(&path).unwrap();
@@ -338,7 +342,9 @@ mod tests {
         store.save_keymap(&replacement).unwrap();
 
         assert_eq!(
-            store.load_keymap(&normal_scope(), KeymapLayer::Normal).unwrap(),
+            store
+                .load_keymap(&normal_scope(), KeymapLayer::Normal)
+                .unwrap(),
             replacement
         );
     }
