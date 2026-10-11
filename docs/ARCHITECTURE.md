@@ -299,6 +299,24 @@ schema 3  per_key_lighting, live_lighting, music_presets, lcd_projects
 
 The tables exist before their higher-level feature editors are implemented so later runs can add functionality without repeatedly redesigning persistence ownership.
 
+### Universal macro engine
+
+R9 defines macros independently from any keyboard packet format:
+
+```text
+MacroProgram
+  id + name
+  playback concept
+  ordered MacroEvent[]
+      KeyDown / KeyUp
+      MouseDown / MouseUp
+      Delay
+```
+
+Macros are stored in the existing schema-2 `macros` and `macro_events` tables. A macro and its complete ordered event list are replaced in one immediate SQLite transaction. The editor can record, insert, delete, reorder, duplicate, copy/paste, rename and import/export events.
+
+Simulation accumulates explicit delay events and returns a timeline marked `hardwareTouched = false`. No R9 Tauri macro command calls the device manager, and the F108 driver does not advertise `Macros` yet. Hardware serialization, upload and key references are deliberately reserved for R10.
+
 ### Desired lighting behavior
 
 The first end-to-end persisted feature is onboard lighting.

@@ -1,0 +1,203 @@
+.macro-workspace {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.macro-library,
+.macro-editor-card {
+  min-width: 0;
+}
+
+.macro-library select {
+  width: 100%;
+  min-height: 330px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.macro-library select option {
+  padding: 9px;
+}
+
+.macro-library-actions,
+.macro-inline-actions,
+.macro-footer {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.macro-meta {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, .45fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.macro-meta label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.macro-meta input,
+.macro-meta select,
+.macro-json-panel textarea,
+.macro-table input,
+.macro-table select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 9px 10px;
+}
+
+.macro-evidence-note {
+  margin: 10px 0 14px;
+}
+
+.macro-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.macro-capture-pad {
+  display: grid;
+  gap: 5px;
+  place-items: center;
+  min-height: 86px;
+  margin-top: 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  outline: none;
+}
+
+.macro-capture-pad:focus {
+  border-color: var(--mesh-cyan);
+  box-shadow: 0 0 0 3px rgba(33, 230, 232, .08);
+}
+
+.macro-capture-pad.recording {
+  border-color: #ff355e;
+  background: rgba(255, 53, 94, .08);
+  color: var(--text);
+}
+
+.macro-table-wrap {
+  max-height: 390px;
+  overflow: auto;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.macro-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.macro-table th,
+.macro-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.macro-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.macro-table tr.selected {
+  background: rgba(33, 230, 232, .08);
+}
+
+.macro-table td:first-child {
+  width: 34px;
+}
+
+.macro-table td:nth-child(2) {
+  width: 90px;
+  color: var(--mesh-cyan);
+  font-variant-numeric: tabular-nums;
+}
+
+.macro-table input[type="number"] {
+  max-width: 130px;
+}
+
+.macro-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.macro-json-panel,
+.macro-simulation-panel {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.macro-json-panel textarea {
+  min-height: 145px;
+  margin-top: 10px;
+  resize: vertical;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+}
+
+.macro-simulation-panel pre {
+  min-height: 145px;
+  max-height: 235px;
+  overflow: auto;
+  margin: 10px 0 0;
+  white-space: pre-wrap;
+  color: var(--text-soft);
+}
+
+.verification.safe {
+  color: var(--mesh-cyan);
+  border-color: rgba(33, 230, 232, .35);
+}
+
+@media (max-width: 1050px) {
+  .macro-workspace,
+  .macro-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .macro-library select {
+    min-height: 140px;
+  }
+}
+
+@media (max-width: 760px) {
+  .macro-meta {
+    grid-template-columns: 1fr;
+  }
+}

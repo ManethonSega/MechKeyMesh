@@ -10,6 +10,7 @@ const selectedKeyIds = new Set();
 const pages = {
   home: ["Home", "Device overview and connection health"],
   keys: ["Keys", "Data-driven physical layout and universal key actions"],
+  macros: ["Macros", "Create, edit, persist and safely simulate universal macros"],
   lighting: ["Lighting", "Onboard effects and persistent per-key RGB"],
   diagnostics: ["Diagnostics", "Connection, command and recovery log"]
 };

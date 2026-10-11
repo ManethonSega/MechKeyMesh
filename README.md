@@ -22,6 +22,7 @@ Current Rust implementation:
 - 20 mapped onboard lighting effects with effect-specific parameter metadata; physical verification remains explicitly unverified/deferred
 - independent Normal/Fn desired keymap persistence and complete 576-byte F108 table generation
 - persistent per-key RGB desired state using physical key IDs and layout LED indices
+- universal macro model, transactional persistence, timeline editor and hardware-free simulation
 - verified software encoders for keyboard keys, modifiers, shortcuts, media, selected mouse actions and selected Windows/system actions
 - strict lighting and remap parameter validation
 - runtime diagnostics
@@ -72,7 +73,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.9.0-alpha.1`, **R8 Stored per-key RGB in progress** on branch `r8/stored-per-key-rgb`. The software now models persistent physical-key colors, translates them through layout LED indices, implements the exact OEM-derived `04 23` RGB write sequence and maps the `04 F5` RGB readback path. R8 remains open until physical keys are proven to illuminate at the correct positions and persist correctly.
+`v0.10.0-alpha.1`, **R9 Universal macro engine in progress**. Macros can be recorded, edited, imported/exported, stored transactionally and simulated without opening or writing to the keyboard. The generic model already represents the F108 playback concepts, while the UI exposes only software-safe `Once` playback until R10 verifies hardware encodings.
 
 The previous Go/Wails prototype is preserved in the branch:
 

@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="app.css" />
   <link rel="stylesheet" href="keymap.css" />
   <link rel="stylesheet" href="perkey.css" />
+  <link rel="stylesheet" href="macros.css" />
 </head>
 <body>
 <div id="splash" class="splash">
@@ -27,14 +28,14 @@
     <nav id="nav">
       <button class="active" data-page="home">Home</button>
       <button data-page="keys">Keys <b>R7</b></button>
-      <button data-page="macros" disabled>Macros <b>Soon</b></button>
+      <button data-page="macros">Macros <b>R9</b></button>
       <button data-page="lighting">Lighting <b>R8</b></button>
       <button data-page="lcd" disabled>LCD <b>Soon</b></button>
       <button data-page="profiles" disabled>Profiles <b>Soon</b></button>
       <button data-page="settings" disabled>Device Settings <b>Soon</b></button>
       <button data-page="diagnostics">Diagnostics</button>
     </nav>
-    <div class="version">v0.9.0-alpha.1 · Stored Per-Key RGB</div>
+    <div class="version">v0.10.0-alpha.1 · Universal Macros</div>
   </aside>
 
   <main>
@@ -228,6 +229,92 @@
       </div>
     </section>
 
+    <section id="page-macros" class="page">
+      <div class="macro-workspace">
+        <article class="card macro-library">
+          <div class="sectiontitle">
+            <div><span class="eyebrow">MACRO LIBRARY</span><h3>Saved macros</h3></div>
+            <span class="verification safe">Software only</span>
+          </div>
+          <select id="macroLibrary" size="10" aria-label="Saved macros"></select>
+          <div class="macro-library-actions">
+            <button id="newMacro" class="primary compact" type="button">New</button>
+            <button id="duplicateMacro" class="secondary compact" type="button">Duplicate</button>
+            <button id="deleteMacro" class="secondary compact danger-soft" type="button">Delete</button>
+          </div>
+          <p class="layout-note">R9 saves macros locally. No macro packet or key assignment is sent to the keyboard.</p>
+        </article>
+
+        <article class="card macro-editor-card">
+          <div class="sectiontitle">
+            <div>
+              <span class="eyebrow">UNIVERSAL MACRO ENGINE</span>
+              <h3>Timeline editor</h3>
+            </div>
+            <div class="layout-badges">
+              <span id="macroEventCount" class="tag neutral">0 events</span>
+              <span id="macroDuration" class="tag neutral">0 ms</span>
+            </div>
+          </div>
+
+          <div class="macro-meta">
+            <label>Name<input id="macroName" type="text" maxlength="160" value="New macro" /></label>
+            <label>Playback<select id="macroPlayback"><option value="once">Once</option></select></label>
+            <button id="saveMacro" class="primary" type="button">Save macro</button>
+          </div>
+          <p class="muted macro-evidence-note">Repeat, repeat while held, toggle and release-to-stop exist in the internal model, but remain hidden until R10 proves their exact F108 encodings on hardware.</p>
+
+          <div id="macroControls" class="macro-toolbar" role="toolbar" aria-label="Macro editing">
+            <button id="recordMacro" class="primary compact" type="button">Record</button>
+            <button id="stopMacro" class="secondary compact" type="button" disabled>Stop</button>
+            <select id="insertMacroEvent" class="compact-select" aria-label="Event to insert">
+              <option value="key-down">Key down</option>
+              <option value="key-up">Key up</option>
+              <option value="mouse-down">Mouse down</option>
+              <option value="mouse-up">Mouse up</option>
+              <option value="delay">Delay</option>
+            </select>
+            <button id="insertMacroEventButton" class="secondary compact" type="button">Insert</button>
+            <button id="moveMacroEventUp" class="secondary compact" type="button">Move up</button>
+            <button id="moveMacroEventDown" class="secondary compact" type="button">Move down</button>
+            <button id="duplicateMacroEvent" class="secondary compact" type="button">Duplicate event</button>
+            <button id="copyMacroEvents" class="secondary compact" type="button">Copy</button>
+            <button id="pasteMacroEvents" class="secondary compact" type="button">Paste</button>
+            <button id="deleteMacroEvents" class="secondary compact danger-soft" type="button">Delete</button>
+          </div>
+
+          <div id="macroCapturePad" class="macro-capture-pad" tabindex="0" role="application" aria-label="Macro recording area">
+            <strong id="macroCaptureTitle">Recording area</strong>
+            <span id="macroCaptureHelp">Choose Record, then press keys or mouse buttons here. Choose Stop when finished.</span>
+          </div>
+
+          <div class="macro-table-wrap">
+            <table class="macro-table">
+              <thead><tr><th></th><th>Time</th><th>Event</th><th>Value</th></tr></thead>
+              <tbody id="macroTimeline"></tbody>
+            </table>
+          </div>
+
+          <div class="macro-bottom-grid">
+            <section class="macro-json-panel">
+              <span class="eyebrow">IMPORT / EXPORT</span>
+              <textarea id="macroJson" spellcheck="false" placeholder="Macro JSON appears here"></textarea>
+              <div class="macro-inline-actions">
+                <button id="exportMacro" class="secondary compact" type="button">Export</button>
+                <button id="importMacro" class="secondary compact" type="button">Import</button>
+              </div>
+            </section>
+            <section class="macro-simulation-panel">
+              <span class="eyebrow">SAFE SIMULATION</span>
+              <button id="simulateMacro" class="primary" type="button">Simulate without keyboard</button>
+              <pre id="macroSimulation">No simulation run.</pre>
+            </section>
+          </div>
+          <div class="macro-footer"><span id="macroStatus" class="muted">Loading macro library...</span></div>
+        </article>
+      </div>
+    </section>
+
     <section id="page-lighting" class="page">
       <div class="card">
         <div class="sectiontitle">
@@ -356,5 +443,6 @@
 <script src="app.js"></script>
 <script src="keymap.js"></script>
 <script src="perkey.js"></script>
+<script src="macros.js"></script>
 </body>
 </html>

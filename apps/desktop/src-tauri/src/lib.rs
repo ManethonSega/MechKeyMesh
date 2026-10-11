@@ -1,6 +1,6 @@
 use mechkeymesh_config::{
     ConfigurationScope, DesiredKeymap, DesiredLighting, DesiredPerKeyRgb, DeviceModel, KeyColor,
-    KeyMapping,
+    KeyMapping, MacroProgram, MacroSimulation,
 };
 use mechkeymesh_core::{
     DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LogEntry, ManagerConfig,
@@ -100,6 +100,43 @@ fn get_desired_per_key_rgb(state: State<'_, AppState>) -> Result<DesiredPerKeyRg
         .persistence
         .load_per_key_rgb(&scope)
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn get_macros(state: State<'_, AppState>) -> Result<Vec<MacroProgram>, String> {
+    let scope = configuration_scope(&state, Capability::Macros)?;
+    state
+        .persistence
+        .load_macros(&scope)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn save_macro(
+    state: State<'_, AppState>,
+    program: MacroProgram,
+) -> Result<MacroProgram, String> {
+    program.validate().map_err(|error| error.to_string())?;
+    let scope = configuration_scope(&state, Capability::Macros)?;
+    state
+        .persistence
+        .save_macro(&scope, &program)
+        .map_err(|error| error.to_string())?;
+    Ok(program)
+}
+
+#[tauri::command]
+fn delete_macro(state: State<'_, AppState>, macro_id: String) -> Result<bool, String> {
+    let scope = configuration_scope(&state, Capability::Macros)?;
+    state
+        .persistence
+        .delete_macro(&scope, &macro_id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn simulate_macro(program: MacroProgram) -> Result<MacroSimulation, String> {
+    program.simulation().map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -579,6 +616,7 @@ pub fn run() {
             get_persistence_status,
             get_desired_lighting,
             get_desired_per_key_rgb,
+            get_macros,
             get_desired_keymap,
             get_layout,
             get_primary_layout,
@@ -591,6 +629,9 @@ pub fn run() {
             apply_lighting,
             save_per_key_rgb,
             read_per_key_rgb,
+            save_macro,
+            delete_macro,
+            simulate_macro,
             save_keymap,
             reset_key_assignments
         ])
