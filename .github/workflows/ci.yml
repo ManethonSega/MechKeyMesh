@@ -13,6 +13,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.90.0
         with:
           components: rustfmt, clippy
+      - name: Frontend JavaScript syntax
+        run: |
+          node --check apps/desktop/frontend/dist/app.js
+          node --check apps/desktop/frontend/dist/keymap.js
+          node --check apps/desktop/frontend/dist/perkey.js
       - name: Format check
         run: cargo fmt --all -- --check
       - name: Core tests
