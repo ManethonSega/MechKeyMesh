@@ -140,7 +140,7 @@ fn send_multi_packet(
             FEATURE_REPORT_SIZE
         )));
     }
-    for (index, chunk) in data.chunks_exact(FEATURE_REPORT_SIZE).enumerate() {
+    for chunk in data.chunks_exact(FEATURE_REPORT_SIZE) {
         context.check()?;
         let mut report = [0u8; FEATURE_REPORT_SIZE];
         report.copy_from_slice(chunk);
