@@ -7,6 +7,7 @@
   <title>MechKeyMesh</title>
   <link rel="stylesheet" href="app.css" />
   <link rel="stylesheet" href="keymap.css" />
+  <link rel="stylesheet" href="perkey.css" />
 </head>
 <body>
 <div id="splash" class="splash">
@@ -33,7 +34,7 @@
       <button data-page="settings" disabled>Device Settings <b>Soon</b></button>
       <button data-page="diagnostics">Diagnostics</button>
     </nav>
-    <div class="version">v0.8.0-alpha.1 · Normal + Fn Layers</div>
+    <div class="version">v0.9.0-alpha.1 · Stored Per-Key RGB</div>
   </aside>
 
   <main>
@@ -252,6 +253,90 @@
           <button id="applyLighting" class="primary">Save desired state</button>
         </div>
       </div>
+
+      <article class="card perkey-card">
+        <div class="sectiontitle">
+          <div>
+            <span class="eyebrow">STORED PER-KEY RGB</span>
+            <h3>Persistent key colors</h3>
+            <p class="muted">Colors are stored by physical key ID and translated through each layout's LED index. Unassigned keys are sent as off.</p>
+          </div>
+          <div class="layout-badges">
+            <span id="perKeyVerification" class="verification pending">Physical verification pending</span>
+            <span id="perKeyLedCount" class="tag neutral">— LEDs</span>
+          </div>
+        </div>
+
+        <div class="perkey-toolbar" role="toolbar" aria-label="Per-key RGB selection">
+          <div class="toolbar-group">
+            <select id="perKeyRowSelect" class="compact-select" aria-label="Keyboard row"></select>
+            <button id="selectPerKeyRow" class="secondary compact" type="button">Select row</button>
+            <button id="selectWasd" class="secondary compact" type="button">WASD</button>
+            <button id="selectNumpad" class="secondary compact" type="button">Numpad</button>
+            <button id="regionSelect" class="secondary compact" type="button" aria-pressed="false">Region</button>
+            <button id="clearPerKeySelection" class="secondary compact" type="button">Deselect</button>
+          </div>
+          <div class="toolbar-group">
+            <button id="copyPerKeyColor" class="secondary compact" type="button" disabled>Copy</button>
+            <button id="pastePerKeyColor" class="secondary compact" type="button" disabled>Paste</button>
+            <button id="clearPerKeyColor" class="secondary compact" type="button" disabled>Clear selected</button>
+          </div>
+        </div>
+
+        <div id="perKeyKeyboardViewport" class="keyboard-viewport perkey-viewport">
+          <div class="layout-loading">Loading per-key RGB layout...</div>
+        </div>
+
+        <div class="perkey-controls">
+          <section class="perkey-control-panel">
+            <span class="eyebrow">COLOR</span>
+            <div class="perkey-color-row">
+              <input id="perKeyColor" type="color" value="#21e6e8" aria-label="Per-key color" />
+              <button id="applyPerKeyColor" class="primary" type="button" disabled>Apply color</button>
+            </div>
+            <div id="perKeyPalette" class="perkey-palette" aria-label="Color palette">
+              <button type="button" data-color="#21E6E8" style="--swatch:#21E6E8" aria-label="Mesh Cyan"></button>
+              <button type="button" data-color="#18D7F1" style="--swatch:#18D7F1" aria-label="Neon Aqua"></button>
+              <button type="button" data-color="#1C8DFF" style="--swatch:#1C8DFF" aria-label="Electric Blue"></button>
+              <button type="button" data-color="#FF922E" style="--swatch:#FF922E" aria-label="Accent Orange"></button>
+              <button type="button" data-color="#FF355E" style="--swatch:#FF355E" aria-label="Red"></button>
+              <button type="button" data-color="#65FF7A" style="--swatch:#65FF7A" aria-label="Green"></button>
+              <button type="button" data-color="#B56CFF" style="--swatch:#B56CFF" aria-label="Purple"></button>
+              <button type="button" data-color="#FFFFFF" style="--swatch:#FFFFFF" aria-label="White"></button>
+            </div>
+          </section>
+
+          <section class="perkey-control-panel">
+            <span class="eyebrow">GRADIENT</span>
+            <div class="gradient-controls">
+              <label>Start<input id="perKeyGradientStart" type="color" value="#21e6e8"/></label>
+              <span>→</span>
+              <label>End<input id="perKeyGradientEnd" type="color" value="#1c8dff"/></label>
+            </div>
+            <button id="applyPerKeyGradient" class="secondary" type="button" disabled>Apply gradient to selection</button>
+          </section>
+
+          <section class="perkey-control-panel">
+            <span class="eyebrow">HARDWARE</span>
+            <label class="perkey-brightness">Brightness
+              <input id="perKeyBrightness" type="range" min="0" max="5" value="5"/>
+              <output id="perKeyBrightnessOut">5</output>
+            </label>
+            <div class="perkey-hardware-actions">
+              <button id="readPerKeyHardware" class="secondary" type="button">Read keyboard colors</button>
+              <button id="savePerKeyRgb" class="primary" type="button">Save & apply stored RGB</button>
+            </div>
+          </section>
+        </div>
+
+        <div class="perkey-footer">
+          <span id="perKeySelectionCount" class="muted">No keys selected</span>
+          <span id="perKeyStatus" class="muted">Loading desired per-key colors...</span>
+        </div>
+        <p class="layout-note">
+          <code>04 F5</code> readback is optional and never replaces the database as source of truth. Reading hardware colors updates only the editor until you explicitly save.
+        </p>
+      </article>
     </section>
 
     <section id="page-diagnostics" class="page">
@@ -270,5 +355,6 @@
 </div>
 <script src="app.js"></script>
 <script src="keymap.js"></script>
+<script src="perkey.js"></script>
 </body>
 </html>
