@@ -187,3 +187,17 @@ html[data-theme="light"] .perkey-key .perkey-led-swatch {
     text-align: left;
   }
 }
+
+
+.perkey-key.no-led {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.perkey-key.no-led rect:first-of-type {
+  stroke-dasharray: 3 2;
+}
+
+.perkey-key.no-led .perkey-led-swatch {
+  display: none;
+}
