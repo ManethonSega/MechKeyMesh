@@ -1,6 +1,8 @@
-use mechkeymesh_layout::{Layout, SUPPORTED_LAYOUT_SCHEMA_VERSION};
+use mechkeymesh_layout::Layout;
 
 const F108_ANSI_LAYOUT: &str = include_str!("../layouts/f108pro-ansi.json");
+
+#[cfg(test)]
 const OEM_LAYOUT_SHA256: &str =
     "7c3f0720bfe97b9ef1dd820e86fb1e621ff20a9a0eeaf6d97b4329a3aa3c3c62";
 
@@ -16,6 +18,7 @@ pub fn f108pro_layout() -> Layout {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mechkeymesh_layout::SUPPORTED_LAYOUT_SCHEMA_VERSION;
 
     #[test]
     fn embedded_f108_layout_is_valid_and_complete() {
