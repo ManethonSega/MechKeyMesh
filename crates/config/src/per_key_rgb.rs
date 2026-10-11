@@ -27,11 +27,7 @@ pub struct DesiredPerKeyRgb {
 }
 
 impl DesiredPerKeyRgb {
-    pub fn new(
-        scope: ConfigurationScope,
-        brightness: u8,
-        mut colors: Vec<KeyColor>,
-    ) -> Self {
+    pub fn new(scope: ConfigurationScope, brightness: u8, mut colors: Vec<KeyColor>) -> Self {
         colors.sort_by(|left, right| left.key_id.cmp(&right.key_id));
         Self {
             scope,
