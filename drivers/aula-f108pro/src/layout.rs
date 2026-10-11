@@ -55,6 +55,25 @@ mod tests {
     }
 
     #[test]
+    fn r8_sections_are_data_driven_and_cover_the_full_keyboard() {
+        let layout = f108pro_layout();
+        let counts = layout.keys.iter().fold(
+            std::collections::BTreeMap::<String, usize>::new(),
+            |mut counts, key| {
+                let section = key.section.clone().expect("every F108 key must have a section");
+                *counts.entry(section).or_default() += 1;
+                counts
+            },
+        );
+
+        assert_eq!(counts.get("function"), Some(&16));
+        assert_eq!(counts.get("main"), Some(&61));
+        assert_eq!(counts.get("navigation"), Some(&10));
+        assert_eq!(counts.get("numpad"), Some(&17));
+        assert_eq!(counts.values().sum::<usize>(), 104);
+    }
+
+    #[test]
     fn f108_geometry_and_indices_match_known_reference_keys() {
         let layout = f108pro_layout();
 
