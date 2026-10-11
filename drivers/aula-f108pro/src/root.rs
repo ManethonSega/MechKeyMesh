@@ -1,5 +1,6 @@
 include!("lib.rs");
 
+mod per_key_rgb;
 mod remap;
 mod remap_driver;
 
