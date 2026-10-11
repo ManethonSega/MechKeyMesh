@@ -141,10 +141,10 @@ impl DeviceSession for AulaF108ProRemapSession {
     fn descriptor(&self) -> DeviceDescriptor {
         let mut descriptor = self.inner.descriptor();
         descriptor.capabilities = vec![
-                Capability::Keys,
-                Capability::FnLayer,
-                Capability::HardwareRgb,
-            ];
+            Capability::Keys,
+            Capability::FnLayer,
+            Capability::HardwareRgb,
+        ];
         descriptor
     }
 
@@ -245,9 +245,7 @@ mod tests {
 
     #[test]
     fn fn_activation_enum_matches_oem_binary_mapping() {
-        let descriptor = AulaF108ProRemapDriver::new()
-            .fn_layer_descriptor()
-            .unwrap();
+        let descriptor = AulaF108ProRemapDriver::new().fn_layer_descriptor().unwrap();
         assert_eq!(descriptor.modes[0].mode, FnActivationMode::Toggle);
         assert_eq!(descriptor.modes[0].raw_value, 0);
         assert_eq!(descriptor.modes[1].mode, FnActivationMode::Momentary);
