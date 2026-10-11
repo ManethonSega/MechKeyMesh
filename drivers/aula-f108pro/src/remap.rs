@@ -79,8 +79,13 @@ pub fn fn_protected_keys() -> Vec<KeyRestriction> {
     for index in 38..=41 {
         add(index, "Native firmware OS-mode shortcut.");
     }
-    for index in [37, 67, 73, 74, 78, 83, 84, 91, 92, 93, 95, 98, 99, 100, 101, 102] {
-        add(index, "Native firmware lighting or keyboard-control shortcut.");
+    for index in [
+        37, 67, 73, 74, 78, 83, 84, 91, 92, 93, 95, 98, 99, 100, 101, 102,
+    ] {
+        add(
+            index,
+            "Native firmware lighting or keyboard-control shortcut.",
+        );
     }
     add(96, "The physical Fn key controls access to the Fn layer.");
 
@@ -378,19 +383,12 @@ mod tests {
     fn fn_layer_rejects_protected_native_firmware_shortcuts() {
         for index in [1u16, 19, 20, 23, 38, 41, 73, 83, 92, 96, 102] {
             assert!(
-                validate_keymap(
-                    KeymapLayer::Fn,
-                    &[assignment(index, KeyAction::Disabled)]
-                )
-                .is_err(),
+                validate_keymap(KeymapLayer::Fn, &[assignment(index, KeyAction::Disabled)])
+                    .is_err(),
                 "protected Fn key index {index} must not be remappable"
             );
             assert!(
-                validate_keymap(
-                    KeymapLayer::Fn,
-                    &[assignment(index, KeyAction::Default)]
-                )
-                .is_ok(),
+                validate_keymap(KeymapLayer::Fn, &[assignment(index, KeyAction::Default)]).is_ok(),
                 "default must remain a safe restore operation for {index}"
             );
         }
