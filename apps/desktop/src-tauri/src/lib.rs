@@ -244,12 +244,8 @@ fn reset_key_assignments(state: State<'_, AppState>) -> Result<KeymapResetResult
         (Ok(()), Ok(())) => None,
         (normal, fn_layer) => Some(format!(
             "desired key assignments were reset locally; normal layer: {}; Fn layer: {}",
-            normal
-                .err()
-                .unwrap_or_else(|| "applied".to_string()),
-            fn_layer
-                .err()
-                .unwrap_or_else(|| "applied".to_string())
+            normal.err().unwrap_or_else(|| "applied".to_string()),
+            fn_layer.err().unwrap_or_else(|| "applied".to_string())
         )),
     };
 
@@ -401,7 +397,9 @@ pub fn run() {
                 "the F108 driver must expose normal-layer remap capabilities"
             );
             assert!(
-                primary_driver.keymap_capabilities(KeymapLayer::Fn).is_some(),
+                primary_driver
+                    .keymap_capabilities(KeymapLayer::Fn)
+                    .is_some(),
                 "the R7 F108 driver must expose Fn-layer remap capabilities"
             );
 
