@@ -36,6 +36,12 @@ The following action families exist in the generic MechKeyMesh action model but 
 
 The OEM application/file/URL/text mappings use an indexed host-side handler. The four-byte keyboard mapping alone is insufficient, so those controls remain disabled until that host event channel is independently implemented and verified.
 
+## Protocol boundary
+
+The normal mapping transaction sends the 576-byte table as nine 64-byte reports without an extra table readback, matching the current working open-source implementation. Begin, init, apply and finalize commands retain their verified readbacks.
+
+The table trailer remains exactly `AA 55` at offsets 574 and 575.
+
 ## Evidence boundary
 
 Automated tests can prove packet construction, bounds, serialization, persistence and application build integrity. They cannot prove that pressing a remapped physical key produces the requested Windows input.
