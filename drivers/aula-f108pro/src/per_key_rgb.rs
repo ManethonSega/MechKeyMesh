@@ -306,10 +306,10 @@ mod tests {
     #[test]
     fn parses_f5_rgb_slots_using_led_index_offsets() {
         let mut table = [0u8; PER_KEY_TABLE_SIZE];
-        table[1 * 4] = 1;
-        table[1 * 4 + 1] = 10;
-        table[1 * 4 + 2] = 20;
-        table[1 * 4 + 3] = 30;
+        table[4] = 1;
+        table[5] = 10;
+        table[6] = 20;
+        table[7] = 30;
         table[56 * 4] = 56;
         table[56 * 4 + 1] = 40;
         table[56 * 4 + 2] = 50;
