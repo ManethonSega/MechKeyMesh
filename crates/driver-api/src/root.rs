@@ -256,6 +256,50 @@ pub struct LightingConfig {
     pub colorful: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RgbColor {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+impl RgbColor {
+    pub const BLACK: Self = Self { r: 0, g: 0, b: 0 };
+
+    pub const fn is_black(self) -> bool {
+        self.r == 0 && self.g == 0 && self.b == 0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PerKeyRgbAssignment {
+    pub led_index: u16,
+    pub color: RgbColor,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PerKeyRgbConfig {
+    pub brightness: u8,
+    pub colors: Vec<PerKeyRgbAssignment>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PerKeyRgbReadback {
+    pub colors: Vec<PerKeyRgbAssignment>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PerKeyRgbCapabilities {
+    pub brightness_min: u8,
+    pub brightness_max: u8,
+    pub readback_supported: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum KeymapLayer {
@@ -424,6 +468,22 @@ pub trait DeviceSession: Send {
         Err(DriverError::UnsupportedCapability("key-remapping"))
     }
 
+    fn set_per_key_rgb(
+        &mut self,
+        _context: &OperationContext,
+        _config: &PerKeyRgbConfig,
+    ) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("per-key-rgb"))
+    }
+
+    fn read_per_key_rgb(
+        &mut self,
+        _context: &OperationContext,
+        _led_indices: &[u16],
+    ) -> Result<PerKeyRgbReadback, DriverError> {
+        Err(DriverError::UnsupportedCapability("per-key-rgb-readback"))
+    }
+
     fn close(&mut self) -> Result<(), DriverError> {
         Ok(())
     }
@@ -446,6 +506,14 @@ pub trait KeyboardDriver: Send + Sync {
 
     fn fn_layer_descriptor(&self) -> Option<FnLayerDescriptor> {
         None
+    }
+
+    fn per_key_rgb_capabilities(&self) -> Option<PerKeyRgbCapabilities> {
+        None
+    }
+
+    fn validate_per_key_rgb(&self, _config: &PerKeyRgbConfig) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("per-key-rgb"))
     }
 
     fn validate_keymap(
@@ -526,6 +594,28 @@ mod tests {
         assert!(json.contains("\"rawValue\":0"));
         assert!(json.contains("\"mode\":\"momentary\""));
         assert!(json.contains("\"rawValue\":1"));
+    }
+
+    #[test]
+    fn per_key_rgb_configuration_round_trips_through_json() {
+        let config = PerKeyRgbConfig {
+            brightness: 5,
+            colors: vec![
+                PerKeyRgbAssignment {
+                    led_index: 1,
+                    color: RgbColor { r: 255, g: 0, b: 0 },
+                },
+                PerKeyRgbAssignment {
+                    led_index: 56,
+                    color: RgbColor { r: 0, g: 255, b: 0 },
+                },
+            ],
+        };
+
+        let json = serde_json::to_string(&config).unwrap();
+        let decoded: PerKeyRgbConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, config);
+        assert!(RgbColor::BLACK.is_black());
     }
 
     #[test]
