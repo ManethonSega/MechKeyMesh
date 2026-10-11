@@ -818,7 +818,8 @@ fn unix_millis() -> u128 {
 mod tests {
     use super::*;
     use mechkeymesh_driver_api::{
-        Capability, Connection, DeviceMatch, DriverManifest, KeyAction, Modifier, TransportKind,
+        Capability, Connection, DeviceMatch, DriverManifest, KeyAction, Modifier,
+        PerKeyRgbAssignment, PerKeyRgbConfig, PerKeyRgbReadback, RgbColor, TransportKind,
         TransportRequirement,
     };
     use std::sync::atomic::{AtomicBool, AtomicUsize};
@@ -829,6 +830,8 @@ mod tests {
         max_parallel: Arc<AtomicUsize>,
         active_operations: Arc<AtomicUsize>,
         keymap_calls: Arc<AtomicUsize>,
+        per_key_calls: Arc<AtomicUsize>,
+        readback_calls: Arc<AtomicUsize>,
         operation_delay: Duration,
     }
 
@@ -837,6 +840,8 @@ mod tests {
         max_parallel: Arc<AtomicUsize>,
         active_operations: Arc<AtomicUsize>,
         keymap_calls: Arc<AtomicUsize>,
+        per_key_calls: Arc<AtomicUsize>,
+        readback_calls: Arc<AtomicUsize>,
         operation_delay: Duration,
     }
 
@@ -848,6 +853,8 @@ mod tests {
                 max_parallel: Arc::new(AtomicUsize::new(0)),
                 active_operations: Arc::new(AtomicUsize::new(0)),
                 keymap_calls: Arc::new(AtomicUsize::new(0)),
+                per_key_calls: Arc::new(AtomicUsize::new(0)),
+                readback_calls: Arc::new(AtomicUsize::new(0)),
                 operation_delay: Duration::from_millis(10),
             }
         }
@@ -912,6 +919,8 @@ mod tests {
                 max_parallel: self.max_parallel.clone(),
                 active_operations: self.active_operations.clone(),
                 keymap_calls: self.keymap_calls.clone(),
+                per_key_calls: self.per_key_calls.clone(),
+                readback_calls: self.readback_calls.clone(),
                 operation_delay: self.operation_delay,
             }))
         }
@@ -960,6 +969,48 @@ mod tests {
                 &self.max_parallel,
                 self.operation_delay,
             )
+        }
+
+        fn set_per_key_rgb(
+            &mut self,
+            context: &OperationContext,
+            _config: &PerKeyRgbConfig,
+        ) -> Result<(), DriverError> {
+            self.per_key_calls.fetch_add(1, Ordering::AcqRel);
+            run_fake_operation(
+                context,
+                &self.active_operations,
+                &self.max_parallel,
+                self.operation_delay,
+            )
+        }
+
+        fn read_per_key_rgb(
+            &mut self,
+            context: &OperationContext,
+            led_indices: &[u16],
+        ) -> Result<PerKeyRgbReadback, DriverError> {
+            self.readback_calls.fetch_add(1, Ordering::AcqRel);
+            run_fake_operation(
+                context,
+                &self.active_operations,
+                &self.max_parallel,
+                self.operation_delay,
+            )?;
+            Ok(PerKeyRgbReadback {
+                colors: led_indices
+                    .iter()
+                    .copied()
+                    .map(|led_index| PerKeyRgbAssignment {
+                        led_index,
+                        color: RgbColor {
+                            r: led_index as u8,
+                            g: 2,
+                            b: 3,
+                        },
+                    })
+                    .collect(),
+            })
         }
     }
 
@@ -1046,6 +1097,60 @@ mod tests {
         assert!(keymap.join().unwrap().is_ok());
         assert_eq!(maximum.load(Ordering::Acquire), 1);
         assert_eq!(keymap_calls.load(Ordering::Acquire), 1);
+        handle.shutdown();
+    }
+
+    #[test]
+    fn serializes_per_key_rgb_with_other_hardware_operations() {
+        let driver = Arc::new(FakeDriver::new());
+        let maximum = driver.max_parallel.clone();
+        let per_key_calls = driver.per_key_calls.clone();
+        let handle = start_fake(driver);
+        wait_for_state(&handle, DeviceState::Ready);
+
+        let lighting_handle = handle.clone();
+        let per_key_handle = handle.clone();
+        let lighting = thread::spawn(move || {
+            lighting_handle.set_lighting(LightingConfig {
+                mode: 1,
+                r: 1,
+                g: 2,
+                b: 3,
+                brightness: 5,
+                speed: 0,
+                direction: 0,
+                colorful: false,
+            })
+        });
+        let per_key = thread::spawn(move || {
+            per_key_handle.set_per_key_rgb(PerKeyRgbConfig {
+                brightness: 5,
+                colors: vec![PerKeyRgbAssignment {
+                    led_index: 1,
+                    color: RgbColor { r: 255, g: 0, b: 0 },
+                }],
+            })
+        });
+
+        assert!(lighting.join().unwrap().is_ok());
+        assert!(per_key.join().unwrap().is_ok());
+        assert_eq!(maximum.load(Ordering::Acquire), 1);
+        assert_eq!(per_key_calls.load(Ordering::Acquire), 1);
+        handle.shutdown();
+    }
+
+    #[test]
+    fn returns_per_key_rgb_readback_through_serialized_manager() {
+        let driver = Arc::new(FakeDriver::new());
+        let readback_calls = driver.readback_calls.clone();
+        let handle = start_fake(driver);
+        wait_for_state(&handle, DeviceState::Ready);
+
+        let readback = handle.read_per_key_rgb(vec![1, 56]).unwrap();
+        assert_eq!(readback.colors.len(), 2);
+        assert_eq!(readback.colors[0].led_index, 1);
+        assert_eq!(readback.colors[1].led_index, 56);
+        assert_eq!(readback_calls.load(Ordering::Acquire), 1);
         handle.shutdown();
     }
 
