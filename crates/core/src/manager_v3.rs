@@ -228,10 +228,7 @@ impl DeviceManagerHandle {
         wait_for_reply(reply_rx, cancellation, self.command_timeout)
     }
 
-    pub fn read_per_key_rgb(
-        &self,
-        led_indices: Vec<u16>,
-    ) -> Result<PerKeyRgbReadback, String> {
+    pub fn read_per_key_rgb(&self, led_indices: Vec<u16>) -> Result<PerKeyRgbReadback, String> {
         let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
         let cancellation = CancellationToken::new();
         let (reply_tx, reply_rx) = mpsc::channel();
