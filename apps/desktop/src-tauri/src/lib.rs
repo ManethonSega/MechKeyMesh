@@ -192,7 +192,12 @@ fn active_layout_id(state: &AppState) -> Result<String, String> {
             .driver_layout_ids
             .get(&device.driver_id)
             .cloned()
-            .ok_or_else(|| format!("active driver {} has no registered layout", device.driver_id));
+            .ok_or_else(|| {
+                format!(
+                    "active driver {} has no registered layout",
+                    device.driver_id
+                )
+            });
     }
 
     Ok(state.primary_layout_id.clone())
