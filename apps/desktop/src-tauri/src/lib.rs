@@ -8,7 +8,7 @@ use mechkeymesh_core::{
 use mechkeymesh_driver_api::{
     Capability, DriverManifest, FnLayerDescriptor, KeyAssignment, KeyboardDriver,
     KeymapCapabilities, KeymapLayer, LightingConfig, LightingEffectDescriptor,
-    PerKeyRgbAssignment, PerKeyRgbCapabilities, PerKeyRgbConfig, PerKeyRgbReadback, RgbColor,
+    PerKeyRgbAssignment, PerKeyRgbCapabilities, PerKeyRgbConfig, RgbColor,
 };
 use mechkeymesh_driver_aula_f108pro::AulaF108ProRemapDriver;
 use mechkeymesh_layout::{Layout, LayoutRegistry};
