@@ -71,7 +71,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.7.0-alpha.1`, **R6 Normal-layer remapping in progress** on branch `r6/normal-layer-remapping`. The software implements the verified normal-layer transaction, durable desired mappings and the editor workflow. R6 remains open until physical key presses prove that representative assignments produce the expected Windows input reliably.
+`v0.7.0-alpha.1`, **R6 Normal-layer remapping complete**. The software, persistence, editor, protocol tests, Windows tests and release build criteria passed. R6 was closed on 2026-10-11 by project decision with physical key verification explicitly deferred. This means the milestone is complete, but normal-layer remapping must not yet be described as physically verified.
 
 The previous Go/Wails prototype is preserved in the branch:
 

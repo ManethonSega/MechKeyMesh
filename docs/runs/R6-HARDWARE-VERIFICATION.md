@@ -2,9 +2,11 @@
 
 **Device:** AULA F108 Pro  
 **Layer:** Normal  
-**Status:** PHYSICAL VERIFICATION PENDING
+**Status:** DEFERRED - R6 MILESTONE CLOSED
 
 A successful send and ACK is not a pass. Press the physical source key and verify the actual Windows input or behavior.
+
+R6 was closed on 2026-10-11 with this physical matrix explicitly deferred. The pending rows below remain pending, not passed, and are retained for later hardware validation.
 
 | Test | Source key | Assignment | Expected physical result | Persists after app closes | Result | Notes |
 |---|---|---|---|---|---|---|
@@ -50,4 +52,4 @@ Record the exact difference between expected and observed behavior. Examples:
 - mapping works only while MechKeyMesh is open
 - app or keyboard requires reconnect after writing
 
-Any such result keeps R6 open until fixed or accurately reclassified.
+Any such result must be logged and fixed or accurately reclassified as a remapping defect. R6 milestone closure does not convert a later hardware failure into a pass.

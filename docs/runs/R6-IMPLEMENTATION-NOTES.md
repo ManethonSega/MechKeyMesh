@@ -46,4 +46,4 @@ The table trailer remains exactly `AA 55` at offsets 574 and 575.
 
 Automated tests can prove packet construction, bounds, serialization, persistence and application build integrity. They cannot prove that pressing a remapped physical key produces the requested Windows input.
 
-R6 remains open until the hardware verification matrix is completed on the actual AULA F108 Pro.
+R6 was closed on 2026-10-11 by project decision with physical verification deferred. The evidence boundary is unchanged: the milestone is complete, but physical remapping reliability is not yet claimed.
