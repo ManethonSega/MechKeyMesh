@@ -45,6 +45,7 @@ use std::time::{Duration, Instant};
 use tauri::{Manager, State};
 
 mod foreground;
+mod native_observations;
 mod profiles_runtime;
 
 use profiles_runtime::*;
@@ -1626,6 +1627,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_status,
+            native_observations::get_native_observations,
             import_lcd_media,
             get_lcd_editor_state,
             select_lcd_media_file,

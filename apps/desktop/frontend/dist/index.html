@@ -709,6 +709,16 @@
     </section>
 
     <section id="page-diagnostics" class="page">
+      <article class="card">
+        <div class="sectiontitle"><div><span class="eyebrow">NATIVE HARDWARE · R18</span><h3>Observed, not assumed</h3></div></div>
+        <p>Connection: <strong id="nativeConnection">Disconnected</strong></p>
+        <p>Battery: <strong id="nativeBattery">Unavailable</strong></p>
+        <p>Charging: <strong id="nativeCharging">Unavailable</strong></p>
+        <p>Firmware: <strong id="nativeFirmware">Unavailable</strong></p>
+        <p>Hardware revision: <strong id="nativeRevision">Unavailable</strong></p>
+        <p id="nativeKnob">Native knob and LCD/menu navigation remain under firmware control.</p>
+        <p id="nativeEvidence" class="muted">No firmware flashing or unknown-command probes.</p>
+      </article>
       <div class="card">
         <div class="sectiontitle">
           <div><span class="eyebrow">DIAGNOSTICS</span><h3>Runtime log</h3></div>
@@ -731,5 +741,6 @@
 <script src="music.js"></script>
 <script src="lcd.js"></script>
 <script src="profiles.js"></script>
+<script src="native.js"></script>
 </body>
 </html>

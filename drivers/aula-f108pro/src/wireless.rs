@@ -68,6 +68,10 @@ impl WirelessPacket {
     }
 }
 
+fn decode_battery_percent(raw: u8) -> Option<u8> {
+    (raw <= 100).then_some(raw)
+}
+
 pub struct AulaF108WirelessSession {
     candidate: DeviceCandidate,
     transport: Box<dyn InterruptTransport>,
@@ -179,7 +183,8 @@ impl AulaF108WirelessSession {
     fn refresh_battery(&mut self, context: &OperationContext) -> Result<(), DriverError> {
         let response =
             self.exchange(context, WirelessPacket::new(BATTERY_COMMAND, 0x01, 0, &[])?)?;
-        self.battery_percent = Some(response[3].min(100));
+        // Invalid or sentinel values are unknown, not an invented full charge.
+        self.battery_percent = decode_battery_percent(response[3]);
         self.last_battery_poll = Some(Instant::now());
         Ok(())
     }
@@ -255,6 +260,14 @@ mod tests {
     #[test]
     fn rejects_more_than_twenty_eight_data_bytes() {
         assert!(WirelessPacket::new(1, 2, 3, &[0; 29]).is_err());
+    }
+
+    #[test]
+    fn battery_sentinels_do_not_become_full_charge() {
+        assert_eq!(decode_battery_percent(0), Some(0));
+        assert_eq!(decode_battery_percent(100), Some(100));
+        assert_eq!(decode_battery_percent(101), None);
+        assert_eq!(decode_battery_percent(255), None);
     }
 
     #[test]
