@@ -448,49 +448,6 @@ fn apply_component(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn identical_components_emit_no_second_write_and_failure_does_not_cache() {
-        let mut applied = BTreeMap::new();
-        let mut report = ProfileApplyReport {
-            profile_id: "test".into(),
-            changed: Vec::new(),
-            skipped: Vec::new(),
-            errors: Vec::new(),
-        };
-        let mut writes = 0;
-        for _ in 0..2 {
-            apply_component(
-                "rgb",
-                "same".into(),
-                None,
-                &[],
-                &mut applied,
-                &mut report,
-                || {
-                    writes += 1;
-                    Ok(())
-                },
-            );
-        }
-        assert_eq!(writes, 1);
-        apply_component(
-            "rgb",
-            "new".into(),
-            None,
-            &[],
-            &mut applied,
-            &mut report,
-            || Err("failed".into()),
-        );
-        assert_eq!(applied.get("rgb").map(String::as_str), Some("same"));
-        assert_eq!(report.errors.len(), 1);
-    }
-}
-
 fn active_profile_id(state: &AppState) -> String {
     state
         .profiles
@@ -595,4 +552,47 @@ pub(crate) fn monitor_profiles(app_handle: tauri::AppHandle) {
                 }
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn identical_components_emit_no_second_write_and_failure_does_not_cache() {
+        let mut applied = BTreeMap::new();
+        let mut report = ProfileApplyReport {
+            profile_id: "test".into(),
+            changed: Vec::new(),
+            skipped: Vec::new(),
+            errors: Vec::new(),
+        };
+        let mut writes = 0;
+        for _ in 0..2 {
+            apply_component(
+                "rgb",
+                "same".into(),
+                None,
+                &[],
+                &mut applied,
+                &mut report,
+                || {
+                    writes += 1;
+                    Ok(())
+                },
+            );
+        }
+        assert_eq!(writes, 1);
+        apply_component(
+            "rgb",
+            "new".into(),
+            None,
+            &[],
+            &mut applied,
+            &mut report,
+            || Err("failed".into()),
+        );
+        assert_eq!(applied.get("rgb").map(String::as_str), Some("same"));
+        assert_eq!(report.errors.len(), 1);
+    }
 }
