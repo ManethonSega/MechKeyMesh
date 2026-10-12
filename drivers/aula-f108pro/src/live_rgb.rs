@@ -137,7 +137,12 @@ mod tests {
 
     #[test]
     fn rejects_invalid_duplicate_or_oversized_frames() {
-        assert!(build_transfer(&LiveRgbFrame { colors: vec![color(0, 1, 2, 3)] }).is_err());
+        assert!(
+            build_transfer(&LiveRgbFrame {
+                colors: vec![color(0, 1, 2, 3)]
+            })
+            .is_err()
+        );
         assert!(
             build_transfer(&LiveRgbFrame {
                 colors: vec![color(1, 1, 2, 3), color(1, 4, 5, 6)]

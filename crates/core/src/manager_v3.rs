@@ -320,8 +320,7 @@ impl DeviceManagerHandle {
         let Some(device) = status.device else {
             return Err("no supported keyboard is ready".into());
         };
-        if status.state != DeviceState::Ready
-            || !device.capabilities.contains(&Capability::LiveRgb)
+        if status.state != DeviceState::Ready || !device.capabilities.contains(&Capability::LiveRgb)
         {
             return Err("live RGB is not available on the active connection".into());
         }
@@ -362,19 +361,10 @@ impl DeviceManagerHandle {
     pub fn live_rgb_status(&self) -> LiveRgbTransportStatus {
         LiveRgbTransportStatus {
             active: self.live_telemetry.active.load(Ordering::Acquire),
-            submitted_frames: self
-                .live_telemetry
-                .submitted_frames
-                .load(Ordering::Relaxed),
+            submitted_frames: self.live_telemetry.submitted_frames.load(Ordering::Relaxed),
             sent_frames: self.live_telemetry.sent_frames.load(Ordering::Relaxed),
-            coalesced_frames: self
-                .live_telemetry
-                .coalesced_frames
-                .load(Ordering::Relaxed),
-            failed_frames: self
-                .live_telemetry
-                .failed_frames
-                .load(Ordering::Relaxed),
+            coalesced_frames: self.live_telemetry.coalesced_frames.load(Ordering::Relaxed),
+            failed_frames: self.live_telemetry.failed_frames.load(Ordering::Relaxed),
             buffered_frames: if self
                 .live_frame
                 .lock()
@@ -630,14 +620,7 @@ fn worker(
                 }
                 let frame = live_frame.lock().expect("live frame lock poisoned").take();
                 if let Some(frame) = frame {
-                    send_live_frame(
-                        &mut active,
-                        &status,
-                        &log,
-                        &live_telemetry,
-                        &config,
-                        &frame,
-                    );
+                    send_live_frame(&mut active, &status, &log, &live_telemetry, &config, &frame);
                 }
             }
             Ok(Command::StopLiveRgb) => {

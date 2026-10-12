@@ -171,8 +171,16 @@ pub fn default_scene() -> LiveRgbScene {
             blend_mode: BlendMode::Replace,
             mask: Vec::new(),
             order: 0,
-            primary: RgbColor { r: 0, g: 155, b: 222 },
-            secondary: RgbColor { r: 139, g: 92, b: 246 },
+            primary: RgbColor {
+                r: 0,
+                g: 155,
+                b: 222,
+            },
+            secondary: RgbColor {
+                r: 139,
+                g: 92,
+                b: 246,
+            },
             speed: 0.2,
             width: 1.0,
         }],
@@ -185,7 +193,8 @@ pub fn render(
     input: &RenderInput,
 ) -> Result<LiveRgbFrame, SceneError> {
     scene.validate(layout)?;
-    let mut layers: Vec<&LightingLayer> = scene.layers.iter().filter(|layer| layer.enabled).collect();
+    let mut layers: Vec<&LightingLayer> =
+        scene.layers.iter().filter(|layer| layer.enabled).collect();
     layers.sort_by_key(|layer| layer.order);
 
     let key_centers: HashMap<&str, (f32, f32)> = layout
@@ -235,7 +244,8 @@ fn effect_color(
         }
         LiveEffect::Lightning => {
             let phase = (t * 5.0).floor() as u64;
-            let flash = hash01(u64::from(key.led_index.unwrap_or_default()) ^ phase.wrapping_mul(7919));
+            let flash =
+                hash01(u64::from(key.led_index.unwrap_or_default()) ^ phase.wrapping_mul(7919));
             let active = if flash > 0.9 { 1.0 } else { 0.04 };
             scale(layer.primary, active)
         }
