@@ -444,6 +444,7 @@ impl DeviceManager {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn worker(
     rx: Receiver<Command>,
     status: Arc<RwLock<DeviceStatus>>,

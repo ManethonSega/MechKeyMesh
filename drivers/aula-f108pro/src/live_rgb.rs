@@ -3,7 +3,6 @@ use mechkeymesh_driver_api::{DriverError, LiveRgbFrame, OperationContext};
 use mechkeymesh_hid::FEATURE_REPORT_SIZE;
 use std::collections::HashSet;
 
-pub const MAXIMUM_FRAMES_PER_SECOND: u16 = 30;
 pub const MAXIMUM_LEDS: usize = 112;
 const DATA_REPORTS: usize = 7;
 const RECORD_SIZE: usize = 4;
