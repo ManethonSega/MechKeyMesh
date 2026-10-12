@@ -6,10 +6,10 @@ use crate::{macro_bank, per_key_rgb, remap, settings};
 use mechkeymesh_driver_api::{
     Capability, Connection, DeviceCandidate, DeviceDescriptor, DeviceMatch, DeviceSession,
     DeviceSettings, DeviceSettingsDescriptor, DriverError, DriverManifest, FnActivationMode,
-    FnActivationModeOption, FnLayerDescriptor, HardwareMacroProgram, KeyAssignment,
-    KeyboardDriver, KeymapCapabilities, KeymapLayer, LightingConfig, LightingEffectDescriptor,
-    MacroBankDescriptor, OperationContext, PerKeyRgbCapabilities, PerKeyRgbConfig,
-    PerKeyRgbReadback, TransportKind, TransportRequirement,
+    FnActivationModeOption, FnLayerDescriptor, HardwareMacroProgram, KeyAssignment, KeyboardDriver,
+    KeymapCapabilities, KeymapLayer, LightingConfig, LightingEffectDescriptor, MacroBankDescriptor,
+    OperationContext, PerKeyRgbCapabilities, PerKeyRgbConfig, PerKeyRgbReadback, TransportKind,
+    TransportRequirement,
 };
 use mechkeymesh_hid::{FEATURE_REPORT_SIZE, enumerate_feature_devices, open_feature_path};
 
@@ -85,7 +85,7 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
             ],
             current_mode: None,
             hardware_write_verified: false,
-            note: "OEM binary maps fn_switch raw 0 to Toggle and raw 1 to Momentary. MechKeyMesh does not write this setting yet because the 04 17 / 00 01 function-settings transaction is not physically verified.".into(),
+            note: "OEM binary maps fn_switch raw 0 to Toggle and raw 1 to Momentary. R11 writes it only as part of the complete 04 17 / 00 01 settings block; physical verification remains pending.".into(),
         })
     }
 
@@ -101,7 +101,10 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
         macro_bank::validate_bank(programs)
     }
 
-    fn validate_device_settings(&self, device_settings: &DeviceSettings) -> Result<(), DriverError> {
+    fn validate_device_settings(
+        &self,
+        device_settings: &DeviceSettings,
+    ) -> Result<(), DriverError> {
         settings::validate(device_settings)
     }
 

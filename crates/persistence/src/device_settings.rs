@@ -111,19 +111,11 @@ mod tests {
             sleep_timeout: SleepTimeout::FiveMinutes,
             key_response_level: 3,
         };
-        let scope = ConfigurationScope::new(
-            "aula.f108pro",
-            "default",
-            Capability::DeviceSettings,
-        );
+        let scope = ConfigurationScope::new("aula.f108pro", "default", Capability::DeviceSettings);
         {
             let store = PersistenceStore::open(&path).unwrap();
             store
-                .ensure_device_model(&DeviceModel::new(
-                    "aula.f108pro",
-                    "AULA",
-                    "AULA F108 Pro",
-                ))
+                .ensure_device_model(&DeviceModel::new("aula.f108pro", "AULA", "AULA F108 Pro"))
                 .unwrap();
             store.ensure_default_profile("aula.f108pro").unwrap();
             store.save_device_settings(&scope, &expected).unwrap();
