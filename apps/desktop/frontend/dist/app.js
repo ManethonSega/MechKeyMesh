@@ -17,6 +17,7 @@ const pages = {
   "live-rgb": ["Live RGB", "Host-rendered layers over the volatile USB streaming path"],
   music: ["Music Lighting", "Windows output-loopback analysis driving live RGB"],
   lcd: ["LCD Media", "Safe 240 × 135 RGB565 asset editor with a hard 141-frame limit"],
+  profiles: ["Profiles", "Application-aware desired states with subsystem-level diffing"],
   settings: ["Device Settings", "Locks, Fn behavior, sleep and key response"],
   diagnostics: ["Diagnostics", "Connection, command and recovery log"]
 };

@@ -23,6 +23,7 @@ jobs:
           node --check apps/desktop/frontend/dist/live-rgb.js
           node --check apps/desktop/frontend/dist/music.js
           node --check apps/desktop/frontend/dist/lcd.js
+          node --check apps/desktop/frontend/dist/profiles.js
       - name: Format check
         run: cargo fmt --all -- --check
       - name: Core tests

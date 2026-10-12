@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="macros.css" />
   <link rel="stylesheet" href="settings.css" />
   <link rel="stylesheet" href="lcd.css" />
+  <link rel="stylesheet" href="profiles.css" />
 </head>
 <body>
 <div id="splash" class="splash">
@@ -35,11 +36,11 @@
       <button data-page="live-rgb" data-requires-capability="live-rgb">Live RGB <b>R13</b></button>
       <button data-page="music" data-requires-capability="music">Music <b>R14</b></button>
       <button data-page="lcd">LCD <b>R15</b></button>
-      <button data-page="profiles" disabled>Profiles <b>Soon</b></button>
+      <button data-page="profiles">Profiles <b>R17</b></button>
       <button data-page="settings" data-requires-capability="device-settings">Device Settings <b>R11</b></button>
       <button data-page="diagnostics">Diagnostics</button>
     </nav>
-    <div class="version">v0.17.0-alpha.1 · LCD Upload</div>
+    <div class="version">v0.18.0-alpha.1 · Profiles</div>
   </aside>
 
   <main>
@@ -663,6 +664,50 @@
       </article>
     </section>
 
+    <section id="page-profiles" class="page">
+      <div class="profiles-grid">
+        <article class="card profile-library">
+          <div class="sectiontitle"><div><span class="eyebrow">PROFILE LIBRARY</span><h3>Desired states</h3></div><span id="activeProfileTag" class="tag">Default</span></div>
+          <select id="profileList" size="9" aria-label="Profiles"></select>
+          <div class="profile-fields">
+            <input id="profileId" type="text" placeholder="profile-id" />
+            <input id="profileName" type="text" placeholder="Profile name" />
+          </div>
+          <div class="profile-actions">
+            <button id="profileCreate" class="primary" type="button">Clone active</button>
+            <button id="profileActivate" class="secondary" type="button">Activate</button>
+            <button id="profileRename" class="secondary" type="button">Rename</button>
+            <button id="profileDelete" class="secondary danger-soft" type="button">Delete</button>
+          </div>
+          <p class="muted">New profiles clone the current mappings, Fn mappings, macros, RGB, settings, host lighting and optional LCD assignment.</p>
+        </article>
+
+        <article class="card profile-associations">
+          <div class="sectiontitle">
+            <div><span class="eyebrow">APPLICATION ASSOCIATION</span><h3>Automatic switching</h3></div>
+            <label class="settings-check"><input id="profileAutoSwitch" type="checkbox" /> Enabled</label>
+          </div>
+          <p>Foreground executable: <strong id="profileForeground">Unavailable</strong></p>
+          <div class="association-fields">
+            <input id="rulePattern" type="text" placeholder="Photoshop.exe or game*.exe" />
+            <select id="ruleProfile"></select>
+            <input id="rulePriority" type="number" value="0" aria-label="Priority" />
+            <button id="ruleAdd" class="primary" type="button">Add rule</button>
+          </div>
+          <div id="ruleList" class="rule-list"></div>
+          <hr />
+          <label>Optional validated LCD asset path<input id="profileLcdPath" type="text" placeholder="f108-lcd.bin" /></label>
+          <button id="profileAssignLcd" class="secondary" type="button">Assign to active profile</button>
+        </article>
+      </div>
+
+      <article class="card">
+        <div class="sectiontitle"><div><span class="eyebrow">STATE DIFF</span><h3>Last application</h3></div></div>
+        <pre id="profileApplyReport">No profile has been applied in this session.</pre>
+        <p id="profileStatus" class="muted">Unchanged subsystems are skipped and produce no USB traffic.</p>
+      </article>
+    </section>
+
     <section id="page-diagnostics" class="page">
       <div class="card">
         <div class="sectiontitle">
@@ -685,5 +730,6 @@
 <script src="live-rgb.js"></script>
 <script src="music.js"></script>
 <script src="lcd.js"></script>
+<script src="profiles.js"></script>
 </body>
 </html>

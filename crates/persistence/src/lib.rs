@@ -10,7 +10,9 @@ use std::{
 };
 use thiserror::Error;
 
-pub const CURRENT_SCHEMA_VERSION: i64 = 4;
+pub use profiles::{ApplicationRule, ProfileHostState};
+
+pub const CURRENT_SCHEMA_VERSION: i64 = 5;
 
 struct Migration {
     version: i64,
@@ -320,6 +322,27 @@ const MIGRATIONS: &[Migration] = &[
             CREATE UNIQUE INDEX macros_one_hardware_slot
                 ON macros(device_model_id, profile_id, capability, hardware_slot)
                 WHERE hardware_slot IS NOT NULL;
+        "#,
+    },
+    Migration {
+        version: 5,
+        name: "profile-host-state",
+        sql: r#"
+            CREATE TABLE profile_host_state (
+                device_model_id TEXT NOT NULL,
+                profile_id TEXT NOT NULL,
+                live_scene_json TEXT,
+                music_config_json TEXT,
+                host_mode TEXT NOT NULL DEFAULT 'off'
+                    CHECK (host_mode IN ('off', 'live-rgb', 'music')),
+                lcd_asset_path TEXT,
+                lcd_content_hash TEXT,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY (device_model_id, profile_id),
+                FOREIGN KEY (device_model_id, profile_id)
+                    REFERENCES profiles(device_model_id, id)
+                    ON DELETE CASCADE
+            );
         "#,
     },
 ];
@@ -739,6 +762,7 @@ mod tests {
         "lcd_projects",
         "device_settings",
         "application_rules",
+        "profile_host_state",
     ];
 
     fn model() -> DeviceModel {

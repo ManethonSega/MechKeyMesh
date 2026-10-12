@@ -296,6 +296,7 @@ schema 1  devices, profiles, lighting, device_settings, application_rules
 schema 2  key_mappings, layer_mappings, macros, macro_events
 schema 3  per_key_lighting, live_lighting, music_presets, lcd_projects
 schema 4  stable macro hardware slots
+schema 5  profile host state and automatic switching metadata
 ```
 
 The tables exist before their higher-level feature editors are implemented so later runs can add functionality without repeatedly redesigning persistence ownership.

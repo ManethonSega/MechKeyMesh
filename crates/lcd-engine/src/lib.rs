@@ -218,6 +218,22 @@ impl LcdProject {
 }
 
 impl F108Asset {
+    pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, LcdError> {
+        let frame_count = bytes.first().copied().unwrap_or_default() as usize;
+        let content_length = HEADER_BYTES
+            .checked_add(frame_count.checked_mul(FRAME_BYTES).ok_or_else(|| {
+                LcdError::InvalidAsset("frame count overflows asset length".into())
+            })?)
+            .ok_or_else(|| LcdError::InvalidAsset("asset length overflow".into()))?;
+        let asset = Self {
+            bytes,
+            frame_count,
+            content_length,
+        };
+        asset.validate()?;
+        Ok(asset)
+    }
+
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
     }

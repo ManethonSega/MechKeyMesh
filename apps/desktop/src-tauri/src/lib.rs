@@ -28,7 +28,9 @@ use mechkeymesh_lcd_engine::{
 use mechkeymesh_lighting_engine::{
     LiveRgbScene, ReactivePulse, RenderInput, default_scene, render as render_live_rgb,
 };
-use mechkeymesh_persistence::{PersistenceStatus, PersistenceStore};
+use mechkeymesh_persistence::{
+    ApplicationRule, PersistenceStatus, PersistenceStore, ProfileHostState,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 use std::io::Cursor;
@@ -42,9 +44,14 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{Manager, State};
 
+mod foreground;
+mod profiles_runtime;
+
+use profiles_runtime::*;
+
 struct AppState {
     manager: DeviceManagerHandle,
-    persistence: PersistenceStore,
+    persistence: Arc<PersistenceStore>,
     layouts: LayoutRegistry,
     driver_layout_ids: BTreeMap<String, String>,
     primary_driver: Arc<dyn KeyboardDriver>,
@@ -54,6 +61,36 @@ struct AppState {
     live_rgb: LiveRgbController,
     music: MusicController,
     lcd: Mutex<Option<LcdEditor>>,
+    profiles: ProfileController,
+}
+
+#[derive(Default)]
+struct ProfileController {
+    apply_lock: Mutex<()>,
+    active_profile_id: Mutex<String>,
+    auto_switch: AtomicBool,
+    foreground_executable: Mutex<Option<String>>,
+    last_device_instance: Mutex<Option<String>>,
+    applied: Mutex<BTreeMap<String, String>>,
+    last_report: Mutex<Option<ProfileApplyReport>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProfileApplyReport {
+    profile_id: String,
+    changed: Vec<String>,
+    skipped: Vec<String>,
+    errors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProfileRuntimeStatus {
+    active_profile_id: String,
+    auto_switch: bool,
+    foreground_executable: Option<String>,
+    last_report: Option<ProfileApplyReport>,
 }
 
 #[derive(Default)]
@@ -511,6 +548,11 @@ fn get_music_status(state: State<'_, AppState>) -> MusicRuntimeStatus {
 
 #[tauri::command]
 fn start_live_rgb(state: State<'_, AppState>, scene: LiveRgbScene) -> Result<(), String> {
+    start_live_rgb_internal(&state, scene.clone())?;
+    save_active_host_mode(&state, "live-rgb", Some(&scene), None)
+}
+
+fn start_live_rgb_internal(state: &AppState, scene: LiveRgbScene) -> Result<(), String> {
     let status = state.manager.status();
     let device = status
         .device
@@ -519,7 +561,7 @@ fn start_live_rgb(state: State<'_, AppState>, scene: LiveRgbScene) -> Result<(),
         return Err("live RGB is unavailable on the active connection".into());
     }
 
-    let layout_id = active_layout_id(&state)?;
+    let layout_id = active_layout_id(state)?;
     let layout = state
         .layouts
         .get(&layout_id)
@@ -527,7 +569,7 @@ fn start_live_rgb(state: State<'_, AppState>, scene: LiveRgbScene) -> Result<(),
         .ok_or_else(|| format!("active layout {layout_id} is unavailable"))?;
     scene.validate(&layout).map_err(|error| error.to_string())?;
 
-    stop_music_controller(&state);
+    stop_music_controller(state);
 
     let stop = Arc::new(AtomicBool::new(false));
     {
@@ -595,6 +637,7 @@ fn start_live_rgb(state: State<'_, AppState>, scene: LiveRgbScene) -> Result<(),
 #[tauri::command]
 fn stop_live_rgb(state: State<'_, AppState>) {
     stop_live_rgb_controller(&state);
+    let _ = save_active_host_mode(&state, "off", None, None);
 }
 
 fn stop_live_rgb_controller(state: &AppState) {
@@ -615,6 +658,14 @@ fn start_music_lighting(
     state: State<'_, AppState>,
     config: MusicLightingConfig,
 ) -> Result<(), String> {
+    start_music_lighting_internal(&state, config.clone())?;
+    save_active_host_mode(&state, "music", None, Some(&config))
+}
+
+fn start_music_lighting_internal(
+    state: &AppState,
+    config: MusicLightingConfig,
+) -> Result<(), String> {
     let status = state.manager.status();
     let device = status.device.ok_or_else(|| {
         "connect the F108 Pro over USB before starting music lighting".to_string()
@@ -622,7 +673,7 @@ fn start_music_lighting(
     if !device.capabilities.contains(&Capability::Music) {
         return Err("music lighting is unavailable on the active connection".into());
     }
-    let layout_id = active_layout_id(&state)?;
+    let layout_id = active_layout_id(state)?;
     let layout = state
         .layouts
         .get(&layout_id)
@@ -632,8 +683,8 @@ fn start_music_lighting(
         .validate(&layout)
         .map_err(|error| error.to_string())?;
 
-    stop_live_rgb_controller(&state);
-    stop_music_controller(&state);
+    stop_live_rgb_controller(state);
+    stop_music_controller(state);
     let stop = Arc::new(AtomicBool::new(false));
     *state.music.stop.lock().expect("music stop lock poisoned") = Some(stop.clone());
     *state
@@ -722,6 +773,7 @@ fn start_music_lighting(
 fn stop_music_lighting(state: State<'_, AppState>) {
     stop_music_controller(&state);
     state.manager.stop_live_rgb();
+    let _ = save_active_host_mode(&state, "off", None, None);
 }
 
 fn stop_music_controller(state: &AppState) {
@@ -734,6 +786,37 @@ fn stop_music_controller(state: &AppState) {
     {
         stop.store(true, Ordering::Release);
     }
+}
+
+fn save_active_host_mode(
+    state: &AppState,
+    mode: &str,
+    live_scene: Option<&LiveRgbScene>,
+    music_config: Option<&MusicLightingConfig>,
+) -> Result<(), String> {
+    let profile_id = state
+        .profiles
+        .active_profile_id
+        .lock()
+        .expect("active profile lock poisoned")
+        .clone();
+    let mut host = state
+        .persistence
+        .load_profile_host_state(&state.primary_device_model_id, &profile_id)
+        .map_err(|error| error.to_string())?;
+    host.host_mode = mode.into();
+    if let Some(scene) = live_scene {
+        host.live_scene_json =
+            Some(serde_json::to_string(scene).map_err(|error| error.to_string())?);
+    }
+    if let Some(config) = music_config {
+        host.music_config_json =
+            Some(serde_json::to_string(config).map_err(|error| error.to_string())?);
+    }
+    state
+        .persistence
+        .save_profile_host_state(&state.primary_device_model_id, &profile_id, &host)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -1227,11 +1310,12 @@ fn resolve_key_assignments(
         .layouts
         .get(&layout_id)
         .ok_or_else(|| format!("layout not found: {layout_id}"))?;
-    let macro_slots: BTreeMap<String, u8> = load_hardware_macros(state)?
-        .into_iter()
-        .filter(|program| !program.events.is_empty())
-        .map(|program| (program.id, program.slot))
-        .collect();
+    let macro_slots: BTreeMap<String, u8> =
+        load_hardware_macros_for_profile(state, &desired.scope.profile_id)?
+            .into_iter()
+            .filter(|program| !program.events.is_empty())
+            .map(|program| (program.id, program.slot))
+            .collect();
     let mut seen = HashSet::new();
     let mut assignments = Vec::with_capacity(desired.mappings.len());
 
@@ -1276,13 +1360,32 @@ fn resolve_key_assignments(
 
 fn load_hardware_macros(state: &AppState) -> Result<Vec<HardwareMacroProgram>, String> {
     let scope = configuration_scope(state, Capability::Macros)?;
+    load_hardware_macros_for_scope(state, &scope)
+}
+
+fn load_hardware_macros_for_profile(
+    state: &AppState,
+    profile_id: &str,
+) -> Result<Vec<HardwareMacroProgram>, String> {
+    let scope = ConfigurationScope::new(
+        state.primary_device_model_id.clone(),
+        profile_id,
+        Capability::Macros,
+    );
+    load_hardware_macros_for_scope(state, &scope)
+}
+
+fn load_hardware_macros_for_scope(
+    state: &AppState,
+    scope: &ConfigurationScope,
+) -> Result<Vec<HardwareMacroProgram>, String> {
     let programs = state
         .persistence
-        .load_macros(&scope)
+        .load_macros(scope)
         .map_err(|error| error.to_string())?;
     let slots: BTreeMap<String, Option<u16>> = state
         .persistence
-        .load_macro_hardware_slots(&scope)
+        .load_macro_hardware_slots(scope)
         .map_err(|error| error.to_string())?
         .into_iter()
         .collect();
@@ -1397,15 +1500,16 @@ fn configuration_scope(
         .map(|device| device.device_model_id)
         .unwrap_or_else(|| state.primary_device_model_id.clone());
 
-    let profile = state
-        .persistence
-        .default_profile(&device_model_id)
-        .map_err(|error| error.to_string())?
-        .ok_or_else(|| format!("no default profile exists for {device_model_id}"))?;
+    let profile_id = state
+        .profiles
+        .active_profile_id
+        .lock()
+        .expect("active profile lock poisoned")
+        .clone();
 
     Ok(ConfigurationScope::new(
         device_model_id,
-        profile.id,
+        profile_id,
         capability,
     ))
 }
@@ -1450,7 +1554,9 @@ pub fn run() {
                 .collect();
 
             let data_dir = app.path().app_data_dir()?;
-            let persistence = PersistenceStore::open(data_dir.join("mechkeymesh.sqlite3"))?;
+            let persistence = Arc::new(PersistenceStore::open(
+                data_dir.join("mechkeymesh.sqlite3"),
+            )?);
 
             for manifest in &manifests {
                 persistence.ensure_device_model(&DeviceModel::new(
@@ -1510,7 +1616,12 @@ pub fn run() {
                 live_rgb: LiveRgbController::default(),
                 music: MusicController::default(),
                 lcd: Mutex::new(None),
+                profiles: ProfileController {
+                    active_profile_id: Mutex::new("default".into()),
+                    ..ProfileController::default()
+                },
             });
+            monitor_profiles(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1533,6 +1644,17 @@ pub fn run() {
             get_lcd_transfer_status,
             upload_lcd_asset,
             sync_lcd_clock,
+            get_profiles,
+            create_profile,
+            rename_profile,
+            delete_profile,
+            get_application_rules,
+            save_application_rule,
+            delete_application_rule,
+            get_profile_runtime_status,
+            set_profile_auto_switch,
+            activate_profile,
+            assign_lcd_asset_to_profile,
             get_live_rgb_defaults,
             get_live_rgb_capabilities,
             get_live_rgb_status,

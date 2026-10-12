@@ -1,0 +1,65 @@
+.profiles-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, .8fr) minmax(500px, 1.2fr);
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.profile-library,
+.profile-associations {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+#profileList {
+  width: 100%;
+  min-height: 245px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px;
+}
+
+.profile-fields,
+.profile-actions,
+.association-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-fields input,
+.association-fields input,
+.association-fields select,
+.profile-associations > label input {
+  min-height: 38px;
+  min-width: 150px;
+  flex: 1;
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.rule-list {
+  display: grid;
+  gap: 7px;
+}
+
+.rule-row {
+  display: grid;
+  grid-template-columns: 1fr 150px 80px auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-2);
+}
+
+@media (max-width: 1050px) {
+  .profiles-grid { grid-template-columns: 1fr; }
+}
