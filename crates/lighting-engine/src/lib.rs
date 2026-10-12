@@ -270,7 +270,7 @@ fn effect_color(
         }
         LiveEffect::Sparkle => {
             let tick = (t * 12.0).floor() as u64;
-            let seed = u64::from(key.led_index.unwrap_or_default()) * 65_537 ^ tick;
+            let seed = (u64::from(key.led_index.unwrap_or_default()) * 65_537) ^ tick;
             let amount = hash01(seed).powf(9.0);
             mix(layer.secondary, layer.primary, amount)
         }
