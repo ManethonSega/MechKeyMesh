@@ -17,6 +17,7 @@ use std::time::Duration;
 pub const VENDOR_ID: u16 = 0x0C45;
 pub const PRODUCT_ID: u16 = 0x800A;
 pub const CONFIG_USAGE_PAGE: u16 = 0xFF13;
+pub const DRIVER_ID: &str = "aula.f108pro";
 const COMMAND_DELAY: Duration = Duration::from_millis(35);
 
 pub struct AulaF108ProDriver;
@@ -36,7 +37,7 @@ impl Default for AulaF108ProDriver {
 impl KeyboardDriver for AulaF108ProDriver {
     fn manifest(&self) -> DriverManifest {
         DriverManifest {
-            driver_id: "aula.f108pro.usb".into(),
+            driver_id: DRIVER_ID.into(),
             device_model_id: "aula.f108pro".into(),
             vendor: "AULA".into(),
             device_name: "AULA F108 Pro".into(),
@@ -77,7 +78,7 @@ impl KeyboardDriver for AulaF108ProDriver {
         Ok(devices
             .into_iter()
             .map(|device| DeviceCandidate {
-                driver_id: "aula.f108pro.usb".into(),
+                driver_id: DRIVER_ID.into(),
                 instance_id: device.path,
                 name: "AULA F108 Pro".into(),
                 connection: Connection::Usb,
@@ -395,7 +396,8 @@ fn effect_for_mode(mode: u8) -> Option<F108LightingEffect> {
 }
 
 fn validate_candidate(candidate: &DeviceCandidate) -> Result<(), DriverError> {
-    if candidate.driver_id != "aula.f108pro.usb"
+    if candidate.driver_id != DRIVER_ID
+        || candidate.connection != Connection::Usb
         || candidate.vendor_id != Some(VENDOR_ID)
         || candidate.product_id != Some(PRODUCT_ID)
         || candidate.usage_page != Some(CONFIG_USAGE_PAGE)
@@ -407,7 +409,7 @@ fn validate_candidate(candidate: &DeviceCandidate) -> Result<(), DriverError> {
     Ok(())
 }
 
-fn build_lighting_payload(
+pub(crate) fn build_lighting_payload(
     config: LightingConfig,
 ) -> Result<[u8; FEATURE_REPORT_SIZE], DriverError> {
     let effect = effect_for_mode(config.mode).ok_or_else(|| {
@@ -476,6 +478,7 @@ fn map_transport_error(error: HidTransportError) -> DriverError {
         HidTransportError::Disconnected(message) => DriverError::Disconnected(message),
         HidTransportError::PermissionDenied(message) => DriverError::PermissionDenied(message),
         HidTransportError::Busy(message) => DriverError::Busy(message),
+        HidTransportError::Timeout(message) => DriverError::Timeout(message),
         HidTransportError::UnsupportedPlatform => DriverError::UnsupportedPlatform,
         HidTransportError::Backend(message) => DriverError::Transport(message),
     }
@@ -487,7 +490,7 @@ mod tests {
 
     fn candidate() -> DeviceCandidate {
         DeviceCandidate {
-            driver_id: "aula.f108pro.usb".into(),
+            driver_id: DRIVER_ID.into(),
             instance_id: "test-path".into(),
             name: "AULA F108 Pro".into(),
             connection: Connection::Usb,
@@ -502,7 +505,7 @@ mod tests {
     #[test]
     fn manifest_declares_f108_transport_requirements() {
         let manifest = AulaF108ProDriver::new().manifest();
-        assert_eq!(manifest.driver_id, "aula.f108pro.usb");
+        assert_eq!(manifest.driver_id, DRIVER_ID);
         assert_eq!(manifest.device_model_id, "aula.f108pro");
         assert_eq!(manifest.supported_connections, vec![Connection::Usb]);
         assert_eq!(manifest.capabilities, vec![Capability::HardwareRgb]);

@@ -28,15 +28,15 @@
     </div>
     <nav id="nav">
       <button class="active" data-page="home">Home</button>
-      <button data-page="keys">Keys <b>R7</b></button>
-      <button data-page="macros">Macros <b>R10</b></button>
-      <button data-page="lighting">Lighting <b>R8</b></button>
+      <button data-page="keys" data-requires-capability="keys">Keys <b>R7</b></button>
+      <button data-page="macros" data-requires-capability="macros">Macros <b>R10</b></button>
+      <button data-page="lighting" data-requires-any-capability="hardware-rgb,per-key-rgb">Lighting <b>R8</b></button>
       <button data-page="lcd" disabled>LCD <b>Soon</b></button>
       <button data-page="profiles" disabled>Profiles <b>Soon</b></button>
-      <button data-page="settings">Device Settings <b>R11</b></button>
+      <button data-page="settings" data-requires-capability="device-settings">Device Settings <b>R11</b></button>
       <button data-page="diagnostics">Diagnostics</button>
     </nav>
-    <div class="version">v0.12.0-alpha.1 · F108 Device Settings</div>
+    <div class="version">v0.13.0-alpha.1 · USB + 2.4 GHz</div>
   </aside>
 
   <main>
@@ -64,13 +64,14 @@
       <div class="grid3">
         <article class="card metric"><span>Connection</span><strong id="connectionType">—</strong></article>
         <article class="card metric"><span>VID / PID</span><strong id="vidpid">—</strong></article>
-        <article class="card metric"><span>Driver</span><strong id="driverId">aula.f108pro.usb</strong></article>
+        <article class="card metric"><span>Driver</span><strong id="driverId">aula.f108pro</strong></article>
         <article class="card metric"><span>Lifecycle</span><strong id="stateText">Disconnected</strong></article>
         <article class="card metric"><span>Candidates</span><strong id="candidateCount">0</strong></article>
         <article class="card metric"><span>Reconnects</span><strong id="reconnectCount">0</strong></article>
         <article class="card metric"><span>Database schema</span><strong id="schemaVersion">—</strong></article>
         <article class="card metric"><span>Database integrity</span><strong id="databaseIntegrity">—</strong></article>
         <article class="card metric"><span>Desired profile</span><strong id="desiredProfile">Default</strong></article>
+        <article id="batteryMetric" class="card metric hidden-control"><span>Battery</span><strong id="batteryPercent">—</strong></article>
       </div>
 
       <article class="card">

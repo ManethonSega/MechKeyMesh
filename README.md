@@ -19,6 +19,7 @@ Current Rust implementation:
 - HID transport abstraction
 - first driver crate: `mechkeymesh-driver-aula-f108pro`
 - wired F108 Pro discovery, VID `0C45`, PID `800A`, Usage Page `FF13`
+- F108 Pro 2.4 GHz discovery through dongle `05AC:024F`, interface 3, with a connection-specific capability matrix and battery reporting
 - 20 mapped onboard lighting effects with effect-specific parameter metadata; physical verification remains explicitly unverified/deferred
 - independent Normal/Fn desired keymap persistence and complete 576-byte F108 table generation
 - persistent per-key RGB desired state using physical key IDs and layout LED indices
@@ -75,7 +76,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.12.0-alpha.1`, **R11 F108 device settings in validation**. Sleep, Fn and response raw values are evidence-backed; locks and all settings are emitted as one validated desired-state block through the serialized device manager. The exact F108 change/verify/restore checklist remains pending because no physical keyboard is available in this environment.
+`v0.13.0-alpha.1`, **R12 F108 USB and 2.4 GHz connection variants in validation**. The 32-byte dongle transport, echo validation, checksum, battery query and reduced wireless capabilities are implemented. The required USB to 2.4 GHz to USB physical switch run remains pending because no physical keyboard is available in this environment.
 
 The previous Go/Wails prototype is preserved in the branch:
 
@@ -110,6 +111,7 @@ cargo build -p mechkeymesh-desktop --release
 The F108 Pro implementation builds on our OEM analysis and MIT-licensed community research:
 
 - https://github.com/parsiya/f108-pro
+- https://github.com/kidush/omarchy-aula-f108pro
 - https://github.com/Punkster81/AULA-F108-Driver
 
 See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

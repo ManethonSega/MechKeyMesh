@@ -84,6 +84,29 @@ pub fn build_data(settings: &DeviceSettings) -> Result<[u8; FEATURE_REPORT_SIZE]
     Ok(data)
 }
 
+pub fn build_wireless_data(settings: &DeviceSettings) -> Result<[u8; 16], DriverError> {
+    validate(settings)?;
+    let mut data = [0u8; 16];
+    data[..2].copy_from_slice(&SETTINGS_TAG);
+    data[ALT_TAB_OFFSET] = u8::from(settings.disable_alt_tab);
+    data[ALT_F4_OFFSET] = u8::from(settings.disable_alt_f4);
+    data[WINDOWS_KEY_OFFSET] = u8::from(settings.disable_windows_key);
+    data[FN_MODE_OFFSET] = match settings.fn_mode {
+        FnActivationMode::Toggle => 0,
+        FnActivationMode::Momentary => 1,
+    };
+    data[SLEEP_OFFSET] = match settings.sleep_timeout {
+        SleepTimeout::Never => 0,
+        SleepTimeout::OneMinute => 1,
+        SleepTimeout::FiveMinutes => 2,
+        SleepTimeout::ThirtyMinutes => 3,
+    };
+    data[RESPONSE_OFFSET] = settings.key_response_level;
+    data[14] = 0xAA;
+    data[15] = 0x55;
+    Ok(data)
+}
+
 pub fn send(
     session: &mut AulaF108ProSession,
     context: &OperationContext,
@@ -147,6 +170,13 @@ mod tests {
         let data = build_data(&sample()).unwrap();
         assert_eq!(&data[..9], &[0, 1, 1, 0, 1, 1, 2, 0, 3]);
         assert_eq!(&data[62..64], &[0xAA, 0x55]);
+    }
+
+    #[test]
+    fn encodes_wireless_settings_block_at_the_same_field_offsets() {
+        let data = build_wireless_data(&sample()).unwrap();
+        assert_eq!(&data[..9], &[0, 1, 1, 0, 1, 1, 2, 0, 3]);
+        assert_eq!(&data[14..16], &[0xAA, 0x55]);
     }
 
     #[test]

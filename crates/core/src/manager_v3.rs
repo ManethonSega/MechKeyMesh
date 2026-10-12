@@ -507,19 +507,22 @@ fn worker(
                 let _ = reply.send(result);
             }
             Err(RecvTimeoutError::Timeout) => {
-                if let Some(device) = active.as_mut()
-                    && !active_device_present(device, &log, &config)
-                {
-                    let descriptor = device.session.descriptor();
-                    set_status(
-                        &status,
-                        DeviceState::Recovery,
-                        Some(descriptor),
-                        Some((ErrorClass::Disconnected, "device removal detected".into())),
-                        None,
-                        0,
-                    );
-                    close_active(&mut active, &log);
+                if let Some(device) = active.as_mut() {
+                    if !active_device_present(device, &log, &config) {
+                        let descriptor = device.session.descriptor();
+                        set_status(
+                            &status,
+                            DeviceState::Recovery,
+                            Some(descriptor),
+                            Some((ErrorClass::Disconnected, "device removal detected".into())),
+                            None,
+                            0,
+                        );
+                        close_active(&mut active, &log);
+                    } else {
+                        status.write().expect("status lock poisoned").device =
+                            Some(device.session.descriptor());
+                    }
                 }
             }
             Err(RecvTimeoutError::Disconnected) => {
@@ -769,6 +772,7 @@ fn discover_and_open(
                 let initialization_context = OperationContext::new(config.initialization_timeout);
                 match session.initialize(&initialization_context) {
                     Ok(()) => {
+                        let descriptor = session.descriptor();
                         if *ever_connected {
                             status
                                 .write()

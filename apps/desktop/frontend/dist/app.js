@@ -4,6 +4,8 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 
 let activeLayout = null;
 let activeDriverId = null;
+let activeConnection = null;
+let activeCapabilities = new Set();
 let lightingEffects = [];
 const selectedKeyIds = new Set();
 
@@ -124,6 +126,8 @@ function updateStatus(status) {
   const state = status?.state || "disconnected";
   const device = status?.device || null;
   const nextDriverId = device?.driverId || null;
+  const nextConnection = device?.connection || null;
+  activeCapabilities = new Set(device?.capabilities || []);
   const pill = $("#connectionPill");
   pill.textContent = state;
   pill.className = "pill " + stateClass(state);
@@ -133,7 +137,7 @@ function updateStatus(status) {
     status?.lastError ||
     (state === "ready" ? "Configuration interface ready" : "Waiting for a supported keyboard...");
   $("#connectionType").textContent = device?.connection || "—";
-  $("#driverId").textContent = device?.driverId || "aula.f108pro.usb";
+  $("#driverId").textContent = device?.driverId || "aula.f108pro";
   $("#stateText").textContent = state;
   $("#candidateCount").textContent = String(status?.candidateCount ?? 0);
   $("#reconnectCount").textContent = String(status?.reconnectCount ?? 0);
@@ -147,6 +151,16 @@ function updateStatus(status) {
         device.productId.toString(16).padStart(4, "0").toUpperCase()
       : "—";
 
+  const hasBattery = activeCapabilities.has("battery");
+  $("#batteryMetric")?.classList.toggle("hidden-control", !hasBattery);
+  if ($("#batteryPercent")) {
+    $("#batteryPercent").textContent = device?.batteryPercent == null
+      ? "Reading..."
+      : `${device.batteryPercent}%`;
+  }
+
+  updateCapabilityVisibility(Boolean(device));
+
   $("#applyLighting").disabled = state === "busy";
   $("#applyLighting").textContent =
     state === "ready" ? "Save & apply to keyboard" : "Save desired state";
@@ -155,6 +169,36 @@ function updateStatus(status) {
     activeDriverId = nextDriverId;
     void loadPrimaryLayout();
   }
+
+  if (nextConnection !== activeConnection) {
+    activeConnection = nextConnection;
+    if ($("#readPerKeyHardware")) {
+      $("#readPerKeyHardware").disabled = nextConnection === "wireless24-g";
+      $("#readPerKeyHardware").title = nextConnection === "wireless24-g"
+        ? "Stored RGB readback is not available over the verified 2.4 GHz protocol."
+        : "";
+    }
+  }
+}
+
+function updateCapabilityVisibility(hasDevice) {
+  document.querySelectorAll("[data-requires-capability]").forEach((element) => {
+    const supported = !hasDevice || activeCapabilities.has(element.dataset.requiresCapability);
+    element.classList.toggle("hidden-control", !supported);
+    element.disabled = !supported;
+  });
+  document.querySelectorAll("[data-requires-any-capability]").forEach((element) => {
+    const required = element.dataset.requiresAnyCapability.split(",");
+    const supported = !hasDevice || required.some((capability) => activeCapabilities.has(capability));
+    element.classList.toggle("hidden-control", !supported);
+    element.disabled = !supported;
+  });
+
+  const activePage = document.querySelector(".page.active")?.id?.replace("page-", "");
+  const activeButton = activePage
+    ? document.querySelector(`#nav button[data-page="${activePage}"]`)
+    : null;
+  if (activeButton?.disabled) showPage("home");
 }
 
 async function pollStatus() {

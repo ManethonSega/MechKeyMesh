@@ -156,6 +156,7 @@ fn simulate_macro(program: MacroProgram) -> Result<MacroSimulation, String> {
 
 #[tauri::command]
 fn get_macro_bank_descriptor(state: State<'_, AppState>) -> Result<MacroBankDescriptor, String> {
+    require_active_capability(&state, Capability::Macros)?;
     state
         .primary_driver
         .macro_bank_descriptor()
@@ -214,6 +215,7 @@ fn save_device_settings(
 
 #[tauri::command]
 fn upload_macros(state: State<'_, AppState>) -> Result<MacroBankApplyResult, String> {
+    require_active_capability(&state, Capability::Macros)?;
     let programs = load_hardware_macros(&state)?;
     state
         .primary_driver
@@ -241,10 +243,17 @@ fn upload_macros(state: State<'_, AppState>) -> Result<MacroBankApplyResult, Str
 fn get_per_key_rgb_capabilities(
     state: State<'_, AppState>,
 ) -> Result<PerKeyRgbCapabilities, String> {
-    state
+    require_active_capability(&state, Capability::PerKeyRgb)?;
+    let mut capabilities = state
         .primary_driver
         .per_key_rgb_capabilities()
-        .ok_or_else(|| "active driver does not support stored per-key RGB".to_string())
+        .ok_or_else(|| "active driver does not support stored per-key RGB".to_string())?;
+    if state.manager.status().device.is_some_and(|device| {
+        device.connection == mechkeymesh_driver_api::Connection::Wireless24G
+    }) {
+        capabilities.readback_supported = false;
+    }
+    Ok(capabilities)
 }
 
 #[tauri::command]
@@ -373,6 +382,12 @@ fn save_per_key_rgb(
 
 #[tauri::command]
 fn read_per_key_rgb(state: State<'_, AppState>) -> Result<PerKeyRgbHardwareReadback, String> {
+    require_active_capability(&state, Capability::PerKeyRgb)?;
+    if state.manager.status().device.is_some_and(|device| {
+        device.connection == mechkeymesh_driver_api::Connection::Wireless24G
+    }) {
+        return Err("stored RGB readback is not supported over the verified 2.4 GHz protocol".into());
+    }
     let layout_id = active_layout_id(&state)?;
     let layout = state
         .layouts
@@ -714,6 +729,21 @@ fn configuration_scope(
         profile.id,
         capability,
     ))
+}
+
+fn require_active_capability(state: &AppState, capability: Capability) -> Result<(), String> {
+    let Some(device) = state.manager.status().device else {
+        return Ok(());
+    };
+    if device.capabilities.contains(&capability) {
+        Ok(())
+    } else {
+        Err(format!(
+            "{} is not supported over the active {:?} connection",
+            capability.storage_key(),
+            device.connection
+        ))
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
