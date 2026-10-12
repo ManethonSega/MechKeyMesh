@@ -211,23 +211,11 @@ fn menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, Box<dyn std::error::
 }
 
 pub(crate) fn setup(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    // Guaranteed visible tray icon even when the bundle has no default window icon.
-    let mut pixels = vec![0u8; 32 * 32 * 4];
-    for y in 0..32 {
-        for x in 0..32 {
-            let offset = (y * 32 + x) * 4;
-            let bright = (6..26).contains(&x)
-                && (6..26).contains(&y)
-                && (!(10..=21).contains(&x) || !(10..=21).contains(&y));
-            pixels[offset..offset + 4].copy_from_slice(if bright {
-                &[33, 230, 232, 255]
-            } else {
-                &[8, 19, 39, 255]
-            });
-        }
-    }
+    // Embed the original logo: never substitute a generated placeholder mark.
+    let icon = image::load_from_memory(include_bytes!("../icons/32x32.png"))?.into_rgba8();
+    let (width, height) = icon.dimensions();
     TrayIconBuilder::with_id("main-tray")
-        .icon(tauri::image::Image::new_owned(pixels, 32, 32))
+        .icon(tauri::image::Image::new_owned(icon.into_raw(), width, height))
         .tooltip("MechKeyMesh")
         .menu(&menu(app)?)
         .show_menu_on_left_click(false)
@@ -360,6 +348,15 @@ pub(crate) fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn original_tray_logo_decodes_as_rgba() {
+        let icon = image::load_from_memory(include_bytes!("../icons/32x32.png"))
+            .unwrap()
+            .into_rgba8();
+        assert_eq!(icon.dimensions(), (32, 32));
+        assert_eq!(icon.as_raw().len(), 32 * 32 * 4);
+    }
 
     #[test]
     fn older_preferences_keep_safe_defaults() {
