@@ -602,10 +602,10 @@
           <span id="lcdValidity" class="verification pending">No project</span>
         </div>
         <div class="lcd-import-row">
-          <label>Media path<input id="lcdMediaPath" type="text" placeholder="PNG, JPEG, GIF, WebP, MP4, WebM or MOV" /></label>
+          <label>Selected media<input id="lcdMediaPath" type="text" placeholder="No file selected" readonly /></label>
           <label>Video preset<select id="lcdPreset"><option value="smooth">Smooth</option><option value="balanced" selected>Balanced</option><option value="full-duration">Full duration</option></select></label>
           <label>Framing<select id="lcdFit"><option value="fit">Fit</option><option value="fill">Fill</option></select></label>
-          <button id="lcdImport" class="primary" type="button">Import media</button>
+          <button id="lcdImport" class="primary" type="button">Choose media...</button>
         </div>
         <div class="protocol-notice">Hard limits: 240 × 135, RGB565 little-endian, 256-byte header, and 141 frames. Frame 142 is invalid with no bypass.</div>
       </article>

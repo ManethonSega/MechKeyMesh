@@ -149,6 +149,27 @@ struct LcdEditorState {
     can_redo: bool,
 }
 
+#[tauri::command]
+fn select_lcd_media_file() -> Option<String> {
+    #[cfg(windows)]
+    {
+        rfd::FileDialog::new()
+            .set_title("Choose LCD media")
+            .add_filter(
+                "Supported media",
+                &["png", "jpg", "jpeg", "gif", "webp", "mp4", "webm", "mov"],
+            )
+            .add_filter("Images", &["png", "jpg", "jpeg", "gif", "webp"])
+            .add_filter("Videos", &["mp4", "webm", "mov"])
+            .pick_file()
+            .map(|path| path.to_string_lossy().into_owned())
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LcdPoint {
@@ -1460,6 +1481,7 @@ pub fn run() {
             get_status,
             import_lcd_media,
             get_lcd_editor_state,
+            select_lcd_media_file,
             get_lcd_frame_preview,
             set_lcd_frame_duration,
             duplicate_lcd_frame,

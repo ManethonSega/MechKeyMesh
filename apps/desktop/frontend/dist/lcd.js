@@ -78,15 +78,24 @@
   }
 
   element("#lcdImport").addEventListener("click", async () => {
-    const path = element("#lcdMediaPath").value.trim();
-    if (!path) return setStatus("Enter a media path.", true);
-    setStatus("Decoding and optimizing media...");
-    selectedFrame = 0;
-    await run("import_lcd_media", {
-      path,
-      preset: element("#lcdPreset").value,
-      fit: element("#lcdFit").value
-    });
+    try {
+      setStatus("Opening the media browser...");
+      const path = await invoke("select_lcd_media_file");
+      if (!path) {
+        setStatus("No media file selected.");
+        return;
+      }
+      element("#lcdMediaPath").value = path;
+      setStatus("Decoding and optimizing media...");
+      selectedFrame = 0;
+      await run("import_lcd_media", {
+        path,
+        preset: element("#lcdPreset").value,
+        fit: element("#lcdFit").value
+      });
+    } catch (error) {
+      setStatus(error, true);
+    }
   });
 
   element("#lcdDurationApply").addEventListener("click", () => run("set_lcd_frame_duration", {

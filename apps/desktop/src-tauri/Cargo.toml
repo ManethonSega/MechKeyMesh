@@ -30,3 +30,6 @@ base64 = "0.22"
 image = { version = "0.25", features = ["png"] }
 serde.workspace = true
 tauri = { version = "2.12.0", features = [] }
+
+[target.'cfg(windows)'.dependencies]
+rfd = "0.15"
