@@ -124,10 +124,26 @@ pub fn default_music_config() -> MusicLightingConfig {
         background_mode: BackgroundMode::Palette,
         brightness: 0.85,
         palette: vec![
-            RgbColor { r: 0, g: 210, b: 255 },
-            RgbColor { r: 117, g: 67, b: 255 },
-            RgbColor { r: 255, g: 45, b: 149 },
-            RgbColor { r: 255, g: 190, b: 0 },
+            RgbColor {
+                r: 0,
+                g: 210,
+                b: 255,
+            },
+            RgbColor {
+                r: 117,
+                g: 67,
+                b: 255,
+            },
+            RgbColor {
+                r: 255,
+                g: 45,
+                b: 149,
+            },
+            RgbColor {
+                r: 255,
+                g: 190,
+                b: 0,
+            },
         ],
         mode: MusicMode::Spectrum,
     }
@@ -152,8 +168,7 @@ impl SpectrumAnalyzer {
         let fft = planner.plan_fft_forward(FFT_SIZE);
         let window = (0..FFT_SIZE)
             .map(|index| {
-                0.5 - 0.5
-                    * (std::f32::consts::TAU * index as f32 / (FFT_SIZE - 1) as f32).cos()
+                0.5 - 0.5 * (std::f32::consts::TAU * index as f32 / (FFT_SIZE - 1) as f32).cos()
             })
             .collect();
         Self {
@@ -169,17 +184,20 @@ impl SpectrumAnalyzer {
         samples: &[f32],
         config: &MusicLightingConfig,
     ) -> Option<SpectrumFrame> {
-        self.pending
-            .extend(samples.iter().copied().map(|sample| sample.clamp(-1.0, 1.0)));
+        self.pending.extend(
+            samples
+                .iter()
+                .copied()
+                .map(|sample| sample.clamp(-1.0, 1.0)),
+        );
         if self.pending.len() < FFT_SIZE {
             return None;
         }
 
         let source: Vec<f32> = self.pending.iter().take(FFT_SIZE).copied().collect();
         self.pending.drain(..FFT_HOP_SIZE);
-        let amplitude = (source.iter().map(|sample| sample * sample).sum::<f32>()
-            / FFT_SIZE as f32)
-            .sqrt();
+        let amplitude =
+            (source.iter().map(|sample| sample * sample).sum::<f32>() / FFT_SIZE as f32).sqrt();
         let mut bins: Vec<Complex<f32>> = source
             .iter()
             .zip(&self.window)
@@ -194,8 +212,8 @@ impl SpectrumAnalyzer {
         for (band, value) in raw_bands.iter_mut().enumerate() {
             let low = minimum_hz * ratio.powf(band as f32);
             let high = minimum_hz * ratio.powf((band + 1) as f32);
-            let low_bin = ((low * FFT_SIZE as f32 / CAPTURE_SAMPLE_RATE as f32).floor() as usize)
-                .max(1);
+            let low_bin =
+                ((low * FFT_SIZE as f32 / CAPTURE_SAMPLE_RATE as f32).floor() as usize).max(1);
             let high_bin = ((high * FFT_SIZE as f32 / CAPTURE_SAMPLE_RATE as f32).ceil() as usize)
                 .min(FFT_SIZE / 2);
             let count = high_bin.saturating_sub(low_bin).max(1);
@@ -289,9 +307,7 @@ pub fn render_music(
                 let position = (1.0 - nx + elapsed_seconds * 0.08).fract();
                 scale(palette_color(&config.palette, position), band)
             }
-            MusicMode::Amplitude => {
-                scale(palette_color(&config.palette, ny), spectrum.amplitude)
-            }
+            MusicMode::Amplitude => scale(palette_color(&config.palette, ny), spectrum.amplitude),
             MusicMode::Rhythm => {
                 let (level, position) = if nx < 1.0 / 3.0 {
                     (spectrum.bass, 0.0)
@@ -404,9 +420,7 @@ pub fn run_loopback_capture(
     samples: SyncSender<Vec<f32>>,
 ) -> Result<(), String> {
     use std::sync::atomic::Ordering;
-    use wasapi::{
-        DeviceEnumerator, Direction, SampleType, StreamMode, WaveFormat, initialize_mta,
-    };
+    use wasapi::{DeviceEnumerator, Direction, SampleType, StreamMode, WaveFormat, initialize_mta};
 
     initialize_mta().map_err(|error| error.to_string())?;
     let enumerator = DeviceEnumerator::new().map_err(|error| error.to_string())?;
@@ -418,7 +432,9 @@ pub fn run_loopback_capture(
             .get_default_device(&Direction::Render)
             .map_err(|error| format!("default output device is unavailable: {error}"))?,
     };
-    let mut audio_client = device.get_iaudioclient().map_err(|error| error.to_string())?;
+    let mut audio_client = device
+        .get_iaudioclient()
+        .map_err(|error| error.to_string())?;
     let format = WaveFormat::new(
         32,
         32,
@@ -444,7 +460,9 @@ pub fn run_loopback_capture(
         .get_audiocaptureclient()
         .map_err(|error| error.to_string())?;
     let mut bytes = VecDeque::new();
-    audio_client.start_stream().map_err(|error| error.to_string())?;
+    audio_client
+        .start_stream()
+        .map_err(|error| error.to_string())?;
 
     while !stop.load(Ordering::Acquire) {
         if event.wait_for_event(100).is_err() {
@@ -472,7 +490,9 @@ pub fn run_loopback_capture(
             }
         }
     }
-    audio_client.stop_stream().map_err(|error| error.to_string())
+    audio_client
+        .stop_stream()
+        .map_err(|error| error.to_string())
 }
 
 #[cfg(not(windows))]
@@ -498,7 +518,10 @@ mod tests {
             device_model_id: "test.device".into(),
             name: "Test".into(),
             kind: LayoutKind::Custom,
-            coordinate_space: CoordinateSpace { width: 100.0, height: 20.0 },
+            coordinate_space: CoordinateSpace {
+                width: 100.0,
+                height: 20.0,
+            },
             keys: (0..4)
                 .map(|index| PhysicalKey {
                     id: format!("key-{index}"),
@@ -542,7 +565,9 @@ mod tests {
         assert!(bass.bass > bass.treble);
 
         let mut treble_analyzer = SpectrumAnalyzer::new();
-        let treble = treble_analyzer.push_samples(&sine(8_000.0), &config).unwrap();
+        let treble = treble_analyzer
+            .push_samples(&sine(8_000.0), &config)
+            .unwrap();
         assert!(treble.treble > treble.bass);
     }
 

@@ -1,10 +1,10 @@
-use mechkeymesh_config::{
-    ConfigurationScope, DesiredKeymap, DesiredLighting, DesiredPerKeyRgb, DeviceModel, KeyColor,
-    KeyMapping, MacroEvent, MacroMouseButton, MacroPlayback, MacroProgram, MacroSimulation,
-};
 use mechkeymesh_audio_engine::{
     AudioOutputDevice, MusicLightingConfig, SpectrumAnalyzer, SpectrumFrame, default_music_config,
     output_devices, render_music, run_loopback_capture,
+};
+use mechkeymesh_config::{
+    ConfigurationScope, DesiredKeymap, DesiredLighting, DesiredPerKeyRgb, DeviceModel, KeyColor,
+    KeyMapping, MacroEvent, MacroMouseButton, MacroPlayback, MacroProgram, MacroSimulation,
 };
 use mechkeymesh_core::{
     DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LiveRgbTransportStatus,
@@ -317,9 +317,9 @@ fn start_music_lighting(
     config: MusicLightingConfig,
 ) -> Result<(), String> {
     let status = state.manager.status();
-    let device = status
-        .device
-        .ok_or_else(|| "connect the F108 Pro over USB before starting music lighting".to_string())?;
+    let device = status.device.ok_or_else(|| {
+        "connect the F108 Pro over USB before starting music lighting".to_string()
+    })?;
     if !device.capabilities.contains(&Capability::Music) {
         return Err("music lighting is unavailable on the active connection".into());
     }
@@ -329,7 +329,9 @@ fn start_music_lighting(
         .get(&layout_id)
         .cloned()
         .ok_or_else(|| format!("active layout {layout_id} is unavailable"))?;
-    config.validate(&layout).map_err(|error| error.to_string())?;
+    config
+        .validate(&layout)
+        .map_err(|error| error.to_string())?;
 
     stop_live_rgb_controller(&state);
     stop_music_controller(&state);
@@ -399,14 +401,10 @@ fn start_music_lighting(
                 if last_frame.elapsed() < frame_period {
                     continue;
                 }
-                let result = render_music(
-                    &config,
-                    &layout,
-                    &spectrum,
-                    started.elapsed().as_secs_f32(),
-                )
-                .map_err(|error| error.to_string())
-                .and_then(|frame| manager.submit_live_rgb(frame));
+                let result =
+                    render_music(&config, &layout, &spectrum, started.elapsed().as_secs_f32())
+                        .map_err(|error| error.to_string())
+                        .and_then(|frame| manager.submit_live_rgb(frame));
                 if let Err(error) = result {
                     *last_error.lock().expect("music error lock poisoned") = Some(error);
                     stop.store(true, Ordering::Release);
