@@ -215,7 +215,11 @@ pub(crate) fn setup(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Er
     let icon = image::load_from_memory(include_bytes!("../icons/32x32.png"))?.into_rgba8();
     let (width, height) = icon.dimensions();
     TrayIconBuilder::with_id("main-tray")
-        .icon(tauri::image::Image::new_owned(icon.into_raw(), width, height))
+        .icon(tauri::image::Image::new_owned(
+            icon.into_raw(),
+            width,
+            height,
+        ))
         .tooltip("MechKeyMesh")
         .menu(&menu(app)?)
         .show_menu_on_left_click(false)
