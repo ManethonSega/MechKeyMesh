@@ -14,7 +14,11 @@ pub(crate) struct NativeObservations {
 
 #[tauri::command]
 pub(crate) fn get_native_observations(state: State<'_, AppState>) -> NativeObservations {
-    let device = state.manager.status().device;
+    let status = state.manager.status();
+    let device = match status.state {
+        mechkeymesh_core::DeviceState::Ready | mechkeymesh_core::DeviceState::Busy => status.device,
+        _ => None,
+    };
     NativeObservations {
         connection: device.as_ref().map(|device| device.connection),
         battery_percent: device.as_ref().and_then(|device| device.battery_percent),
