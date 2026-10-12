@@ -78,7 +78,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.15.0-alpha.1`, **R14 music lighting in validation**. Windows WASAPI loopback capture, FFT analysis, 16 frequency bands, smoothing/falloff and the spectrum, rainbow, reverse-rainbow, amplitude and rhythm render modes feed the bounded R13 live RGB path. The prolonged audio and physical-keyboard soak remains pending because no physical keyboard is available in this environment.
+`v0.16.0-alpha.1`, **R15 LCD media engine in validation**. PNG, JPEG, GIF, animated WebP and FFmpeg-supported video import feed a local 240 × 135 editor, motion-aware frame optimization and a strictly validated RGB565 compiler. The 141-frame maximum is enforced with no bypass, and R15 contains no keyboard write path.
 
 The previous Go/Wails prototype is preserved in the branch:
 

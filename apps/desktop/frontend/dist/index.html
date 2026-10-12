@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="perkey.css" />
   <link rel="stylesheet" href="macros.css" />
   <link rel="stylesheet" href="settings.css" />
+  <link rel="stylesheet" href="lcd.css" />
 </head>
 <body>
 <div id="splash" class="splash">
@@ -33,12 +34,12 @@
       <button data-page="lighting" data-requires-any-capability="hardware-rgb,per-key-rgb">Lighting <b>R8</b></button>
       <button data-page="live-rgb" data-requires-capability="live-rgb">Live RGB <b>R13</b></button>
       <button data-page="music" data-requires-capability="music">Music <b>R14</b></button>
-      <button data-page="lcd" disabled>LCD <b>Soon</b></button>
+      <button data-page="lcd">LCD <b>R15</b></button>
       <button data-page="profiles" disabled>Profiles <b>Soon</b></button>
       <button data-page="settings" data-requires-capability="device-settings">Device Settings <b>R11</b></button>
       <button data-page="diagnostics">Diagnostics</button>
     </nav>
-    <div class="version">v0.15.0-alpha.1 · Music Lighting</div>
+    <div class="version">v0.16.0-alpha.1 · LCD Media</div>
   </aside>
 
   <main>
@@ -590,6 +591,66 @@
       </article>
     </section>
 
+    <section id="page-lcd" class="page">
+      <article class="card lcd-import-card">
+        <div class="sectiontitle">
+          <div>
+            <span class="eyebrow">SAFE F108 ASSET PIPELINE</span>
+            <h3>LCD media editor</h3>
+            <p class="muted">Imports and compiles locally. R15 never opens or writes to the keyboard.</p>
+          </div>
+          <span id="lcdValidity" class="verification pending">No project</span>
+        </div>
+        <div class="lcd-import-row">
+          <label>Media path<input id="lcdMediaPath" type="text" placeholder="PNG, JPEG, GIF, WebP, MP4, WebM or MOV" /></label>
+          <label>Video preset<select id="lcdPreset"><option value="smooth">Smooth</option><option value="balanced" selected>Balanced</option><option value="full-duration">Full duration</option></select></label>
+          <label>Framing<select id="lcdFit"><option value="fit">Fit</option><option value="fill">Fill</option></select></label>
+          <button id="lcdImport" class="primary" type="button">Import media</button>
+        </div>
+        <div class="protocol-notice">Hard limits: 240 × 135, RGB565 little-endian, 256-byte header, and 141 frames. Frame 142 is invalid with no bypass.</div>
+      </article>
+
+      <div class="lcd-workspace">
+        <article class="card lcd-preview-card">
+          <canvas id="lcdCanvas" width="240" height="135" aria-label="LCD frame editor"></canvas>
+          <div class="lcd-editor-tools">
+            <button id="lcdUndo" class="secondary compact" type="button">Undo</button>
+            <button id="lcdRedo" class="secondary compact" type="button">Redo</button>
+            <label>Tool<select id="lcdTool"><option value="select">Select</option><option value="brush">Brush</option><option value="eraser">Eraser</option></select></label>
+            <label>Color<input id="lcdColor" type="color" value="#21e6e8" /></label>
+            <label>Size<input id="lcdBrushSize" type="number" min="1" max="30" value="3" /></label>
+          </div>
+          <div class="lcd-text-tools">
+            <input id="lcdText" type="text" placeholder="Text overlay" />
+            <label>Scale<input id="lcdTextScale" type="number" min="1" max="12" value="2" /></label>
+            <button id="lcdAddText" class="secondary" type="button">Add text</button>
+          </div>
+        </article>
+
+        <article class="card lcd-properties">
+          <span class="eyebrow">FRAME</span>
+          <h3 id="lcdFrameTitle">No frame selected</h3>
+          <label>Duration (ms)<input id="lcdDuration" type="number" min="20" max="5100" step="20" value="100" /></label>
+          <div class="lcd-frame-actions">
+            <button id="lcdDurationApply" class="secondary" type="button">Set duration</button>
+            <button id="lcdDuplicate" class="secondary" type="button">Duplicate</button>
+            <button id="lcdDelete" class="secondary danger-soft" type="button">Delete</button>
+            <button id="lcdMoveLeft" class="secondary" type="button">Move left</button>
+            <button id="lcdMoveRight" class="secondary" type="button">Move right</button>
+          </div>
+          <hr />
+          <label>Export path<input id="lcdExportPath" type="text" placeholder="f108-lcd.bin" value="f108-lcd.bin" /></label>
+          <button id="lcdExport" class="primary" type="button">Validate & export asset</button>
+          <p id="lcdStatus" class="muted">Import media to begin.</p>
+        </article>
+      </div>
+
+      <article class="card lcd-timeline-card">
+        <div class="sectiontitle"><div><span class="eyebrow">TIMELINE</span><h3 id="lcdProjectTitle">No project</h3></div><strong id="lcdProjectSummary">0 / 141 frames</strong></div>
+        <div id="lcdTimeline" class="lcd-timeline"></div>
+      </article>
+    </section>
+
     <section id="page-diagnostics" class="page">
       <div class="card">
         <div class="sectiontitle">
@@ -611,5 +672,6 @@
 <script src="settings.js"></script>
 <script src="live-rgb.js"></script>
 <script src="music.js"></script>
+<script src="lcd.js"></script>
 </body>
 </html>

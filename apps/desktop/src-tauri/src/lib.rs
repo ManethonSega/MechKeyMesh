@@ -19,12 +19,20 @@ use mechkeymesh_driver_api::{
 };
 use mechkeymesh_driver_aula_f108pro::AulaF108ProRemapDriver;
 use mechkeymesh_layout::{KeyAction, Layout, LayoutRegistry};
+use mechkeymesh_lcd_engine::{
+    CropRect, Editor as LcdEditor, FitMode as LcdFitMode, ProjectSummary as LcdProjectSummary,
+    VideoPreset as LcdVideoPreset, import_media,
+};
 use mechkeymesh_lighting_engine::{
     LiveRgbScene, ReactivePulse, RenderInput, default_scene, render as render_live_rgb,
 };
 use mechkeymesh_persistence::{PersistenceStatus, PersistenceStore};
-use serde::Serialize;
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use image::{DynamicImage, ImageFormat};
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
+use std::io::Cursor;
+use std::path::PathBuf;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, AtomicU64, Ordering},
@@ -45,6 +53,7 @@ struct AppState {
     primary_layout_id: String,
     live_rgb: LiveRgbController,
     music: MusicController,
+    lcd: Mutex<Option<LcdEditor>>,
 }
 
 #[derive(Default)]
@@ -129,6 +138,174 @@ struct DeviceSettingsApplyResult {
     stored: bool,
     applied: bool,
     message: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LcdEditorState {
+    project: LcdProjectSummary,
+    durations_ms: Vec<u32>,
+    can_undo: bool,
+    can_redo: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LcdPoint {
+    x: i32,
+    y: i32,
+}
+
+#[tauri::command]
+fn import_lcd_media(
+    state: State<'_, AppState>,
+    path: String,
+    preset: LcdVideoPreset,
+    fit: LcdFitMode,
+) -> Result<LcdEditorState, String> {
+    let project = import_media(&PathBuf::from(path), preset, fit).map_err(|error| error.to_string())?;
+    let editor = LcdEditor::new(project);
+    let result = lcd_editor_state(&editor);
+    *state.lcd.lock().expect("LCD editor lock poisoned") = Some(editor);
+    Ok(result)
+}
+
+#[tauri::command]
+fn get_lcd_editor_state(state: State<'_, AppState>) -> Option<LcdEditorState> {
+    state
+        .lcd
+        .lock()
+        .expect("LCD editor lock poisoned")
+        .as_ref()
+        .map(lcd_editor_state)
+}
+
+#[tauri::command]
+fn get_lcd_frame_preview(state: State<'_, AppState>, index: usize) -> Result<String, String> {
+    let guard = state.lcd.lock().expect("LCD editor lock poisoned");
+    let editor = guard.as_ref().ok_or_else(|| "no LCD project is open".to_string())?;
+    let frame = editor
+        .project()
+        .frames
+        .get(index)
+        .ok_or_else(|| format!("frame index {index} is out of range"))?;
+    let mut png = Cursor::new(Vec::new());
+    DynamicImage::ImageRgba8(frame.pixels.clone())
+        .write_to(&mut png, ImageFormat::Png)
+        .map_err(|error| error.to_string())?;
+    Ok(format!("data:image/png;base64,{}", BASE64.encode(png.into_inner())))
+}
+
+#[tauri::command]
+fn set_lcd_frame_duration(
+    state: State<'_, AppState>,
+    index: usize,
+    duration_ms: u32,
+) -> Result<LcdEditorState, String> {
+    edit_lcd(&state, |editor| editor.set_duration(index, duration_ms).map_err(|error| error.to_string()))
+}
+
+#[tauri::command]
+fn duplicate_lcd_frame(state: State<'_, AppState>, index: usize) -> Result<LcdEditorState, String> {
+    edit_lcd(&state, |editor| editor.duplicate(index).map_err(|error| error.to_string()))
+}
+
+#[tauri::command]
+fn delete_lcd_frame(state: State<'_, AppState>, index: usize) -> Result<LcdEditorState, String> {
+    edit_lcd(&state, |editor| editor.delete(index).map_err(|error| error.to_string()))
+}
+
+#[tauri::command]
+fn reorder_lcd_frame(
+    state: State<'_, AppState>,
+    from: usize,
+    to: usize,
+) -> Result<LcdEditorState, String> {
+    edit_lcd(&state, |editor| editor.reorder(from, to).map_err(|error| error.to_string()))
+}
+
+#[tauri::command]
+fn draw_lcd_brush(
+    state: State<'_, AppState>,
+    index: usize,
+    points: Vec<LcdPoint>,
+    radius: u32,
+    color: [u8; 4],
+) -> Result<LcdEditorState, String> {
+    let points = points.into_iter().map(|point| (point.x, point.y)).collect::<Vec<_>>();
+    edit_lcd(&state, |editor| editor.brush(index, &points, radius, color).map_err(|error| error.to_string()))
+}
+
+#[tauri::command]
+fn erase_lcd(
+    state: State<'_, AppState>,
+    index: usize,
+    points: Vec<LcdPoint>,
+    radius: u32,
+) -> Result<LcdEditorState, String> {
+    let points = points.into_iter().map(|point| (point.x, point.y)).collect::<Vec<_>>();
+    edit_lcd(&state, |editor| editor.erase(index, &points, radius).map_err(|error| error.to_string()))
+}
+
+#[tauri::command]
+fn add_lcd_text(
+    state: State<'_, AppState>,
+    index: usize,
+    x: i32,
+    y: i32,
+    text: String,
+    scale: u32,
+    color: [u8; 4],
+) -> Result<LcdEditorState, String> {
+    edit_lcd(&state, |editor| editor.text(index, x, y, &text, scale, color).map_err(|error| error.to_string()))
+}
+
+#[tauri::command]
+fn crop_lcd_frame(
+    state: State<'_, AppState>,
+    index: usize,
+    crop: CropRect,
+    fit: LcdFitMode,
+) -> Result<LcdEditorState, String> {
+    edit_lcd(&state, |editor| editor.crop(index, crop, fit).map_err(|error| error.to_string()))
+}
+
+#[tauri::command]
+fn undo_lcd_edit(state: State<'_, AppState>) -> Result<LcdEditorState, String> {
+    edit_lcd(&state, |editor| if editor.undo() { Ok(()) } else { Err("nothing to undo".into()) })
+}
+
+#[tauri::command]
+fn redo_lcd_edit(state: State<'_, AppState>) -> Result<LcdEditorState, String> {
+    edit_lcd(&state, |editor| if editor.redo() { Ok(()) } else { Err("nothing to redo".into()) })
+}
+
+#[tauri::command]
+fn export_lcd_asset(state: State<'_, AppState>, path: String) -> Result<mechkeymesh_lcd_engine::AssetSummary, String> {
+    let guard = state.lcd.lock().expect("LCD editor lock poisoned");
+    let editor = guard.as_ref().ok_or_else(|| "no LCD project is open".to_string())?;
+    let asset = editor.project().compile().map_err(|error| error.to_string())?;
+    std::fs::write(path, asset.bytes()).map_err(|error| error.to_string())?;
+    Ok(asset.summary())
+}
+
+fn edit_lcd(
+    state: &State<'_, AppState>,
+    operation: impl FnOnce(&mut LcdEditor) -> Result<(), String>,
+) -> Result<LcdEditorState, String> {
+    let mut guard = state.lcd.lock().expect("LCD editor lock poisoned");
+    let editor = guard.as_mut().ok_or_else(|| "no LCD project is open".to_string())?;
+    operation(editor)?;
+    Ok(lcd_editor_state(editor))
+}
+
+fn lcd_editor_state(editor: &LcdEditor) -> LcdEditorState {
+    LcdEditorState {
+        project: editor.project().summary(),
+        durations_ms: editor.project().frames.iter().map(|frame| frame.duration_ms).collect(),
+        can_undo: editor.can_undo(),
+        can_redo: editor.can_redo(),
+    }
 }
 
 #[tauri::command]
@@ -1210,11 +1387,26 @@ pub fn run() {
                 primary_layout_id,
                 live_rgb: LiveRgbController::default(),
                 music: MusicController::default(),
+                lcd: Mutex::new(None),
             });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             get_status,
+            import_lcd_media,
+            get_lcd_editor_state,
+            get_lcd_frame_preview,
+            set_lcd_frame_duration,
+            duplicate_lcd_frame,
+            delete_lcd_frame,
+            reorder_lcd_frame,
+            draw_lcd_brush,
+            erase_lcd,
+            add_lcd_text,
+            crop_lcd_frame,
+            undo_lcd_edit,
+            redo_lcd_edit,
+            export_lcd_asset,
             get_live_rgb_defaults,
             get_live_rgb_capabilities,
             get_live_rgb_status,
