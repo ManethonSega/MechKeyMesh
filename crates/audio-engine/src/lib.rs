@@ -383,7 +383,7 @@ pub fn output_devices() -> Result<Vec<AudioOutputDevice>, String> {
 fn output_devices_windows() -> Result<Vec<AudioOutputDevice>, String> {
     use wasapi::{DeviceEnumerator, Direction, initialize_mta};
 
-    initialize_mta().map_err(|error| error.to_string())?;
+    initialize_mta().ok().map_err(|error| error.to_string())?;
     let enumerator = DeviceEnumerator::new().map_err(|error| error.to_string())?;
     let default_id = enumerator
         .get_default_device(&Direction::Render)
@@ -422,7 +422,7 @@ pub fn run_loopback_capture(
     use std::sync::atomic::Ordering;
     use wasapi::{DeviceEnumerator, Direction, SampleType, StreamMode, WaveFormat, initialize_mta};
 
-    initialize_mta().map_err(|error| error.to_string())?;
+    initialize_mta().ok().map_err(|error| error.to_string())?;
     let enumerator = DeviceEnumerator::new().map_err(|error| error.to_string())?;
     let device = match output_device_id {
         Some(id) => enumerator
