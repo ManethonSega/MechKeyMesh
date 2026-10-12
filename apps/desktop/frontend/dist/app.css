@@ -732,6 +732,102 @@ pre {
   .keys-bottom-grid { grid-template-columns: 1fr; }
 }
 
+.music-card,
+.music-controls,
+.music-eq {
+  display: grid;
+  gap: 16px;
+}
+
+.music-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 1.2fr) minmax(230px, .8fr);
+  gap: 18px;
+}
+
+.music-controls {
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+}
+
+.music-controls label,
+.music-eq label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 7px 12px;
+  align-items: center;
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.music-controls select,
+.music-controls input,
+.music-eq input {
+  grid-column: 1 / -1;
+}
+
+.music-eq {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.music-palette-title {
+  margin-top: 4px;
+}
+
+.music-palette {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.music-palette input {
+  width: 100%;
+  min-height: 40px;
+  padding: 3px;
+}
+
+.music-meter-wrap {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.music-meter-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.music-spectrum {
+  display: grid;
+  grid-template-columns: repeat(16, 1fr);
+  align-items: end;
+  gap: 5px;
+  height: 130px;
+}
+
+.music-spectrum i {
+  display: block;
+  min-height: 3px;
+  height: calc(var(--level, 0) * 100%);
+  border-radius: 4px 4px 2px 2px;
+  background: linear-gradient(180deg, #ff2d95, #7543ff 48%, #00d2ff);
+  transition: height 70ms linear;
+}
+
+@media (max-width: 850px) {
+  .music-grid { grid-template-columns: 1fr; }
+  .music-controls { grid-template-columns: 1fr; }
+  .music-meter-wrap { grid-column: 1; }
+}
+
 @media (max-width: 780px) {
   .app { grid-template-columns: 165px 1fr; }
   main { padding-inline: 18px; }
@@ -890,6 +986,12 @@ pre {
   color: var(--accent-orange);
   border-color: rgba(255, 146, 46, .55);
   background: rgba(255, 146, 46, .08);
+}
+
+.verification.verified {
+  color: var(--accent-cyan);
+  border-color: rgba(24, 215, 241, .55);
+  background: rgba(24, 215, 241, .08);
 }
 
 .rainbow-only {

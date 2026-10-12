@@ -32,12 +32,13 @@
       <button data-page="macros" data-requires-capability="macros">Macros <b>R10</b></button>
       <button data-page="lighting" data-requires-any-capability="hardware-rgb,per-key-rgb">Lighting <b>R8</b></button>
       <button data-page="live-rgb" data-requires-capability="live-rgb">Live RGB <b>R13</b></button>
+      <button data-page="music" data-requires-capability="music">Music <b>R14</b></button>
       <button data-page="lcd" disabled>LCD <b>Soon</b></button>
       <button data-page="profiles" disabled>Profiles <b>Soon</b></button>
       <button data-page="settings" data-requires-capability="device-settings">Device Settings <b>R11</b></button>
       <button data-page="diagnostics">Diagnostics</button>
     </nav>
-    <div class="version">v0.14.0-alpha.1 · Live RGB</div>
+    <div class="version">v0.15.0-alpha.1 · Music Lighting</div>
   </aside>
 
   <main>
@@ -486,6 +487,69 @@
       </article>
     </section>
 
+    <section id="page-music" class="page">
+      <article class="card music-card">
+        <div class="sectiontitle">
+          <div>
+            <span class="eyebrow">WINDOWS OUTPUT LOOPBACK</span>
+            <h3>Music lighting</h3>
+            <p class="muted">A Hann-window FFT feeds the volatile live RGB stream. Audio is processed in memory and is never recorded.</p>
+          </div>
+          <span id="musicRunState" class="verification pending">Stopped</span>
+        </div>
+
+        <div class="music-grid">
+          <section class="music-controls">
+            <label>Output device<select id="musicOutputDevice"><option value="">System default</option></select></label>
+            <label>Mode<select id="musicMode">
+              <option value="spectrum">Spectrum</option>
+              <option value="rainbow">Rainbow</option>
+              <option value="reverse-rainbow">Reverse rainbow</option>
+              <option value="amplitude">Amplitude</option>
+              <option value="rhythm">Rhythm</option>
+            </select></label>
+            <label>Background<select id="musicBackground">
+              <option value="off">Off</option>
+              <option value="solid">Solid</option>
+              <option value="palette">Palette glow</option>
+            </select></label>
+            <label>Sensitivity<input id="musicSensitivity" type="range" min="25" max="400" value="125" /><output id="musicSensitivityOut">1.25×</output></label>
+            <label>Smoothing<input id="musicSmoothing" type="range" min="0" max="95" value="45" /><output id="musicSmoothingOut">45%</output></label>
+            <label>Falloff<input id="musicFalloff" type="range" min="0" max="99" value="82" /><output id="musicFalloffOut">82%</output></label>
+            <label>Brightness<input id="musicBrightness" type="range" min="0" max="100" value="85" /><output id="musicBrightnessOut">85%</output></label>
+          </section>
+
+          <section class="music-eq">
+            <span class="eyebrow">FREQUENCY WEIGHTS</span>
+            <label>Bass<input id="musicBass" type="range" min="0" max="200" value="115" /><output id="musicBassOut">1.15×</output></label>
+            <label>Mids<input id="musicMids" type="range" min="0" max="200" value="100" /><output id="musicMidsOut">1.00×</output></label>
+            <label>Treble<input id="musicTreble" type="range" min="0" max="200" value="100" /><output id="musicTrebleOut">1.00×</output></label>
+            <span class="eyebrow music-palette-title">PALETTE</span>
+            <div id="musicPalette" class="music-palette">
+              <input type="color" value="#00d2ff" aria-label="Palette color 1" />
+              <input type="color" value="#7543ff" aria-label="Palette color 2" />
+              <input type="color" value="#ff2d95" aria-label="Palette color 3" />
+              <input type="color" value="#ffbe00" aria-label="Palette color 4" />
+            </div>
+          </section>
+
+          <section class="music-meter-wrap">
+            <div class="music-meter-heading"><span class="eyebrow">LIVE SPECTRUM</span><span id="musicBandSummary" class="muted">Bass 0% · Mids 0% · Treble 0%</span></div>
+            <div id="musicSpectrumBars" class="music-spectrum" aria-label="16 frequency bands"></div>
+          </section>
+        </div>
+
+        <div class="live-rgb-footer">
+          <div>
+            <strong id="musicTransportSummary">0 analyses · 0 frames</strong>
+            <p id="musicStatus" class="muted">Loading Windows output devices...</p>
+          </div>
+          <button id="stopMusic" class="secondary" type="button">Stop</button>
+          <button id="startMusic" class="primary" type="button">Start music lighting</button>
+        </div>
+      </article>
+    </section>
+
     <section id="page-settings" class="page">
       <div class="settings-grid">
         <article class="card">
@@ -546,5 +610,6 @@
 <script src="macros.js"></script>
 <script src="settings.js"></script>
 <script src="live-rgb.js"></script>
+<script src="music.js"></script>
 </body>
 </html>

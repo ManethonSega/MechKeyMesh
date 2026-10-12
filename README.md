@@ -21,6 +21,7 @@ Current Rust implementation:
 - wired F108 Pro discovery, VID `0C45`, PID `800A`, Usage Page `FF13`
 - F108 Pro 2.4 GHz discovery through dongle `05AC:024F`, interface 3, with a connection-specific capability matrix and battery reporting
 - host-generated layered live RGB on USB through the volatile `04 20` preview path, with a one-frame latest-value queue
+- Windows output-loopback music lighting with FFT bands, smoothing, falloff, frequency weights and five render modes
 - 20 mapped onboard lighting effects with effect-specific parameter metadata; physical verification remains explicitly unverified/deferred
 - independent Normal/Fn desired keymap persistence and complete 576-byte F108 table generation
 - persistent per-key RGB desired state using physical key IDs and layout LED indices
@@ -77,7 +78,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.14.0-alpha.1`, **R13 host-generated live RGB in validation**. The shared layer renderer, initial ten effects, bounded frame transport, background runtime and wired F108 `04 20` serializer are implemented. The multi-hour physical soak remains pending because no physical keyboard is available in this environment.
+`v0.15.0-alpha.1`, **R14 music lighting in validation**. Windows WASAPI loopback capture, FFT analysis, 16 frequency bands, smoothing/falloff and the spectrum, rainbow, reverse-rainbow, amplitude and rhythm render modes feed the bounded R13 live RGB path. The prolonged audio and physical-keyboard soak remains pending because no physical keyboard is available in this environment.
 
 The previous Go/Wails prototype is preserved in the branch:
 

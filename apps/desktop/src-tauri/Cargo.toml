@@ -17,6 +17,7 @@ path = "src/main.rs"
 tauri-build = { version = "2.7.0", features = [] }
 
 [dependencies]
+mechkeymesh-audio-engine = { path = "../../../crates/audio-engine" }
 mechkeymesh-config = { path = "../../../crates/config" }
 mechkeymesh-core = { path = "../../../crates/core" }
 mechkeymesh-driver-api = { path = "../../../crates/driver-api" }

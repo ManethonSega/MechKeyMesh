@@ -15,6 +15,7 @@ const pages = {
   macros: ["Macros", "Create, edit, persist and safely simulate universal macros"],
   lighting: ["Lighting", "Onboard effects and persistent per-key RGB"],
   "live-rgb": ["Live RGB", "Host-rendered layers over the volatile USB streaming path"],
+  music: ["Music Lighting", "Windows output-loopback analysis driving live RGB"],
   settings: ["Device Settings", "Locks, Fn behavior, sleep and key response"],
   diagnostics: ["Diagnostics", "Connection, command and recovery log"]
 };

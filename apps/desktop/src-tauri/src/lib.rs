@@ -2,6 +2,10 @@ use mechkeymesh_config::{
     ConfigurationScope, DesiredKeymap, DesiredLighting, DesiredPerKeyRgb, DeviceModel, KeyColor,
     KeyMapping, MacroEvent, MacroMouseButton, MacroPlayback, MacroProgram, MacroSimulation,
 };
+use mechkeymesh_audio_engine::{
+    AudioOutputDevice, MusicLightingConfig, SpectrumAnalyzer, SpectrumFrame, default_music_config,
+    output_devices, render_music, run_loopback_capture,
+};
 use mechkeymesh_core::{
     DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LiveRgbTransportStatus,
     LogEntry, ManagerConfig,
@@ -23,7 +27,8 @@ use serde::Serialize;
 use std::collections::{BTreeMap, HashSet};
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
+    mpsc::{RecvTimeoutError, sync_channel},
 };
 use std::thread;
 use std::time::{Duration, Instant};
@@ -39,6 +44,7 @@ struct AppState {
     primary_device_model_id: String,
     primary_layout_id: String,
     live_rgb: LiveRgbController,
+    music: MusicController,
 }
 
 #[derive(Default)]
@@ -48,11 +54,31 @@ struct LiveRgbController {
     last_error: Arc<Mutex<Option<String>>>,
 }
 
+#[derive(Default)]
+struct MusicController {
+    stop: Mutex<Option<Arc<AtomicBool>>>,
+    last_error: Arc<Mutex<Option<String>>>,
+    spectrum: Arc<Mutex<SpectrumFrame>>,
+    frames_analyzed: Arc<AtomicU64>,
+    frames_rendered: Arc<AtomicU64>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LiveRgbRuntimeStatus {
     running: bool,
     last_error: Option<String>,
+    transport: LiveRgbTransportStatus,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MusicRuntimeStatus {
+    running: bool,
+    last_error: Option<String>,
+    spectrum: SpectrumFrame,
+    frames_analyzed: u64,
+    frames_rendered: u64,
     transport: LiveRgbTransportStatus,
 }
 
@@ -146,6 +172,45 @@ fn get_live_rgb_status(state: State<'_, AppState>) -> LiveRgbRuntimeStatus {
 }
 
 #[tauri::command]
+fn get_music_defaults() -> MusicLightingConfig {
+    default_music_config()
+}
+
+#[tauri::command]
+fn get_audio_output_devices() -> Result<Vec<AudioOutputDevice>, String> {
+    output_devices()
+}
+
+#[tauri::command]
+fn get_music_status(state: State<'_, AppState>) -> MusicRuntimeStatus {
+    let running = state
+        .music
+        .stop
+        .lock()
+        .expect("music stop lock poisoned")
+        .as_ref()
+        .is_some_and(|stop| !stop.load(Ordering::Acquire));
+    MusicRuntimeStatus {
+        running,
+        last_error: state
+            .music
+            .last_error
+            .lock()
+            .expect("music error lock poisoned")
+            .clone(),
+        spectrum: state
+            .music
+            .spectrum
+            .lock()
+            .expect("music spectrum lock poisoned")
+            .clone(),
+        frames_analyzed: state.music.frames_analyzed.load(Ordering::Relaxed),
+        frames_rendered: state.music.frames_rendered.load(Ordering::Relaxed),
+        transport: state.manager.live_rgb_status(),
+    }
+}
+
+#[tauri::command]
 fn start_live_rgb(state: State<'_, AppState>, scene: LiveRgbScene) -> Result<(), String> {
     let status = state.manager.status();
     let device = status
@@ -162,6 +227,8 @@ fn start_live_rgb(state: State<'_, AppState>, scene: LiveRgbScene) -> Result<(),
         .cloned()
         .ok_or_else(|| format!("active layout {layout_id} is unavailable"))?;
     scene.validate(&layout).map_err(|error| error.to_string())?;
+
+    stop_music_controller(&state);
 
     let stop = Arc::new(AtomicBool::new(false));
     {
@@ -228,6 +295,10 @@ fn start_live_rgb(state: State<'_, AppState>, scene: LiveRgbScene) -> Result<(),
 
 #[tauri::command]
 fn stop_live_rgb(state: State<'_, AppState>) {
+    stop_live_rgb_controller(&state);
+}
+
+fn stop_live_rgb_controller(state: &AppState) {
     if let Some(stop) = state
         .live_rgb
         .stop
@@ -238,6 +309,134 @@ fn stop_live_rgb(state: State<'_, AppState>) {
         stop.store(true, Ordering::Release);
     }
     state.manager.stop_live_rgb();
+}
+
+#[tauri::command]
+fn start_music_lighting(
+    state: State<'_, AppState>,
+    config: MusicLightingConfig,
+) -> Result<(), String> {
+    let status = state.manager.status();
+    let device = status
+        .device
+        .ok_or_else(|| "connect the F108 Pro over USB before starting music lighting".to_string())?;
+    if !device.capabilities.contains(&Capability::Music) {
+        return Err("music lighting is unavailable on the active connection".into());
+    }
+    let layout_id = active_layout_id(&state)?;
+    let layout = state
+        .layouts
+        .get(&layout_id)
+        .cloned()
+        .ok_or_else(|| format!("active layout {layout_id} is unavailable"))?;
+    config.validate(&layout).map_err(|error| error.to_string())?;
+
+    stop_live_rgb_controller(&state);
+    stop_music_controller(&state);
+    let stop = Arc::new(AtomicBool::new(false));
+    *state.music.stop.lock().expect("music stop lock poisoned") = Some(stop.clone());
+    *state
+        .music
+        .last_error
+        .lock()
+        .expect("music error lock poisoned") = None;
+    *state
+        .music
+        .spectrum
+        .lock()
+        .expect("music spectrum lock poisoned") = SpectrumFrame::default();
+    state.music.frames_analyzed.store(0, Ordering::Relaxed);
+    state.music.frames_rendered.store(0, Ordering::Relaxed);
+
+    let manager = state.manager.clone();
+    let last_error = state.music.last_error.clone();
+    let latest_spectrum = state.music.spectrum.clone();
+    let frames_analyzed = state.music.frames_analyzed.clone();
+    let frames_rendered = state.music.frames_rendered.clone();
+    thread::Builder::new()
+        .name("mechkeymesh-music-lighting".into())
+        .spawn(move || {
+            let (sample_tx, sample_rx) = sync_channel(1);
+            let capture_stop = stop.clone();
+            let capture_error = last_error.clone();
+            let capture_device = config.output_device_id.clone();
+            let capture_handle = thread::Builder::new()
+                .name("mechkeymesh-wasapi-loopback".into())
+                .spawn(move || {
+                    if let Err(error) =
+                        run_loopback_capture(capture_device, capture_stop.clone(), sample_tx)
+                    {
+                        *capture_error.lock().expect("music error lock poisoned") = Some(error);
+                        capture_stop.store(true, Ordering::Release);
+                    }
+                });
+            if let Err(error) = capture_handle {
+                *last_error.lock().expect("music error lock poisoned") =
+                    Some(format!("failed to start Windows audio capture: {error}"));
+                stop.store(true, Ordering::Release);
+                return;
+            }
+
+            let mut analyzer = SpectrumAnalyzer::new();
+            let started = Instant::now();
+            let frame_period = Duration::from_millis(33);
+            let mut last_frame = Instant::now()
+                .checked_sub(frame_period)
+                .unwrap_or_else(Instant::now);
+            while !stop.load(Ordering::Acquire) {
+                let samples = match sample_rx.recv_timeout(Duration::from_millis(100)) {
+                    Ok(samples) => samples,
+                    Err(RecvTimeoutError::Timeout) => continue,
+                    Err(RecvTimeoutError::Disconnected) => break,
+                };
+                let Some(spectrum) = analyzer.push_samples(&samples, &config) else {
+                    continue;
+                };
+                frames_analyzed.fetch_add(1, Ordering::Relaxed);
+                *latest_spectrum
+                    .lock()
+                    .expect("music spectrum lock poisoned") = spectrum.clone();
+                if last_frame.elapsed() < frame_period {
+                    continue;
+                }
+                let result = render_music(
+                    &config,
+                    &layout,
+                    &spectrum,
+                    started.elapsed().as_secs_f32(),
+                )
+                .map_err(|error| error.to_string())
+                .and_then(|frame| manager.submit_live_rgb(frame));
+                if let Err(error) = result {
+                    *last_error.lock().expect("music error lock poisoned") = Some(error);
+                    stop.store(true, Ordering::Release);
+                    manager.stop_live_rgb();
+                    break;
+                }
+                frames_rendered.fetch_add(1, Ordering::Relaxed);
+                last_frame = Instant::now();
+            }
+        })
+        .map_err(|error| format!("failed to start music lighting: {error}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn stop_music_lighting(state: State<'_, AppState>) {
+    stop_music_controller(&state);
+    state.manager.stop_live_rgb();
+}
+
+fn stop_music_controller(state: &AppState) {
+    if let Some(stop) = state
+        .music
+        .stop
+        .lock()
+        .expect("music stop lock poisoned")
+        .take()
+    {
+        stop.store(true, Ordering::Release);
+    }
 }
 
 #[tauri::command]
@@ -1012,6 +1211,7 @@ pub fn run() {
                 primary_device_model_id,
                 primary_layout_id,
                 live_rgb: LiveRgbController::default(),
+                music: MusicController::default(),
             });
             Ok(())
         })
@@ -1020,9 +1220,14 @@ pub fn run() {
             get_live_rgb_defaults,
             get_live_rgb_capabilities,
             get_live_rgb_status,
+            get_music_defaults,
+            get_audio_output_devices,
+            get_music_status,
             start_live_rgb,
             stop_live_rgb,
             preview_live_rgb_key,
+            start_music_lighting,
+            stop_music_lighting,
             get_logs,
             get_driver_registry,
             get_persistence_status,
@@ -1066,6 +1271,7 @@ pub fn run() {
                 {
                     stop.store(true, Ordering::Release);
                 }
+                stop_music_controller(&state);
                 state.manager.shutdown();
             }
         });

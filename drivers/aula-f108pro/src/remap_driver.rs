@@ -23,6 +23,7 @@ const USB_CAPABILITIES: &[Capability] = &[
     Capability::HardwareRgb,
     Capability::PerKeyRgb,
     Capability::LiveRgb,
+    Capability::Music,
     Capability::DeviceSettings,
 ];
 
@@ -55,6 +56,7 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
                 Capability::HardwareRgb,
                 Capability::PerKeyRgb,
                 Capability::LiveRgb,
+                Capability::Music,
                 Capability::DeviceSettings,
                 Capability::Battery,
             ],
@@ -415,6 +417,7 @@ mod tests {
                 Capability::HardwareRgb,
                 Capability::PerKeyRgb,
                 Capability::LiveRgb,
+                Capability::Music,
                 Capability::DeviceSettings,
                 Capability::Battery,
             ]
