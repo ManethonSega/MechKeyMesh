@@ -575,12 +575,15 @@ mod tests {
     fn falloff_prevents_an_instant_drop_to_zero() {
         let config = default_music_config();
         let mut analyzer = SpectrumAnalyzer::new();
-        let loud = analyzer.push_samples(&sine(440.0), &config).unwrap();
+        analyzer.push_samples(&sine(440.0), &config).unwrap();
+        let transition = analyzer
+            .push_samples(&vec![0.0; FFT_HOP_SIZE], &config)
+            .unwrap();
         let quiet = analyzer
             .push_samples(&vec![0.0; FFT_HOP_SIZE], &config)
             .unwrap();
         assert!(quiet.amplitude > 0.0);
-        assert!(quiet.amplitude <= loud.amplitude);
+        assert!(quiet.amplitude < transition.amplitude);
     }
 
     #[test]
