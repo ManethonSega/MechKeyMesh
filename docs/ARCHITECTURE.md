@@ -324,6 +324,12 @@ Persisted macro IDs receive stable schema-4 hardware slots. Keymap storage remai
 
 The driver advertises `Macros`, but its descriptor explicitly marks hardware writes unverified because the protocol source states that macro transfer was never tried. Only `Once` is exposed until loop and held/toggle behaviors are physically verified.
 
+### F108 device settings
+
+R11 models Windows/Alt shortcut locks, Fn activation, sleep timeout and key response as one complete desired-state object. This matches the OEM write-only protocol: changing any control transmits the full settings panel rather than an isolated field.
+
+The F108 driver owns the raw conversion and `04 18` / `04 17` / data / `04 02` sequence. Shared UI and persistence use understandable enums and labels. The persisted object is explicitly desired state; ACKs and the absence of a query command are never presented as proof of the current physical setting.
+
 ### Desired lighting behavior
 
 The first end-to-end persisted feature is onboard lighting.

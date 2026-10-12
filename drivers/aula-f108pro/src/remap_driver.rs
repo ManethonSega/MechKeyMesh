@@ -2,13 +2,14 @@ use super::{
     AulaF108ProSession, CONFIG_USAGE_PAGE, PRODUCT_ID, VENDOR_ID, f108pro_layout, lighting_effects,
     map_transport_error, validate_candidate,
 };
-use crate::{macro_bank, per_key_rgb, remap};
+use crate::{macro_bank, per_key_rgb, remap, settings};
 use mechkeymesh_driver_api::{
     Capability, Connection, DeviceCandidate, DeviceDescriptor, DeviceMatch, DeviceSession,
-    DriverError, DriverManifest, FnActivationMode, FnActivationModeOption, FnLayerDescriptor,
-    HardwareMacroProgram, KeyAssignment, KeyboardDriver, KeymapCapabilities, KeymapLayer,
-    LightingConfig, LightingEffectDescriptor, MacroBankDescriptor, OperationContext,
-    PerKeyRgbCapabilities, PerKeyRgbConfig, PerKeyRgbReadback, TransportKind, TransportRequirement,
+    DeviceSettings, DeviceSettingsDescriptor, DriverError, DriverManifest, FnActivationMode,
+    FnActivationModeOption, FnLayerDescriptor, HardwareMacroProgram, KeyAssignment,
+    KeyboardDriver, KeymapCapabilities, KeymapLayer, LightingConfig, LightingEffectDescriptor,
+    MacroBankDescriptor, OperationContext, PerKeyRgbCapabilities, PerKeyRgbConfig,
+    PerKeyRgbReadback, TransportKind, TransportRequirement,
 };
 use mechkeymesh_hid::{FEATURE_REPORT_SIZE, enumerate_feature_devices, open_feature_path};
 
@@ -40,6 +41,7 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
                 Capability::Macros,
                 Capability::HardwareRgb,
                 Capability::PerKeyRgb,
+                Capability::DeviceSettings,
             ],
             layout_ids: vec!["aula.f108pro.ansi".into()],
             matchers: vec![DeviceMatch {
@@ -91,8 +93,16 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
         Some(macro_bank::descriptor())
     }
 
+    fn device_settings_descriptor(&self) -> Option<DeviceSettingsDescriptor> {
+        Some(settings::descriptor())
+    }
+
     fn validate_macro_bank(&self, programs: &[HardwareMacroProgram]) -> Result<(), DriverError> {
         macro_bank::validate_bank(programs)
+    }
+
+    fn validate_device_settings(&self, device_settings: &DeviceSettings) -> Result<(), DriverError> {
+        settings::validate(device_settings)
     }
 
     fn per_key_rgb_capabilities(&self) -> Option<PerKeyRgbCapabilities> {
@@ -165,6 +175,7 @@ impl DeviceSession for AulaF108ProRemapSession {
             Capability::Macros,
             Capability::HardwareRgb,
             Capability::PerKeyRgb,
+            Capability::DeviceSettings,
         ];
         descriptor
     }
@@ -205,6 +216,14 @@ impl DeviceSession for AulaF108ProRemapSession {
         macro_bank::send_bank(&mut self.inner, context, programs)
     }
 
+    fn set_device_settings(
+        &mut self,
+        context: &OperationContext,
+        device_settings: &DeviceSettings,
+    ) -> Result<(), DriverError> {
+        settings::send(&mut self.inner, context, device_settings)
+    }
+
     fn set_per_key_rgb(
         &mut self,
         context: &OperationContext,
@@ -243,6 +262,7 @@ mod tests {
                 Capability::Macros,
                 Capability::HardwareRgb,
                 Capability::PerKeyRgb,
+                Capability::DeviceSettings,
             ]
         );
     }

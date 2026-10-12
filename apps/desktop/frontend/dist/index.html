@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="keymap.css" />
   <link rel="stylesheet" href="perkey.css" />
   <link rel="stylesheet" href="macros.css" />
+  <link rel="stylesheet" href="settings.css" />
 </head>
 <body>
 <div id="splash" class="splash">
@@ -32,10 +33,10 @@
       <button data-page="lighting">Lighting <b>R8</b></button>
       <button data-page="lcd" disabled>LCD <b>Soon</b></button>
       <button data-page="profiles" disabled>Profiles <b>Soon</b></button>
-      <button data-page="settings" disabled>Device Settings <b>Soon</b></button>
+      <button data-page="settings">Device Settings <b>R11</b></button>
       <button data-page="diagnostics">Diagnostics</button>
     </nav>
-    <div class="version">v0.11.0-alpha.1 · F108 Hardware Macros</div>
+    <div class="version">v0.12.0-alpha.1 · F108 Device Settings</div>
   </aside>
 
   <main>
@@ -438,6 +439,46 @@
       </article>
     </section>
 
+    <section id="page-settings" class="page">
+      <div class="settings-grid">
+        <article class="card">
+          <div class="sectiontitle">
+            <div><span class="eyebrow">F108 FUNCTION SETTINGS</span><h3>Keyboard behavior</h3></div>
+            <span class="verification pending">Physical verification pending</span>
+          </div>
+          <div class="settings-stack">
+            <label class="settings-check"><input id="disableWindowsKey" type="checkbox" /> Disable Windows key</label>
+            <label class="settings-check"><input id="disableAltTab" type="checkbox" /> Disable Alt+Tab</label>
+            <label class="settings-check"><input id="disableAltF4" type="checkbox" /> Disable Alt+F4</label>
+          </div>
+          <div class="settings-selects">
+            <label>Fn behavior<select id="deviceFnMode"></select></label>
+            <label>Sleep after<select id="sleepTimeout"></select></label>
+            <label>Key response<select id="keyResponseLevel"></select></label>
+          </div>
+          <p class="layout-note">This protocol is write-only. Applying sends every field as one complete settings block; the keyboard cannot report its current values.</p>
+        </article>
+
+        <article class="card">
+          <div class="sectiontitle">
+            <div><span class="eyebrow">KEY RESPONSE</span><h3>Approximate timing</h3></div>
+          </div>
+          <p class="muted">Lower levels respond faster but may increase chatter on unstable switches. Timing varies with switch type and environment.</p>
+          <div class="settings-timing-wrap">
+            <table class="settings-timing-table">
+              <thead><tr><th>Level</th><th>Meaning</th><th>Wired</th><th>2.4G</th><th>Bluetooth</th></tr></thead>
+              <tbody id="responseTimingRows"></tbody>
+            </table>
+          </div>
+          <div class="protocol-notice" id="settingsEvidenceNote">Loading raw-value evidence...</div>
+        </article>
+      </div>
+      <article class="card settings-footer">
+        <span id="deviceSettingsStatus" class="muted">Loading desired settings...</span>
+        <button id="applyDeviceSettings" class="primary" type="button">Save & apply all settings</button>
+      </article>
+    </section>
+
     <section id="page-diagnostics" class="page">
       <div class="card">
         <div class="sectiontitle">
@@ -456,5 +497,6 @@
 <script src="keymap.js"></script>
 <script src="perkey.js"></script>
 <script src="macros.js"></script>
+<script src="settings.js"></script>
 </body>
 </html>

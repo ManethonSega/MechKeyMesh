@@ -406,6 +406,55 @@ pub struct MacroBankDescriptor {
     pub note: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SleepTimeout {
+    Never,
+    OneMinute,
+    FiveMinutes,
+    ThirtyMinutes,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceSettings {
+    pub disable_windows_key: bool,
+    pub disable_alt_tab: bool,
+    pub disable_alt_f4: bool,
+    pub fn_mode: FnActivationMode,
+    pub sleep_timeout: SleepTimeout,
+    pub key_response_level: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SleepTimeoutOption {
+    pub timeout: SleepTimeout,
+    pub raw_value: u8,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyResponseLevelOption {
+    pub level: u8,
+    pub raw_value: u8,
+    pub label: String,
+    pub wired_timing: String,
+    pub wireless_timing: String,
+    pub bluetooth_timing: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceSettingsDescriptor {
+    pub sleep_options: Vec<SleepTimeoutOption>,
+    pub fn_modes: Vec<FnActivationModeOption>,
+    pub key_response_levels: Vec<KeyResponseLevelOption>,
+    pub hardware_write_verified: bool,
+    pub note: String,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct CancellationToken {
     cancelled: Arc<AtomicBool>,
@@ -518,6 +567,14 @@ pub trait DeviceSession: Send {
         Err(DriverError::UnsupportedCapability("macros"))
     }
 
+    fn set_device_settings(
+        &mut self,
+        _context: &OperationContext,
+        _settings: &DeviceSettings,
+    ) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("device-settings"))
+    }
+
     fn set_per_key_rgb(
         &mut self,
         _context: &OperationContext,
@@ -562,8 +619,16 @@ pub trait KeyboardDriver: Send + Sync {
         None
     }
 
+    fn device_settings_descriptor(&self) -> Option<DeviceSettingsDescriptor> {
+        None
+    }
+
     fn validate_macro_bank(&self, _programs: &[HardwareMacroProgram]) -> Result<(), DriverError> {
         Err(DriverError::UnsupportedCapability("macros"))
+    }
+
+    fn validate_device_settings(&self, _settings: &DeviceSettings) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("device-settings"))
     }
 
     fn per_key_rgb_capabilities(&self) -> Option<PerKeyRgbCapabilities> {

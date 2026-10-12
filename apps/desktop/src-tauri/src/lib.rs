@@ -6,10 +6,10 @@ use mechkeymesh_core::{
     DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LogEntry, ManagerConfig,
 };
 use mechkeymesh_driver_api::{
-    Capability, DriverManifest, FnLayerDescriptor, HardwareMacroEvent, HardwareMacroMouseButton,
-    HardwareMacroProgram, KeyAssignment, KeyboardDriver, KeymapCapabilities, KeymapLayer,
-    LightingConfig, LightingEffectDescriptor, MacroBankDescriptor, PerKeyRgbAssignment,
-    PerKeyRgbCapabilities, PerKeyRgbConfig, RgbColor,
+    Capability, DeviceSettings, DeviceSettingsDescriptor, DriverManifest, FnLayerDescriptor,
+    HardwareMacroEvent, HardwareMacroMouseButton, HardwareMacroProgram, KeyAssignment,
+    KeyboardDriver, KeymapCapabilities, KeymapLayer, LightingConfig, LightingEffectDescriptor,
+    MacroBankDescriptor, PerKeyRgbAssignment, PerKeyRgbCapabilities, PerKeyRgbConfig, RgbColor,
 };
 use mechkeymesh_driver_aula_f108pro::AulaF108ProRemapDriver;
 use mechkeymesh_layout::{KeyAction, Layout, LayoutRegistry};
@@ -68,6 +68,14 @@ struct MacroBankApplyResult {
     applied: bool,
     macro_count: usize,
     event_count: usize,
+    message: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DeviceSettingsApplyResult {
+    stored: bool,
+    applied: bool,
     message: Option<String>,
 }
 
@@ -152,6 +160,56 @@ fn get_macro_bank_descriptor(state: State<'_, AppState>) -> Result<MacroBankDesc
         .primary_driver
         .macro_bank_descriptor()
         .ok_or_else(|| "active driver does not support hardware macros".to_string())
+}
+
+#[tauri::command]
+fn get_device_settings_descriptor(
+    state: State<'_, AppState>,
+) -> Result<DeviceSettingsDescriptor, String> {
+    state
+        .primary_driver
+        .device_settings_descriptor()
+        .ok_or_else(|| "active driver does not support device settings".to_string())
+}
+
+#[tauri::command]
+fn get_desired_device_settings(
+    state: State<'_, AppState>,
+) -> Result<Option<DeviceSettings>, String> {
+    let scope = configuration_scope(&state, Capability::DeviceSettings)?;
+    state
+        .persistence
+        .load_device_settings(&scope)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn save_device_settings(
+    state: State<'_, AppState>,
+    settings: DeviceSettings,
+) -> Result<DeviceSettingsApplyResult, String> {
+    state
+        .primary_driver
+        .validate_device_settings(&settings)
+        .map_err(|error| error.to_string())?;
+    let scope = configuration_scope(&state, Capability::DeviceSettings)?;
+    state
+        .persistence
+        .save_device_settings(&scope, &settings)
+        .map_err(|error| error.to_string())?;
+
+    match state.manager.set_device_settings(settings) {
+        Ok(()) => Ok(DeviceSettingsApplyResult {
+            stored: true,
+            applied: true,
+            message: None,
+        }),
+        Err(error) => Ok(DeviceSettingsApplyResult {
+            stored: true,
+            applied: false,
+            message: Some(error),
+        }),
+    }
 }
 
 #[tauri::command]
@@ -724,6 +782,10 @@ pub fn run() {
                 primary_driver.macro_bank_descriptor().is_some(),
                 "the R10 F108 driver must expose hardware macro limits"
             );
+            assert!(
+                primary_driver.device_settings_descriptor().is_some(),
+                "the R11 F108 driver must expose device settings metadata"
+            );
 
             let manager = DeviceManager::start(registry, ManagerConfig::default());
 
@@ -764,6 +826,9 @@ pub fn run() {
             simulate_macro,
             get_macro_bank_descriptor,
             upload_macros,
+            get_device_settings_descriptor,
+            get_desired_device_settings,
+            save_device_settings,
             save_keymap,
             reset_key_assignments
         ])

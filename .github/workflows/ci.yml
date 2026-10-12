@@ -19,6 +19,7 @@ jobs:
           node --check apps/desktop/frontend/dist/keymap.js
           node --check apps/desktop/frontend/dist/perkey.js
           node --check apps/desktop/frontend/dist/macros.js
+          node --check apps/desktop/frontend/dist/settings.js
       - name: Format check
         run: cargo fmt --all -- --check
       - name: Core tests

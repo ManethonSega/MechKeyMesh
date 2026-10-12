@@ -1,6 +1,6 @@
 use crate::{DriverRegistry, LogEntry, LogRing};
 use mechkeymesh_driver_api::{
-    CancellationToken, DeviceCandidate, DeviceDescriptor, DeviceSession, DriverError,
+    CancellationToken, DeviceCandidate, DeviceDescriptor, DeviceSession, DeviceSettings, DriverError,
     DriverManifest, ErrorClass, HardwareMacroProgram, KeyAssignment, KeyboardDriver, KeymapLayer,
     LightingConfig, OperationContext, PerKeyRgbConfig, PerKeyRgbReadback,
 };
@@ -123,6 +123,13 @@ enum Command {
         cancellation: CancellationToken,
         reply: Sender<Result<(), String>>,
     },
+    SetDeviceSettings {
+        id: u64,
+        settings: DeviceSettings,
+        submitted: Instant,
+        cancellation: CancellationToken,
+        reply: Sender<Result<(), String>>,
+    },
     SetPerKeyRgb {
         id: u64,
         config: PerKeyRgbConfig,
@@ -227,6 +234,22 @@ impl DeviceManagerHandle {
             .send(Command::SetMacros {
                 id,
                 programs,
+                submitted: Instant::now(),
+                cancellation: cancellation.clone(),
+                reply: reply_tx,
+            })
+            .map_err(|_| "device manager is not running".to_string())?;
+        wait_for_reply(reply_rx, cancellation, self.command_timeout)
+    }
+
+    pub fn set_device_settings(&self, settings: DeviceSettings) -> Result<(), String> {
+        let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
+        let cancellation = CancellationToken::new();
+        let (reply_tx, reply_rx) = mpsc::channel();
+        self.tx
+            .send(Command::SetDeviceSettings {
+                id,
+                settings,
                 submitted: Instant::now(),
                 cancellation: cancellation.clone(),
                 reply: reply_tx,
@@ -417,6 +440,27 @@ fn worker(
                     submitted,
                     cancellation,
                     |session, context| session.set_macros(context, &programs),
+                );
+                let _ = reply.send(result);
+            }
+            Ok(Command::SetDeviceSettings {
+                id,
+                settings,
+                submitted,
+                cancellation,
+                reply,
+            }) => {
+                let result = execute_operation(
+                    &mut active,
+                    &status,
+                    &log,
+                    &active_cancellation,
+                    &config,
+                    id,
+                    "apply device settings",
+                    submitted,
+                    cancellation,
+                    |session, context| session.set_device_settings(context, &settings),
                 );
                 let _ = reply.send(result);
             }

@@ -24,6 +24,7 @@ Current Rust implementation:
 - persistent per-key RGB desired state using physical key IDs and layout LED indices
 - universal macro model, transactional persistence, timeline editor and hardware-free simulation
 - preflighted F108 macro-bank serializer, upload queue and stable macro key references; physical verification remains pending
+- complete F108 function-settings desired state for locks, Fn behavior, sleep and key response; physical verification remains pending
 - verified software encoders for keyboard keys, modifiers, shortcuts, media, selected mouse actions and selected Windows/system actions
 - strict lighting and remap parameter validation
 - runtime diagnostics
@@ -74,7 +75,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.11.0-alpha.1`, **R10 F108 hardware macros in validation**. The complete macro bank is serialized and rejected on any invalid slot, event, delay or size before the first HID packet. Macro IDs resolve through stable persisted slots for key assignments. The reverse-engineered sender has not yet been physically verified, so persistence after the app closes remains an explicit hardware checklist item.
+`v0.12.0-alpha.1`, **R11 F108 device settings in validation**. Sleep, Fn and response raw values are evidence-backed; locks and all settings are emitted as one validated desired-state block through the serialized device manager. The exact F108 change/verify/restore checklist remains pending because no physical keyboard is available in this environment.
 
 The previous Go/Wails prototype is preserved in the branch:
 
