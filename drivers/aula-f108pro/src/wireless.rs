@@ -1,6 +1,4 @@
-use crate::{
-    build_lighting_payload, map_transport_error, per_key_rgb, remap, settings,
-};
+use crate::{build_lighting_payload, map_transport_error, per_key_rgb, remap, settings};
 use mechkeymesh_driver_api::{
     Capability, Connection, DeviceCandidate, DeviceDescriptor, DeviceSettings, DriverError,
     KeyAssignment, KeymapLayer, LightingConfig, OperationContext, PerKeyRgbConfig,
@@ -179,10 +177,8 @@ impl AulaF108WirelessSession {
     }
 
     fn refresh_battery(&mut self, context: &OperationContext) -> Result<(), DriverError> {
-        let response = self.exchange(
-            context,
-            WirelessPacket::new(BATTERY_COMMAND, 0x01, 0, &[])?,
-        )?;
+        let response =
+            self.exchange(context, WirelessPacket::new(BATTERY_COMMAND, 0x01, 0, &[])?)?;
         self.battery_percent = Some(response[3].min(100));
         self.last_battery_poll = Some(Instant::now());
         Ok(())

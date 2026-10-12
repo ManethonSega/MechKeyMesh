@@ -301,9 +301,7 @@ impl DeviceSession for AulaF108ProRemapSession {
                 KeymapLayer::Normal => remap::send_normal_keymap(inner, context, assignments),
                 KeymapLayer::Fn => remap::send_fn_keymap(inner, context, assignments),
             },
-            RemapTransportSession::Wireless(inner) => {
-                inner.set_keymap(context, layer, assignments)
-            }
+            RemapTransportSession::Wireless(inner) => inner.set_keymap(context, layer, assignments),
         }
     }
 
@@ -313,9 +311,7 @@ impl DeviceSession for AulaF108ProRemapSession {
         programs: &[HardwareMacroProgram],
     ) -> Result<(), DriverError> {
         match &mut self.inner {
-            RemapTransportSession::Usb(inner) => {
-                macro_bank::send_bank(inner, context, programs)
-            }
+            RemapTransportSession::Usb(inner) => macro_bank::send_bank(inner, context, programs),
             RemapTransportSession::Wireless(_) => {
                 Err(DriverError::UnsupportedCapability("macros over 2.4 GHz"))
             }
@@ -413,7 +409,10 @@ mod tests {
         );
         assert_eq!(manifest.matchers.len(), 2);
         assert_eq!(manifest.matchers[1].vendor_id, wireless::WIRELESS_VENDOR_ID);
-        assert_eq!(manifest.matchers[1].product_id, wireless::WIRELESS_PRODUCT_ID);
+        assert_eq!(
+            manifest.matchers[1].product_id,
+            wireless::WIRELESS_PRODUCT_ID
+        );
         assert_eq!(
             manifest.matchers[1].interface_number,
             Some(wireless::WIRELESS_INTERFACE_NUMBER)

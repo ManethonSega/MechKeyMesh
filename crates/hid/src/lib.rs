@@ -295,8 +295,7 @@ mod windows {
 
 #[cfg(windows)]
 pub use windows::{
-    enumerate_feature_devices, enumerate_interrupt_devices, open_feature_path,
-    open_interrupt_path,
+    enumerate_feature_devices, enumerate_interrupt_devices, open_feature_path, open_interrupt_path,
 };
 
 #[cfg(not(windows))]
@@ -324,9 +323,7 @@ pub fn enumerate_interrupt_devices(
 }
 
 #[cfg(not(windows))]
-pub fn open_interrupt_path(
-    _path: &str,
-) -> Result<Box<dyn InterruptTransport>, HidTransportError> {
+pub fn open_interrupt_path(_path: &str) -> Result<Box<dyn InterruptTransport>, HidTransportError> {
     Err(HidTransportError::UnsupportedPlatform)
 }
 

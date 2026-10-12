@@ -248,9 +248,12 @@ fn get_per_key_rgb_capabilities(
         .primary_driver
         .per_key_rgb_capabilities()
         .ok_or_else(|| "active driver does not support stored per-key RGB".to_string())?;
-    if state.manager.status().device.is_some_and(|device| {
-        device.connection == mechkeymesh_driver_api::Connection::Wireless24G
-    }) {
+    if state
+        .manager
+        .status()
+        .device
+        .is_some_and(|device| device.connection == mechkeymesh_driver_api::Connection::Wireless24G)
+    {
         capabilities.readback_supported = false;
     }
     Ok(capabilities)
@@ -383,10 +386,15 @@ fn save_per_key_rgb(
 #[tauri::command]
 fn read_per_key_rgb(state: State<'_, AppState>) -> Result<PerKeyRgbHardwareReadback, String> {
     require_active_capability(&state, Capability::PerKeyRgb)?;
-    if state.manager.status().device.is_some_and(|device| {
-        device.connection == mechkeymesh_driver_api::Connection::Wireless24G
-    }) {
-        return Err("stored RGB readback is not supported over the verified 2.4 GHz protocol".into());
+    if state
+        .manager
+        .status()
+        .device
+        .is_some_and(|device| device.connection == mechkeymesh_driver_api::Connection::Wireless24G)
+    {
+        return Err(
+            "stored RGB readback is not supported over the verified 2.4 GHz protocol".into(),
+        );
     }
     let layout_id = active_layout_id(&state)?;
     let layout = state
