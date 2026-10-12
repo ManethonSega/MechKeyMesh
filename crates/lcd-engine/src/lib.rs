@@ -251,7 +251,7 @@ impl F108Asset {
         if self.frame_count == 0 || self.frame_count > MAX_FRAMES {
             return Err(LcdError::TooManyFrames(self.frame_count));
         }
-        if self.bytes.len() % PAGE_BYTES != 0 {
+        if !self.bytes.len().is_multiple_of(PAGE_BYTES) {
             return Err(LcdError::InvalidAsset(
                 "payload length is not a whole number of 4096-byte pages".into(),
             ));
@@ -387,7 +387,7 @@ impl Editor {
                                 for sx in 0..scale {
                                     put_if_inside(
                                         image,
-                                        cursor_x + (column as i32 * scale as i32) + sx as i32,
+                                        cursor_x + (column * scale as i32) + sx as i32,
                                         y + (row as i32 * scale as i32) + sy as i32,
                                         Rgba(color),
                                     );
@@ -509,7 +509,9 @@ fn validate_frame(index: usize, pixels: &RgbaImage, duration_ms: u32) -> Result<
             height: pixels.height(),
         });
     }
-    if !(MIN_DELAY_MS..=MAX_DELAY_MS).contains(&duration_ms) || duration_ms % 20 != 0 {
+    if !(MIN_DELAY_MS..=MAX_DELAY_MS).contains(&duration_ms)
+        || !duration_ms.is_multiple_of(20)
+    {
         return Err(LcdError::InvalidDuration { index, duration_ms });
     }
     Ok(())
