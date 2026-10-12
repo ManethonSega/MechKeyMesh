@@ -3,20 +3,21 @@ mod layout;
 pub use layout::f108pro_layout;
 
 use mechkeymesh_driver_api::{
-    Capability, Connection, DeviceCandidate, DeviceDescriptor, DeviceMatch, DeviceSession,
-    DriverError, DriverManifest, KeyboardDriver, LightingColorControl, LightingConfig,
+    Capability, Connection, DeviceCandidate, DeviceClock, DeviceDescriptor, DeviceMatch,
+    DeviceSession, DriverError, DriverManifest, KeyboardDriver, LcdUpload, LightingColorControl, LightingConfig,
     LightingDirectionControl, LightingEffectDescriptor, OperationContext, TransportKind,
     TransportRequirement,
 };
 use mechkeymesh_hid::{
-    FEATURE_REPORT_SIZE, FeatureTransport, HidTransportError, enumerate_feature_devices,
-    open_feature_path,
+    FEATURE_REPORT_SIZE, FeatureTransport, HidTransportError, LcdTransport,
+    enumerate_feature_devices, open_feature_path, open_lcd_path,
 };
 use std::time::Duration;
 
 pub const VENDOR_ID: u16 = 0x0C45;
 pub const PRODUCT_ID: u16 = 0x800A;
 pub const CONFIG_USAGE_PAGE: u16 = 0xFF13;
+pub const LCD_USAGE_PAGE: u16 = 0xFF68;
 pub const DRIVER_ID: &str = "aula.f108pro";
 const COMMAND_DELAY: Duration = Duration::from_millis(35);
 
@@ -42,7 +43,7 @@ impl KeyboardDriver for AulaF108ProDriver {
             vendor: "AULA".into(),
             device_name: "AULA F108 Pro".into(),
             supported_connections: vec![Connection::Usb],
-            capabilities: vec![Capability::HardwareRgb],
+            capabilities: vec![Capability::HardwareRgb, Capability::Display, Capability::Clock],
             layout_ids: vec!["aula.f108pro.ansi".into()],
             matchers: vec![DeviceMatch {
                 vendor_id: VENDOR_ID,
@@ -52,12 +53,20 @@ impl KeyboardDriver for AulaF108ProDriver {
                 // assuming a stable interface number across HID backends.
                 interface_number: None,
             }],
-            transport_requirements: vec![TransportRequirement {
-                kind: TransportKind::HidFeature,
-                usage_page: Some(CONFIG_USAGE_PAGE),
-                interface_number: None,
-                report_size: Some(FEATURE_REPORT_SIZE),
-            }],
+            transport_requirements: vec![
+                TransportRequirement {
+                    kind: TransportKind::HidFeature,
+                    usage_page: Some(CONFIG_USAGE_PAGE),
+                    interface_number: None,
+                    report_size: Some(FEATURE_REPORT_SIZE),
+                },
+                TransportRequirement {
+                    kind: TransportKind::HidInterrupt,
+                    usage_page: Some(LCD_USAGE_PAGE),
+                    interface_number: Some(2),
+                    report_size: Some(mechkeymesh_hid::LCD_PAGE_SIZE),
+                },
+            ],
         }
     }
 
@@ -100,11 +109,13 @@ impl KeyboardDriver for AulaF108ProDriver {
         validate_candidate(candidate)?;
 
         let transport = open_feature_path(&candidate.instance_id).map_err(map_transport_error)?;
+        let lcd_transport = open_lcd_transport(candidate)?;
         context.check()?;
 
         Ok(Box::new(AulaF108ProSession {
             candidate: candidate.clone(),
             transport,
+            lcd_transport,
         }))
     }
 }
@@ -112,6 +123,7 @@ impl KeyboardDriver for AulaF108ProDriver {
 struct AulaF108ProSession {
     candidate: DeviceCandidate,
     transport: Box<dyn FeatureTransport>,
+    lcd_transport: Option<Box<dyn LcdTransport>>,
 }
 
 impl DeviceSession for AulaF108ProSession {
@@ -127,7 +139,11 @@ impl DeviceSession for AulaF108ProSession {
             product_id: self.candidate.product_id,
             // Expose only capabilities implemented and testable in the current
             // driver, not every capability known to exist in the OEM software.
-            capabilities: vec![Capability::HardwareRgb],
+            capabilities: if self.lcd_transport.is_some() {
+                vec![Capability::HardwareRgb, Capability::Display, Capability::Clock]
+            } else {
+                vec![Capability::HardwareRgb, Capability::Clock]
+            },
             firmware: None,
             battery_percent: None,
         }
@@ -162,10 +178,27 @@ impl DeviceSession for AulaF108ProSession {
         self.finalize_transaction(context)?;
         Ok(())
     }
+
+    fn upload_lcd(
+        &mut self,
+        context: &OperationContext,
+        upload: &LcdUpload,
+        progress: &mut dyn FnMut(usize, usize),
+    ) -> Result<(), DriverError> {
+        crate::lcd::upload(self, context, upload, progress)
+    }
+
+    fn sync_clock(
+        &mut self,
+        context: &OperationContext,
+        clock: DeviceClock,
+    ) -> Result<(), DriverError> {
+        crate::lcd::sync_clock(self, context, clock)
+    }
 }
 
 impl AulaF108ProSession {
-    fn send(
+    pub(crate) fn send(
         &self,
         context: &OperationContext,
         report: [u8; FEATURE_REPORT_SIZE],
@@ -189,7 +222,7 @@ impl AulaF108ProSession {
         Ok(())
     }
 
-    fn begin_transaction(&self, context: &OperationContext) -> Result<(), DriverError> {
+    pub(crate) fn begin_transaction(&self, context: &OperationContext) -> Result<(), DriverError> {
         let mut report = [0u8; FEATURE_REPORT_SIZE];
         report[0] = 0x04;
         report[1] = 0x18;
@@ -204,7 +237,7 @@ impl AulaF108ProSession {
         self.send(context, report, true)
     }
 
-    fn apply_transaction(&self, context: &OperationContext) -> Result<(), DriverError> {
+    pub(crate) fn apply_transaction(&self, context: &OperationContext) -> Result<(), DriverError> {
         let mut report = [0u8; FEATURE_REPORT_SIZE];
         report[0] = 0x04;
         report[1] = 0x02;
@@ -217,6 +250,22 @@ impl AulaF108ProSession {
         report[1] = 0xF0;
         self.send(context, report, false)
     }
+}
+
+fn open_lcd_transport(
+    candidate: &DeviceCandidate,
+) -> Result<Option<Box<dyn LcdTransport>>, DriverError> {
+    let interfaces = enumerate_feature_devices(VENDOR_ID, PRODUCT_ID, LCD_USAGE_PAGE)
+        .map_err(map_transport_error)?;
+    let selected = interfaces.iter().find(|interface| {
+        match (&candidate.serial_number, &interface.serial_number) {
+            (Some(candidate_serial), Some(interface_serial)) => candidate_serial == interface_serial,
+            _ => true,
+        }
+    });
+    selected
+        .map(|interface| open_lcd_path(&interface.path).map_err(map_transport_error))
+        .transpose()
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -508,7 +557,10 @@ mod tests {
         assert_eq!(manifest.driver_id, DRIVER_ID);
         assert_eq!(manifest.device_model_id, "aula.f108pro");
         assert_eq!(manifest.supported_connections, vec![Connection::Usb]);
-        assert_eq!(manifest.capabilities, vec![Capability::HardwareRgb]);
+        assert_eq!(
+            manifest.capabilities,
+            vec![Capability::HardwareRgb, Capability::Display, Capability::Clock]
+        );
         assert_eq!(manifest.layout_ids, vec!["aula.f108pro.ansi"]);
         assert_eq!(manifest.matchers[0].vendor_id, VENDOR_ID);
         assert_eq!(manifest.matchers[0].product_id, PRODUCT_ID);

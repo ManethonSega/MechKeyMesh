@@ -1,15 +1,15 @@
 use super::{
-    AulaF108ProSession, CONFIG_USAGE_PAGE, DRIVER_ID, PRODUCT_ID, VENDOR_ID, f108pro_layout,
-    lighting_effects, map_transport_error, validate_candidate,
+    AulaF108ProSession, CONFIG_USAGE_PAGE, DRIVER_ID, LCD_USAGE_PAGE, PRODUCT_ID, VENDOR_ID,
+    f108pro_layout, lighting_effects, map_transport_error, open_lcd_transport, validate_candidate,
 };
 use crate::{live_rgb, macro_bank, per_key_rgb, remap, settings, wireless};
 use mechkeymesh_driver_api::{
-    Capability, Connection, DeviceCandidate, DeviceDescriptor, DeviceMatch, DeviceSession,
-    DeviceSettings, DeviceSettingsDescriptor, DriverError, DriverManifest, FnActivationMode,
-    FnActivationModeOption, FnLayerDescriptor, HardwareMacroProgram, KeyAssignment, KeyboardDriver,
-    KeymapCapabilities, KeymapLayer, LightingConfig, LightingEffectDescriptor, LiveRgbFrame,
-    MacroBankDescriptor, OperationContext, PerKeyRgbCapabilities, PerKeyRgbConfig,
-    PerKeyRgbReadback, TransportKind, TransportRequirement,
+    Capability, Connection, DeviceCandidate, DeviceClock, DeviceDescriptor, DeviceMatch,
+    DeviceSession, DeviceSettings, DeviceSettingsDescriptor, DriverError, DriverManifest,
+    FnActivationMode, FnActivationModeOption, FnLayerDescriptor, HardwareMacroProgram,
+    KeyAssignment, KeyboardDriver, KeymapCapabilities, KeymapLayer, LcdUpload, LightingConfig,
+    LightingEffectDescriptor, LiveRgbFrame, MacroBankDescriptor, OperationContext,
+    PerKeyRgbCapabilities, PerKeyRgbConfig, PerKeyRgbReadback, TransportKind, TransportRequirement,
 };
 use mechkeymesh_hid::{
     FEATURE_REPORT_SIZE, INTERRUPT_REPORT_SIZE, enumerate_feature_devices,
@@ -24,6 +24,7 @@ const USB_CAPABILITIES: &[Capability] = &[
     Capability::PerKeyRgb,
     Capability::LiveRgb,
     Capability::Music,
+    Capability::Clock,
     Capability::DeviceSettings,
 ];
 
@@ -57,6 +58,8 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
                 Capability::PerKeyRgb,
                 Capability::LiveRgb,
                 Capability::Music,
+                Capability::Display,
+                Capability::Clock,
                 Capability::DeviceSettings,
                 Capability::Battery,
             ],
@@ -81,6 +84,12 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
                     usage_page: Some(CONFIG_USAGE_PAGE),
                     interface_number: None,
                     report_size: Some(FEATURE_REPORT_SIZE),
+                },
+                TransportRequirement {
+                    kind: TransportKind::HidInterrupt,
+                    usage_page: Some(LCD_USAGE_PAGE),
+                    interface_number: Some(2),
+                    report_size: Some(mechkeymesh_hid::LCD_PAGE_SIZE),
                 },
                 TransportRequirement {
                     kind: TransportKind::HidInterrupt,
@@ -222,9 +231,11 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
                 validate_candidate(candidate)?;
                 let transport =
                     open_feature_path(&candidate.instance_id).map_err(map_transport_error)?;
+                let lcd_transport = open_lcd_transport(candidate)?;
                 RemapTransportSession::Usb(AulaF108ProSession {
                     candidate: candidate.clone(),
                     transport,
+                    lcd_transport,
                 })
             }
             Connection::Wireless24G => {
@@ -262,6 +273,9 @@ impl DeviceSession for AulaF108ProRemapSession {
             RemapTransportSession::Usb(inner) => {
                 let mut descriptor = inner.descriptor();
                 descriptor.capabilities = USB_CAPABILITIES.to_vec();
+                if inner.lcd_transport.is_some() {
+                    descriptor.capabilities.push(Capability::Display);
+                }
                 descriptor.name = "AULA F108 Pro USB".into();
                 descriptor
             }
@@ -376,6 +390,33 @@ impl DeviceSession for AulaF108ProRemapSession {
         }
     }
 
+    fn upload_lcd(
+        &mut self,
+        context: &OperationContext,
+        upload: &LcdUpload,
+        progress: &mut dyn FnMut(usize, usize),
+    ) -> Result<(), DriverError> {
+        match &mut self.inner {
+            RemapTransportSession::Usb(inner) => inner.upload_lcd(context, upload, progress),
+            RemapTransportSession::Wireless(_) => {
+                Err(DriverError::UnsupportedCapability("display over 2.4 GHz"))
+            }
+        }
+    }
+
+    fn sync_clock(
+        &mut self,
+        context: &OperationContext,
+        clock: DeviceClock,
+    ) -> Result<(), DriverError> {
+        match &mut self.inner {
+            RemapTransportSession::Usb(inner) => inner.sync_clock(context, clock),
+            RemapTransportSession::Wireless(_) => {
+                Err(DriverError::UnsupportedCapability("clock over 2.4 GHz"))
+            }
+        }
+    }
+
     fn close(&mut self) -> Result<(), DriverError> {
         match &mut self.inner {
             RemapTransportSession::Usb(inner) => inner.close(),
@@ -418,6 +459,8 @@ mod tests {
                 Capability::PerKeyRgb,
                 Capability::LiveRgb,
                 Capability::Music,
+                Capability::Display,
+                Capability::Clock,
                 Capability::DeviceSettings,
                 Capability::Battery,
             ]

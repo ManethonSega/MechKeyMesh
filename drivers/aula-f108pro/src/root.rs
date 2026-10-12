@@ -1,5 +1,6 @@
 include!("lib.rs");
 
+mod lcd;
 mod live_rgb;
 mod macro_bank;
 mod per_key_rgb;

@@ -2,6 +2,8 @@ use thiserror::Error;
 
 pub const FEATURE_REPORT_SIZE: usize = 64;
 pub const INTERRUPT_REPORT_SIZE: usize = 32;
+pub const LCD_PAGE_SIZE: usize = 4096;
+pub const LCD_ACK_SIZE: usize = 64;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HidDeviceInfo {
@@ -64,6 +66,15 @@ pub trait InterruptTransport: Send {
     ) -> Result<Option<[u8; INTERRUPT_REPORT_SIZE]>, HidTransportError>;
 }
 
+pub trait LcdTransport: Send {
+    fn write_page(&self, page: &[u8; LCD_PAGE_SIZE]) -> Result<(), HidTransportError>;
+
+    fn read_ack(
+        &self,
+        timeout: std::time::Duration,
+    ) -> Result<Option<[u8; LCD_ACK_SIZE]>, HidTransportError>;
+}
+
 pub fn classify_backend_error(message: impl Into<String>) -> HidTransportError {
     let message = message.into();
     let lower = message.to_ascii_lowercase();
@@ -97,7 +108,8 @@ pub fn classify_backend_error(message: impl Into<String>) -> HidTransportError {
 mod windows {
     use super::{
         FEATURE_REPORT_SIZE, FeatureTransport, HidDeviceInfo, HidTransportError,
-        INTERRUPT_REPORT_SIZE, InterruptTransport, classify_backend_error,
+        INTERRUPT_REPORT_SIZE, InterruptTransport, LCD_ACK_SIZE, LCD_PAGE_SIZE, LcdTransport,
+        classify_backend_error,
     };
     use hidapi::{HidApi, HidDevice};
     use std::ffi::CString;
@@ -108,6 +120,10 @@ mod windows {
     }
 
     pub struct WindowsInterruptTransport {
+        device: HidDevice,
+    }
+
+    pub struct WindowsLcdTransport {
         device: HidDevice,
     }
 
@@ -194,6 +210,52 @@ mod windows {
             }
 
             normalize_interrupt_input(&buffer, read).map(Some)
+        }
+    }
+
+    impl LcdTransport for WindowsLcdTransport {
+        fn write_page(&self, page: &[u8; LCD_PAGE_SIZE]) -> Result<(), HidTransportError> {
+            let mut buffer = vec![0u8; LCD_PAGE_SIZE + 1];
+            buffer[1..].copy_from_slice(page);
+            let written = self
+                .device
+                .write(&buffer)
+                .map_err(|error| classify_backend_error(error.to_string()))?;
+            if written != buffer.len() {
+                return Err(HidTransportError::Backend(format!(
+                    "short LCD interrupt write: {written} of {} bytes",
+                    buffer.len()
+                )));
+            }
+            Ok(())
+        }
+
+        fn read_ack(
+            &self,
+            timeout: Duration,
+        ) -> Result<Option<[u8; LCD_ACK_SIZE]>, HidTransportError> {
+            let timeout_millis = timeout.as_millis().min(i32::MAX as u128) as i32;
+            let mut buffer = [0u8; LCD_ACK_SIZE + 1];
+            let read = self
+                .device
+                .read_timeout(&mut buffer, timeout_millis)
+                .map_err(|error| classify_backend_error(error.to_string()))?;
+            if read == 0 {
+                return Ok(None);
+            }
+            let mut ack = [0u8; LCD_ACK_SIZE];
+            match read {
+                LCD_ACK_SIZE => ack.copy_from_slice(&buffer[..LCD_ACK_SIZE]),
+                size if size == LCD_ACK_SIZE + 1 && buffer[0] == 0 => {
+                    ack.copy_from_slice(&buffer[1..]);
+                }
+                _ => {
+                    return Err(HidTransportError::Backend(format!(
+                        "unexpected LCD ACK length {read}; expected {LCD_ACK_SIZE} bytes"
+                    )));
+                }
+            }
+            Ok(Some(ack))
         }
     }
 
@@ -291,11 +353,22 @@ mod windows {
             .map_err(|error| classify_backend_error(error.to_string()))?;
         Ok(Box::new(WindowsInterruptTransport { device }))
     }
+
+    pub fn open_lcd_path(path: &str) -> Result<Box<dyn LcdTransport>, HidTransportError> {
+        let api = HidApi::new().map_err(|error| classify_backend_error(error.to_string()))?;
+        let path = CString::new(path)
+            .map_err(|_| HidTransportError::Backend("HID path contains an interior NUL".into()))?;
+        let device = api
+            .open_path(&path)
+            .map_err(|error| classify_backend_error(error.to_string()))?;
+        Ok(Box::new(WindowsLcdTransport { device }))
+    }
 }
 
 #[cfg(windows)]
 pub use windows::{
     enumerate_feature_devices, enumerate_interrupt_devices, open_feature_path, open_interrupt_path,
+    open_lcd_path,
 };
 
 #[cfg(not(windows))]
@@ -324,6 +397,11 @@ pub fn enumerate_interrupt_devices(
 
 #[cfg(not(windows))]
 pub fn open_interrupt_path(_path: &str) -> Result<Box<dyn InterruptTransport>, HidTransportError> {
+    Err(HidTransportError::UnsupportedPlatform)
+}
+
+#[cfg(not(windows))]
+pub fn open_lcd_path(_path: &str) -> Result<Box<dyn LcdTransport>, HidTransportError> {
     Err(HidTransportError::UnsupportedPlatform)
 }
 

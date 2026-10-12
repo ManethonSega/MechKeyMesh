@@ -5,6 +5,6 @@ mod registry;
 pub use log::{LogEntry, LogRing};
 pub use manager_v3::{
     ActiveOperation, DeviceManager, DeviceManagerHandle, DeviceState, DeviceStatus,
-    LiveRgbTransportStatus, ManagerConfig,
+    LcdTransferStatus, LiveRgbTransportStatus, ManagerConfig,
 };
 pub use registry::{DiscoveryReport, DriverProbeFailure, DriverRegistry, RegistryError};

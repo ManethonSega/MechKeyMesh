@@ -39,7 +39,7 @@
       <button data-page="settings" data-requires-capability="device-settings">Device Settings <b>R11</b></button>
       <button data-page="diagnostics">Diagnostics</button>
     </nav>
-    <div class="version">v0.16.0-alpha.1 · LCD Media</div>
+    <div class="version">v0.17.0-alpha.1 · LCD Upload</div>
   </aside>
 
   <main>
@@ -642,6 +642,18 @@
           <label>Export path<input id="lcdExportPath" type="text" placeholder="f108-lcd.bin" value="f108-lcd.bin" /></label>
           <button id="lcdExport" class="primary" type="button">Validate & export asset</button>
           <p id="lcdStatus" class="muted">Import media to begin.</p>
+          <hr />
+          <div data-requires-capability="display">
+            <span class="eyebrow">USB HARDWARE</span>
+            <p class="muted">Uses the dedicated FF68 interrupt interface. The complete asset is revalidated before the first packet.</p>
+            <progress id="lcdUploadProgress" max="1" value="0"></progress>
+            <p id="lcdUploadStatus" class="muted">No transfer.</p>
+            <div class="lcd-frame-actions">
+              <button id="lcdUpload" class="primary" type="button">Upload validated asset</button>
+              <button id="lcdCancelUpload" class="secondary danger-soft" type="button" disabled>Cancel</button>
+            </div>
+          </div>
+          <button id="lcdSyncClock" class="secondary" data-requires-capability="clock" type="button">Sync clock</button>
         </article>
       </div>
 

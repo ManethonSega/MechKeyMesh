@@ -78,7 +78,7 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.16.0-alpha.1`, **R15 LCD media engine in validation**. PNG, JPEG, GIF, animated WebP and FFmpeg-supported video import feed a local 240 × 135 editor, motion-aware frame optimization and a strictly validated RGB565 compiler. The 141-frame maximum is enforced with no bypass, and R15 contains no keyboard write path.
+`v0.17.0-alpha.1`, **R16 LCD hardware upload in validation**. The complete R15 asset is revalidated before the first packet, then sent through the dedicated FF68 interrupt interface as acknowledged 4096-byte pages. Uploads are serialized and expose progress, cancellation, timeout, disconnect recovery and incomplete-transfer warnings. Physical upload validation remains pending because no keyboard is available in this environment.
 
 The previous Go/Wails prototype is preserved in the branch:
 

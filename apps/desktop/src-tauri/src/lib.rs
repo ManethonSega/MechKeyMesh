@@ -9,15 +9,15 @@ use mechkeymesh_config::{
     KeyMapping, MacroEvent, MacroMouseButton, MacroPlayback, MacroProgram, MacroSimulation,
 };
 use mechkeymesh_core::{
-    DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LiveRgbTransportStatus,
-    LogEntry, ManagerConfig,
+    DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LcdTransferStatus,
+    LiveRgbTransportStatus, LogEntry, ManagerConfig,
 };
 use mechkeymesh_driver_api::{
-    Capability, DeviceSettings, DeviceSettingsDescriptor, DriverManifest, FnLayerDescriptor,
-    HardwareMacroEvent, HardwareMacroMouseButton, HardwareMacroProgram, KeyAssignment,
-    KeyboardDriver, KeymapCapabilities, KeymapLayer, LightingConfig, LightingEffectDescriptor,
-    LiveRgbCapabilities, MacroBankDescriptor, PerKeyRgbAssignment, PerKeyRgbCapabilities,
-    PerKeyRgbConfig, RgbColor,
+    Capability, DeviceClock, DeviceSettings, DeviceSettingsDescriptor, DriverManifest,
+    FnLayerDescriptor, HardwareMacroEvent, HardwareMacroMouseButton, HardwareMacroProgram,
+    KeyAssignment, KeyboardDriver, KeymapCapabilities, KeymapLayer, LcdPixelFormat, LcdUpload,
+    LightingConfig, LightingEffectDescriptor, LiveRgbCapabilities, MacroBankDescriptor,
+    PerKeyRgbAssignment, PerKeyRgbCapabilities, PerKeyRgbConfig, RgbColor,
 };
 use mechkeymesh_driver_aula_f108pro::AulaF108ProRemapDriver;
 use mechkeymesh_layout::{KeyAction, Layout, LayoutRegistry};
@@ -366,6 +366,42 @@ fn export_lcd_asset(
         .map_err(|error| error.to_string())?;
     std::fs::write(path, asset.bytes()).map_err(|error| error.to_string())?;
     Ok(asset.summary())
+}
+
+#[tauri::command]
+fn get_lcd_transfer_status(state: State<'_, AppState>) -> LcdTransferStatus {
+    state.manager.lcd_transfer_status()
+}
+
+#[tauri::command]
+fn upload_lcd_asset(state: State<'_, AppState>) -> Result<(), String> {
+    require_active_capability(&state, Capability::Display)?;
+    let upload = {
+        let guard = state.lcd.lock().expect("LCD editor lock poisoned");
+        let editor = guard
+            .as_ref()
+            .ok_or_else(|| "no LCD project is open".to_string())?;
+        let asset = editor
+            .project()
+            .compile()
+            .map_err(|error| error.to_string())?;
+        LcdUpload {
+            width: mechkeymesh_lcd_engine::WIDTH,
+            height: mechkeymesh_lcd_engine::HEIGHT,
+            pixel_format: LcdPixelFormat::Rgb565LittleEndian,
+            frame_count: asset.frame_count(),
+            header_bytes: mechkeymesh_lcd_engine::HEADER_BYTES,
+            content_length: asset.content_length(),
+            payload: asset.bytes().to_vec(),
+        }
+    };
+    state.manager.upload_lcd(upload)
+}
+
+#[tauri::command]
+fn sync_lcd_clock(state: State<'_, AppState>, clock: DeviceClock) -> Result<(), String> {
+    require_active_capability(&state, Capability::Clock)?;
+    state.manager.sync_clock(clock)
 }
 
 fn edit_lcd(
@@ -1494,6 +1530,9 @@ pub fn run() {
             undo_lcd_edit,
             redo_lcd_edit,
             export_lcd_asset,
+            get_lcd_transfer_status,
+            upload_lcd_asset,
+            sync_lcd_clock,
             get_live_rgb_defaults,
             get_live_rgb_capabilities,
             get_live_rgb_status,

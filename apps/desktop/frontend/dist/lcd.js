@@ -167,5 +167,64 @@
     }
   });
 
+  element("#lcdUpload").addEventListener("click", async () => {
+    element("#lcdUpload").disabled = true;
+    element("#lcdCancelUpload").disabled = false;
+    setStatus("Uploading over the dedicated LCD interface. Do not disconnect the keyboard.");
+    try {
+      await invoke("upload_lcd_asset");
+      setStatus("LCD upload completed and applied.");
+    } catch (error) {
+      setStatus(`LCD upload did not complete: ${error}`, true);
+    } finally {
+      element("#lcdUpload").disabled = false;
+      element("#lcdCancelUpload").disabled = true;
+      await pollTransfer();
+    }
+  });
+
+  element("#lcdCancelUpload").addEventListener("click", async () => {
+    const cancelled = await invoke("cancel_active_operation");
+    if (cancelled) setStatus("Cancellation requested. The current page will stop safely.");
+  });
+
+  element("#lcdSyncClock").addEventListener("click", async () => {
+    const now = new Date();
+    try {
+      await invoke("sync_lcd_clock", { clock: {
+        year: now.getFullYear(),
+        month: now.getMonth() + 1,
+        day: now.getDate(),
+        hour: now.getHours(),
+        minute: now.getMinutes(),
+        second: now.getSeconds(),
+        weekdaySundayZero: now.getDay()
+      }});
+      setStatus("Keyboard clock synchronized.");
+    } catch (error) {
+      setStatus(error, true);
+    }
+  });
+
+  async function pollTransfer() {
+    try {
+      const transfer = await invoke("get_lcd_transfer_status");
+      const progress = element("#lcdUploadProgress");
+      progress.max = Math.max(1, transfer.totalPages);
+      progress.value = transfer.pagesSent;
+      element("#lcdCancelUpload").disabled = !transfer.active;
+      if (transfer.active) {
+        element("#lcdUploadStatus").textContent = `Page ${transfer.pagesSent} / ${transfer.totalPages}`;
+      } else if (transfer.incomplete) {
+        element("#lcdUploadStatus").textContent = `Incomplete transfer at page ${transfer.pagesSent} / ${transfer.totalPages}. Reconnect and upload again.`;
+      } else if (transfer.totalPages > 0) {
+        element("#lcdUploadStatus").textContent = `Complete: ${transfer.totalPages} pages acknowledged.`;
+      }
+    } catch (_) {}
+  }
+
+  setInterval(pollTransfer, 250);
+  void pollTransfer();
+
   invoke("get_lcd_editor_state").then((state) => state && renderState(state)).catch(() => {});
 })();

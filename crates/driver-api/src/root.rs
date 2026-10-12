@@ -307,6 +307,35 @@ pub struct LiveRgbCapabilities {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LcdPixelFormat {
+    Rgb565LittleEndian,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LcdUpload {
+    pub width: u32,
+    pub height: u32,
+    pub pixel_format: LcdPixelFormat,
+    pub frame_count: usize,
+    pub header_bytes: usize,
+    pub content_length: usize,
+    pub payload: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceClock {
+    pub year: u16,
+    pub month: u8,
+    pub day: u8,
+    pub hour: u8,
+    pub minute: u8,
+    pub second: u8,
+    pub weekday_sunday_zero: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PerKeyRgbCapabilities {
     pub brightness_min: u8,
@@ -611,6 +640,23 @@ pub trait DeviceSession: Send {
         _frame: &LiveRgbFrame,
     ) -> Result<(), DriverError> {
         Err(DriverError::UnsupportedCapability("live-rgb"))
+    }
+
+    fn upload_lcd(
+        &mut self,
+        _context: &OperationContext,
+        _upload: &LcdUpload,
+        _progress: &mut dyn FnMut(usize, usize),
+    ) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("display"))
+    }
+
+    fn sync_clock(
+        &mut self,
+        _context: &OperationContext,
+        _clock: DeviceClock,
+    ) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("clock"))
     }
 
     fn close(&mut self) -> Result<(), DriverError> {

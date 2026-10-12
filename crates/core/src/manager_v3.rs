@@ -1,9 +1,9 @@
 use crate::{DriverRegistry, LogEntry, LogRing};
 use mechkeymesh_driver_api::{
-    CancellationToken, Capability, DeviceCandidate, DeviceDescriptor, DeviceSession,
+    CancellationToken, Capability, DeviceCandidate, DeviceClock, DeviceDescriptor, DeviceSession,
     DeviceSettings, DriverError, DriverManifest, ErrorClass, HardwareMacroProgram, KeyAssignment,
-    KeyboardDriver, KeymapLayer, LightingConfig, LiveRgbFrame, OperationContext, PerKeyRgbConfig,
-    PerKeyRgbReadback,
+    KeyboardDriver, KeymapLayer, LcdUpload, LightingConfig, LiveRgbFrame, OperationContext,
+    PerKeyRgbConfig, PerKeyRgbReadback,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -62,6 +62,16 @@ pub struct LiveRgbTransportStatus {
     pub buffered_frames: usize,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LcdTransferStatus {
+    pub active: bool,
+    pub pages_sent: usize,
+    pub total_pages: usize,
+    pub incomplete: bool,
+    pub last_error: Option<String>,
+}
+
 #[derive(Default)]
 struct LiveRgbTelemetry {
     active: AtomicBool,
@@ -94,6 +104,7 @@ pub struct ManagerConfig {
     pub health_timeout: Duration,
     pub health_interval: Duration,
     pub command_timeout: Duration,
+    pub lcd_upload_timeout: Duration,
     pub open_attempts: usize,
     pub retry_delay: Duration,
 }
@@ -108,6 +119,7 @@ impl Default for ManagerConfig {
             health_timeout: Duration::from_millis(700),
             health_interval: Duration::from_millis(900),
             command_timeout: Duration::from_secs(3),
+            lcd_upload_timeout: Duration::from_secs(20 * 60),
             open_attempts: 2,
             retry_delay: Duration::from_millis(120),
         }
@@ -165,6 +177,20 @@ enum Command {
         cancellation: CancellationToken,
         reply: Sender<Result<PerKeyRgbReadback, String>>,
     },
+    UploadLcd {
+        id: u64,
+        upload: LcdUpload,
+        submitted: Instant,
+        cancellation: CancellationToken,
+        reply: Sender<Result<(), String>>,
+    },
+    SyncClock {
+        id: u64,
+        clock: DeviceClock,
+        submitted: Instant,
+        cancellation: CancellationToken,
+        reply: Sender<Result<(), String>>,
+    },
     LiveFrameReady,
     StopLiveRgb,
     Shutdown,
@@ -179,6 +205,8 @@ pub struct DeviceManagerHandle {
     active_cancellation: Arc<Mutex<Option<CancellationToken>>>,
     next_operation_id: Arc<AtomicU64>,
     command_timeout: Duration,
+    lcd_upload_timeout: Duration,
+    lcd_transfer: Arc<RwLock<LcdTransferStatus>>,
     live_frame: Arc<Mutex<Option<LiveRgbFrame>>>,
     live_telemetry: Arc<LiveRgbTelemetry>,
 }
@@ -315,6 +343,45 @@ impl DeviceManagerHandle {
         wait_for_reply(reply_rx, cancellation, self.command_timeout)
     }
 
+    pub fn upload_lcd(&self, upload: LcdUpload) -> Result<(), String> {
+        let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
+        let cancellation = CancellationToken::new();
+        let (reply_tx, reply_rx) = mpsc::channel();
+        self.tx
+            .send(Command::UploadLcd {
+                id,
+                upload,
+                submitted: Instant::now(),
+                cancellation: cancellation.clone(),
+                reply: reply_tx,
+            })
+            .map_err(|_| "device manager is not running".to_string())?;
+        wait_for_reply(reply_rx, cancellation, self.lcd_upload_timeout)
+    }
+
+    pub fn sync_clock(&self, clock: DeviceClock) -> Result<(), String> {
+        let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
+        let cancellation = CancellationToken::new();
+        let (reply_tx, reply_rx) = mpsc::channel();
+        self.tx
+            .send(Command::SyncClock {
+                id,
+                clock,
+                submitted: Instant::now(),
+                cancellation: cancellation.clone(),
+                reply: reply_tx,
+            })
+            .map_err(|_| "device manager is not running".to_string())?;
+        wait_for_reply(reply_rx, cancellation, self.command_timeout)
+    }
+
+    pub fn lcd_transfer_status(&self) -> LcdTransferStatus {
+        self.lcd_transfer
+            .read()
+            .expect("LCD transfer status lock poisoned")
+            .clone()
+    }
+
     pub fn submit_live_rgb(&self, frame: LiveRgbFrame) -> Result<(), String> {
         let status = self.status();
         let Some(device) = status.device else {
@@ -412,6 +479,7 @@ impl DeviceManager {
         let active_cancellation = Arc::new(Mutex::new(None));
         let live_frame = Arc::new(Mutex::new(None));
         let live_telemetry = Arc::new(LiveRgbTelemetry::default());
+        let lcd_transfer = Arc::new(RwLock::new(LcdTransferStatus::default()));
 
         let handle = DeviceManagerHandle {
             tx,
@@ -421,6 +489,8 @@ impl DeviceManager {
             active_cancellation: active_cancellation.clone(),
             next_operation_id: Arc::new(AtomicU64::new(1)),
             command_timeout: config.command_timeout,
+            lcd_upload_timeout: config.lcd_upload_timeout,
+            lcd_transfer: lcd_transfer.clone(),
             live_frame: live_frame.clone(),
             live_telemetry: live_telemetry.clone(),
         };
@@ -436,6 +506,7 @@ impl DeviceManager {
                     active_cancellation,
                     live_frame,
                     live_telemetry,
+                    lcd_transfer,
                     config,
                 )
             })
@@ -453,6 +524,7 @@ fn worker(
     active_cancellation: Arc<Mutex<Option<CancellationToken>>>,
     live_frame: Arc<Mutex<Option<LiveRgbFrame>>>,
     live_telemetry: Arc<LiveRgbTelemetry>,
+    lcd_transfer: Arc<RwLock<LcdTransferStatus>>,
     config: ManagerConfig,
 ) {
     log.push("info", "Device Manager 3.0 started");
@@ -605,12 +677,83 @@ fn worker(
                     &status,
                     &log,
                     &active_cancellation,
-                    &config,
+                    config.command_timeout,
                     id,
                     "read stored per-key RGB",
                     submitted,
                     cancellation,
                     |session, context| session.read_per_key_rgb(context, &led_indices),
+                );
+                let _ = reply.send(result);
+            }
+            Ok(Command::UploadLcd {
+                id,
+                upload,
+                submitted,
+                cancellation,
+                reply,
+            }) => {
+                let total_pages = upload.payload.len() / 4096;
+                *lcd_transfer
+                    .write()
+                    .expect("LCD transfer status lock poisoned") = LcdTransferStatus {
+                    active: true,
+                    pages_sent: 0,
+                    total_pages,
+                    incomplete: false,
+                    last_error: None,
+                };
+                let progress_status = lcd_transfer.clone();
+                let result = execute_operation_with_result(
+                    &mut active,
+                    &status,
+                    &log,
+                    &active_cancellation,
+                    config.lcd_upload_timeout,
+                    id,
+                    "upload LCD media",
+                    submitted,
+                    cancellation,
+                    |session, context| {
+                        let mut progress = |sent, total| {
+                            let mut transfer = progress_status
+                                .write()
+                                .expect("LCD transfer status lock poisoned");
+                            transfer.pages_sent = sent;
+                            transfer.total_pages = total;
+                        };
+                        session.upload_lcd(context, &upload, &mut progress)
+                    },
+                );
+                {
+                    let mut transfer = lcd_transfer
+                        .write()
+                        .expect("LCD transfer status lock poisoned");
+                    transfer.active = false;
+                    transfer.incomplete =
+                        result.is_err() && transfer.pages_sent < transfer.total_pages;
+                    transfer.last_error = result.as_ref().err().cloned();
+                }
+                let _ = reply.send(result);
+            }
+            Ok(Command::SyncClock {
+                id,
+                clock,
+                submitted,
+                cancellation,
+                reply,
+            }) => {
+                let result = execute_operation(
+                    &mut active,
+                    &status,
+                    &log,
+                    &active_cancellation,
+                    &config,
+                    id,
+                    "sync LCD clock",
+                    submitted,
+                    cancellation,
+                    |session, context| session.sync_clock(context, clock),
                 );
                 let _ = reply.send(result);
             }
@@ -725,7 +868,7 @@ where
         status,
         log,
         active_cancellation,
-        config,
+        config.command_timeout,
         id,
         name,
         submitted,
@@ -740,7 +883,7 @@ fn execute_operation_with_result<T, F>(
     status: &Arc<RwLock<DeviceStatus>>,
     log: &LogRing,
     active_cancellation: &Arc<Mutex<Option<CancellationToken>>>,
-    config: &ManagerConfig,
+    command_timeout: Duration,
     id: u64,
     name: &str,
     submitted: Instant,
@@ -755,13 +898,13 @@ where
     };
 
     let elapsed = submitted.elapsed();
-    if elapsed >= config.command_timeout {
+    if elapsed >= command_timeout {
         return Err(format!(
             "operation expired in the queue after {} ms",
             elapsed.as_millis()
         ));
     }
-    let remaining = config.command_timeout - elapsed;
+    let remaining = command_timeout - elapsed;
     let descriptor = device.session.descriptor();
     let active_operation = ActiveOperation {
         id,
@@ -1296,6 +1439,7 @@ mod tests {
             health_timeout: Duration::from_millis(100),
             health_interval: Duration::from_millis(15),
             command_timeout: Duration::from_millis(300),
+            lcd_upload_timeout: Duration::from_secs(2),
             open_attempts: 1,
             retry_delay: Duration::from_millis(2),
         }
