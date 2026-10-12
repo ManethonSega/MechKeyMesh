@@ -113,7 +113,9 @@ pub enum LcdError {
         width: u32,
         height: u32,
     },
-    #[error("frame {index} duration {duration_ms} ms is outside {MIN_DELAY_MS}..={MAX_DELAY_MS} ms")]
+    #[error(
+        "frame {index} duration {duration_ms} ms is outside {MIN_DELAY_MS}..={MAX_DELAY_MS} ms"
+    )]
     InvalidDuration { index: usize, duration_ms: u32 },
     #[error("unsupported media extension: {0}")]
     UnsupportedFormat(String),
@@ -262,11 +264,15 @@ impl F108Asset {
             ));
         }
         let expected_content = HEADER_BYTES + self.frame_count * FRAME_BYTES;
-        if self.content_length != expected_content || self.bytes.len() != expected_content.div_ceil(PAGE_BYTES) * PAGE_BYTES {
+        if self.content_length != expected_content
+            || self.bytes.len() != expected_content.div_ceil(PAGE_BYTES) * PAGE_BYTES
+        {
             return Err(LcdError::InvalidAsset("payload length is not exact".into()));
         }
         if self.bytes[1..=self.frame_count].contains(&0) {
-            return Err(LcdError::InvalidAsset("header contains a zero frame delay".into()));
+            return Err(LcdError::InvalidAsset(
+                "header contains a zero frame delay".into(),
+            ));
         }
         if self.bytes[self.frame_count + 1..HEADER_BYTES]
             .iter()
@@ -358,7 +364,13 @@ impl Editor {
         Ok(())
     }
 
-    pub fn brush(&mut self, index: usize, points: &[(i32, i32)], radius: u32, color: [u8; 4]) -> Result<(), LcdError> {
+    pub fn brush(
+        &mut self,
+        index: usize,
+        points: &[(i32, i32)],
+        radius: u32,
+        color: [u8; 4],
+    ) -> Result<(), LcdError> {
         self.require_index(index)?;
         self.checkpoint();
         let image = &mut self.project.frames[index].pixels;
@@ -368,11 +380,24 @@ impl Editor {
         Ok(())
     }
 
-    pub fn erase(&mut self, index: usize, points: &[(i32, i32)], radius: u32) -> Result<(), LcdError> {
+    pub fn erase(
+        &mut self,
+        index: usize,
+        points: &[(i32, i32)],
+        radius: u32,
+    ) -> Result<(), LcdError> {
         self.brush(index, points, radius, [0, 0, 0, 255])
     }
 
-    pub fn text(&mut self, index: usize, x: i32, y: i32, text: &str, scale: u32, color: [u8; 4]) -> Result<(), LcdError> {
+    pub fn text(
+        &mut self,
+        index: usize,
+        x: i32,
+        y: i32,
+        text: &str,
+        scale: u32,
+        color: [u8; 4],
+    ) -> Result<(), LcdError> {
         self.require_index(index)?;
         self.checkpoint();
         let image = &mut self.project.frames[index].pixels;
@@ -405,12 +430,18 @@ impl Editor {
     pub fn crop(&mut self, index: usize, crop: CropRect, mode: FitMode) -> Result<(), LcdError> {
         self.require_index(index)?;
         let source = self.project.frames[index].pixels.clone();
-        if crop.width == 0 || crop.height == 0 || crop.x + crop.width > source.width() || crop.y + crop.height > source.height() {
+        if crop.width == 0
+            || crop.height == 0
+            || crop.x + crop.width > source.width()
+            || crop.y + crop.height > source.height()
+        {
             return Err(LcdError::InvalidCrop);
         }
         self.checkpoint();
-        let cropped = image::imageops::crop_imm(&source, crop.x, crop.y, crop.width, crop.height).to_image();
-        self.project.frames[index].pixels = normalize_image(DynamicImage::ImageRgba8(cropped), mode);
+        let cropped =
+            image::imageops::crop_imm(&source, crop.x, crop.y, crop.width, crop.height).to_image();
+        self.project.frames[index].pixels =
+            normalize_image(DynamicImage::ImageRgba8(cropped), mode);
         Ok(())
     }
 
@@ -418,7 +449,8 @@ impl Editor {
         let Some(previous) = self.undo.pop_back() else {
             return false;
         };
-        self.redo.push_back(std::mem::replace(&mut self.project, previous));
+        self.redo
+            .push_back(std::mem::replace(&mut self.project, previous));
         true
     }
 
@@ -426,12 +458,17 @@ impl Editor {
         let Some(next) = self.redo.pop_back() else {
             return false;
         };
-        self.undo.push_back(std::mem::replace(&mut self.project, next));
+        self.undo
+            .push_back(std::mem::replace(&mut self.project, next));
         true
     }
 
     fn require_index(&self, index: usize) -> Result<(), LcdError> {
-        self.project.frames.get(index).map(|_| ()).ok_or(LcdError::FrameIndex(index))
+        self.project
+            .frames
+            .get(index)
+            .map(|_| ())
+            .ok_or(LcdError::FrameIndex(index))
     }
 
     fn checkpoint(&mut self) {
@@ -443,7 +480,11 @@ impl Editor {
     }
 }
 
-pub fn import_media(path: &Path, preset: VideoPreset, fit: FitMode) -> Result<LcdProject, LcdError> {
+pub fn import_media(
+    path: &Path,
+    preset: VideoPreset,
+    fit: FitMode,
+) -> Result<LcdProject, LcdError> {
     let extension = path
         .extension()
         .and_then(|extension| extension.to_str())
@@ -464,7 +505,11 @@ pub fn import_media(path: &Path, preset: VideoPreset, fit: FitMode) -> Result<Lc
     LcdProject::new(name, frames)
 }
 
-pub fn optimize_frames(frames: Vec<DecodedFrame>, preset: VideoPreset, fit: FitMode) -> Result<Vec<DecodedFrame>, LcdError> {
+pub fn optimize_frames(
+    frames: Vec<DecodedFrame>,
+    preset: VideoPreset,
+    fit: FitMode,
+) -> Result<Vec<DecodedFrame>, LcdError> {
     if frames.is_empty() {
         return Err(LcdError::Empty);
     }
@@ -480,7 +525,9 @@ pub fn optimize_frames(frames: Vec<DecodedFrame>, preset: VideoPreset, fit: FitM
     if normalized.len() > MAX_FRAMES {
         match preset {
             VideoPreset::Smooth => normalized.truncate(MAX_FRAMES),
-            VideoPreset::Balanced | VideoPreset::FullDuration => reduce_motion_aware(&mut normalized),
+            VideoPreset::Balanced | VideoPreset::FullDuration => {
+                reduce_motion_aware(&mut normalized)
+            }
         }
     }
     if normalized.len() > MAX_FRAMES {
@@ -509,9 +556,7 @@ fn validate_frame(index: usize, pixels: &RgbaImage, duration_ms: u32) -> Result<
             height: pixels.height(),
         });
     }
-    if !(MIN_DELAY_MS..=MAX_DELAY_MS).contains(&duration_ms)
-        || !duration_ms.is_multiple_of(20)
-    {
+    if !(MIN_DELAY_MS..=MAX_DELAY_MS).contains(&duration_ms) || !duration_ms.is_multiple_of(20) {
         return Err(LcdError::InvalidDuration { index, duration_ms });
     }
     Ok(())
@@ -532,15 +577,27 @@ fn decode_still(path: &Path) -> Result<Vec<DecodedFrame>, LcdError> {
 
 fn decode_gif(path: &Path) -> Result<Vec<DecodedFrame>, LcdError> {
     let file = fs::File::open(path)?;
-    let decoder = GifDecoder::new(BufReader::new(file)).map_err(|error| LcdError::Decode(error.to_string()))?;
-    decode_animation(decoder.into_frames().collect_frames().map_err(|error| LcdError::Decode(error.to_string()))?)
+    let decoder = GifDecoder::new(BufReader::new(file))
+        .map_err(|error| LcdError::Decode(error.to_string()))?;
+    decode_animation(
+        decoder
+            .into_frames()
+            .collect_frames()
+            .map_err(|error| LcdError::Decode(error.to_string()))?,
+    )
 }
 
 fn decode_webp(path: &Path) -> Result<Vec<DecodedFrame>, LcdError> {
     let file = fs::File::open(path)?;
-    let decoder = WebPDecoder::new(BufReader::new(file)).map_err(|error| LcdError::Decode(error.to_string()))?;
+    let decoder = WebPDecoder::new(BufReader::new(file))
+        .map_err(|error| LcdError::Decode(error.to_string()))?;
     if decoder.has_animation() {
-        decode_animation(decoder.into_frames().collect_frames().map_err(|error| LcdError::Decode(error.to_string()))?)
+        decode_animation(
+            decoder
+                .into_frames()
+                .collect_frames()
+                .map_err(|error| LcdError::Decode(error.to_string()))?,
+        )
     } else {
         decode_still(path)
     }
@@ -554,7 +611,11 @@ fn decode_animation(frames: Vec<ImageFrame>) -> Result<Vec<DecodedFrame>, LcdErr
         .into_iter()
         .map(|frame| {
             let (numerator, denominator) = frame.delay().numer_denom_ms();
-            let duration_ms = if denominator == 0 { 100 } else { numerator.div_ceil(denominator) };
+            let duration_ms = if denominator == 0 {
+                100
+            } else {
+                numerator.div_ceil(denominator)
+            };
             DecodedFrame {
                 pixels: frame.into_buffer(),
                 duration_ms,
@@ -576,12 +637,17 @@ fn decode_video(path: &Path, preset: VideoPreset) -> Result<Vec<DecodedFrame>, L
             None,
         ),
     };
-    let unique = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos();
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
     let temp = std::env::temp_dir().join(format!("mechkeymesh-lcd-{unique}"));
     fs::create_dir_all(&temp)?;
     let output_pattern = temp.join("frame-%06d.png");
     let mut command = Command::new("ffmpeg");
-    command.args(["-hide_banner", "-loglevel", "error", "-i"]).arg(path);
+    command
+        .args(["-hide_banner", "-loglevel", "error", "-i"])
+        .arg(path);
     if let Some(seconds) = trim_seconds {
         command.args(["-t", &format!("{seconds:.4}")]);
     }
@@ -597,7 +663,9 @@ fn decode_video(path: &Path, preset: VideoPreset) -> Result<Vec<DecodedFrame>, L
         .map_err(|error| LcdError::Ffmpeg(error.to_string()))?;
     if !result.status.success() {
         let _ = fs::remove_dir_all(&temp);
-        return Err(LcdError::Ffmpeg(String::from_utf8_lossy(&result.stderr).trim().to_string()));
+        return Err(LcdError::Ffmpeg(
+            String::from_utf8_lossy(&result.stderr).trim().to_string(),
+        ));
     }
     let mut paths = fs::read_dir(&temp)?
         .filter_map(Result::ok)
@@ -611,7 +679,10 @@ fn decode_video(path: &Path, preset: VideoPreset) -> Result<Vec<DecodedFrame>, L
             .map_err(|error| LcdError::Decode(error.to_string()))?
             .decode()
             .map_err(|error| LcdError::Decode(error.to_string()))?;
-        frames.push(DecodedFrame { pixels: image.to_rgba8(), duration_ms });
+        frames.push(DecodedFrame {
+            pixels: image.to_rgba8(),
+            duration_ms,
+        });
     }
     let _ = fs::remove_dir_all(&temp);
     if frames.is_empty() {
@@ -651,20 +722,34 @@ fn normalize_image(image: DynamicImage, mode: FitMode) -> RgbaImage {
     let (source_width, source_height) = rgba.dimensions();
     match mode {
         FitMode::Fit => {
-            let scale = (WIDTH as f64 / source_width as f64).min(HEIGHT as f64 / source_height as f64);
+            let scale =
+                (WIDTH as f64 / source_width as f64).min(HEIGHT as f64 / source_height as f64);
             let width = (source_width as f64 * scale).round().max(1.0) as u32;
             let height = (source_height as f64 * scale).round().max(1.0) as u32;
             let resized = image::imageops::resize(&rgba, width, height, FilterType::Lanczos3);
             let mut canvas = RgbaImage::from_pixel(WIDTH, HEIGHT, Rgba([0, 0, 0, 255]));
-            image::imageops::overlay(&mut canvas, &resized, i64::from((WIDTH - width) / 2), i64::from((HEIGHT - height) / 2));
+            image::imageops::overlay(
+                &mut canvas,
+                &resized,
+                i64::from((WIDTH - width) / 2),
+                i64::from((HEIGHT - height) / 2),
+            );
             canvas
         }
         FitMode::Fill => {
-            let scale = (WIDTH as f64 / source_width as f64).max(HEIGHT as f64 / source_height as f64);
+            let scale =
+                (WIDTH as f64 / source_width as f64).max(HEIGHT as f64 / source_height as f64);
             let width = (source_width as f64 * scale).round().max(WIDTH as f64) as u32;
             let height = (source_height as f64 * scale).round().max(HEIGHT as f64) as u32;
             let resized = image::imageops::resize(&rgba, width, height, FilterType::Lanczos3);
-            image::imageops::crop_imm(&resized, (width - WIDTH) / 2, (height - HEIGHT) / 2, WIDTH, HEIGHT).to_image()
+            image::imageops::crop_imm(
+                &resized,
+                (width - WIDTH) / 2,
+                (height - HEIGHT) / 2,
+                WIDTH,
+                HEIGHT,
+            )
+            .to_image()
         }
     }
 }
@@ -673,7 +758,10 @@ fn remove_redundant_frames(frames: &mut Vec<DecodedFrame>) {
     let mut index = 1;
     while index < frames.len() {
         if frame_difference(&frames[index - 1].pixels, &frames[index].pixels) < 1.0 {
-            let duration = frames[index - 1].duration_ms.saturating_add(frames[index].duration_ms).min(MAX_DELAY_MS);
+            let duration = frames[index - 1]
+                .duration_ms
+                .saturating_add(frames[index].duration_ms)
+                .min(MAX_DELAY_MS);
             frames[index - 1].duration_ms = normalize_delay(duration);
             frames.remove(index);
         } else {
@@ -688,8 +776,9 @@ fn reduce_motion_aware(frames: &mut Vec<DecodedFrame>) {
             .min_by(|left, right| {
                 let left_score = frame_difference(&frames[*left - 1].pixels, &frames[*left].pixels)
                     + frame_difference(&frames[*left].pixels, &frames[*left + 1].pixels);
-                let right_score = frame_difference(&frames[*right - 1].pixels, &frames[*right].pixels)
-                    + frame_difference(&frames[*right].pixels, &frames[*right + 1].pixels);
+                let right_score =
+                    frame_difference(&frames[*right - 1].pixels, &frames[*right].pixels)
+                        + frame_difference(&frames[*right].pixels, &frames[*right + 1].pixels);
                 left_score.total_cmp(&right_score)
             })
             .unwrap_or(frames.len() - 1);
@@ -762,7 +851,10 @@ mod tests {
         let frames = (0..MAX_FRAMES + 1)
             .map(|index| solid([index as u8, 0, 0, 255], 20))
             .collect();
-        assert!(matches!(LcdProject::new("unsafe", frames), Err(LcdError::TooManyFrames(142))));
+        assert!(matches!(
+            LcdProject::new("unsafe", frames),
+            Err(LcdError::TooManyFrames(142))
+        ));
     }
 
     #[test]
@@ -771,7 +863,10 @@ mod tests {
             .map(|index| solid([index as u8, 0, 0, 255], 20))
             .collect();
         let mut editor = Editor::new(LcdProject::new("safe", frames).unwrap());
-        assert!(matches!(editor.duplicate(0), Err(LcdError::TooManyFrames(142))));
+        assert!(matches!(
+            editor.duplicate(0),
+            Err(LcdError::TooManyFrames(142))
+        ));
         editor.delete(0).unwrap();
         assert_eq!(editor.project().frames.len(), 140);
         assert!(editor.undo());
@@ -807,7 +902,7 @@ mod tests {
             }
             prop_assert!(!planned.is_empty());
             prop_assert!(planned.len() <= MAX_FRAMES);
-            prop_assert!(planned.iter().all(|(_, duration)| (MIN_DELAY_MS..=MAX_DELAY_MS).contains(duration) && duration % 20 == 0));
+            prop_assert!(planned.iter().all(|(_, duration)| (MIN_DELAY_MS..=MAX_DELAY_MS).contains(duration) && duration.is_multiple_of(20)));
         }
     }
 }

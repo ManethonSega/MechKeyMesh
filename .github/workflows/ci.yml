@@ -23,23 +23,8 @@ jobs:
           node --check apps/desktop/frontend/dist/live-rgb.js
           node --check apps/desktop/frontend/dist/music.js
           node --check apps/desktop/frontend/dist/lcd.js
-          node --check apps/desktop/frontend/dist/profiles.js
       - name: Format check
         run: cargo fmt --all -- --check
-      - name: Generate formatting patch
-        if: always()
-        run: |
-          cargo fmt --all
-          git diff > rustfmt.patch
-          cat rustfmt.patch
-      - name: Upload formatting patch
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rustfmt-patch
-          path: rustfmt.patch
-          if-no-files-found: error
-          retention-days: 1
       - name: Core tests
         run: cargo test --workspace --exclude mechkeymesh-desktop
       - name: Clippy

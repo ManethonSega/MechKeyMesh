@@ -1,3 +1,5 @@
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use image::{DynamicImage, ImageFormat};
 use mechkeymesh_audio_engine::{
     AudioOutputDevice, MusicLightingConfig, SpectrumAnalyzer, SpectrumFrame, default_music_config,
     output_devices, render_music, run_loopback_capture,
@@ -27,8 +29,6 @@ use mechkeymesh_lighting_engine::{
     LiveRgbScene, ReactivePulse, RenderInput, default_scene, render as render_live_rgb,
 };
 use mechkeymesh_persistence::{PersistenceStatus, PersistenceStore};
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use image::{DynamicImage, ImageFormat};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 use std::io::Cursor;
@@ -163,7 +163,8 @@ fn import_lcd_media(
     preset: LcdVideoPreset,
     fit: LcdFitMode,
 ) -> Result<LcdEditorState, String> {
-    let project = import_media(&PathBuf::from(path), preset, fit).map_err(|error| error.to_string())?;
+    let project =
+        import_media(&PathBuf::from(path), preset, fit).map_err(|error| error.to_string())?;
     let editor = LcdEditor::new(project);
     let result = lcd_editor_state(&editor);
     *state.lcd.lock().expect("LCD editor lock poisoned") = Some(editor);
@@ -183,7 +184,9 @@ fn get_lcd_editor_state(state: State<'_, AppState>) -> Option<LcdEditorState> {
 #[tauri::command]
 fn get_lcd_frame_preview(state: State<'_, AppState>, index: usize) -> Result<String, String> {
     let guard = state.lcd.lock().expect("LCD editor lock poisoned");
-    let editor = guard.as_ref().ok_or_else(|| "no LCD project is open".to_string())?;
+    let editor = guard
+        .as_ref()
+        .ok_or_else(|| "no LCD project is open".to_string())?;
     let frame = editor
         .project()
         .frames
@@ -193,7 +196,10 @@ fn get_lcd_frame_preview(state: State<'_, AppState>, index: usize) -> Result<Str
     DynamicImage::ImageRgba8(frame.pixels.clone())
         .write_to(&mut png, ImageFormat::Png)
         .map_err(|error| error.to_string())?;
-    Ok(format!("data:image/png;base64,{}", BASE64.encode(png.into_inner())))
+    Ok(format!(
+        "data:image/png;base64,{}",
+        BASE64.encode(png.into_inner())
+    ))
 }
 
 #[tauri::command]
@@ -202,17 +208,25 @@ fn set_lcd_frame_duration(
     index: usize,
     duration_ms: u32,
 ) -> Result<LcdEditorState, String> {
-    edit_lcd(&state, |editor| editor.set_duration(index, duration_ms).map_err(|error| error.to_string()))
+    edit_lcd(&state, |editor| {
+        editor
+            .set_duration(index, duration_ms)
+            .map_err(|error| error.to_string())
+    })
 }
 
 #[tauri::command]
 fn duplicate_lcd_frame(state: State<'_, AppState>, index: usize) -> Result<LcdEditorState, String> {
-    edit_lcd(&state, |editor| editor.duplicate(index).map_err(|error| error.to_string()))
+    edit_lcd(&state, |editor| {
+        editor.duplicate(index).map_err(|error| error.to_string())
+    })
 }
 
 #[tauri::command]
 fn delete_lcd_frame(state: State<'_, AppState>, index: usize) -> Result<LcdEditorState, String> {
-    edit_lcd(&state, |editor| editor.delete(index).map_err(|error| error.to_string()))
+    edit_lcd(&state, |editor| {
+        editor.delete(index).map_err(|error| error.to_string())
+    })
 }
 
 #[tauri::command]
@@ -221,7 +235,9 @@ fn reorder_lcd_frame(
     from: usize,
     to: usize,
 ) -> Result<LcdEditorState, String> {
-    edit_lcd(&state, |editor| editor.reorder(from, to).map_err(|error| error.to_string()))
+    edit_lcd(&state, |editor| {
+        editor.reorder(from, to).map_err(|error| error.to_string())
+    })
 }
 
 #[tauri::command]
@@ -232,8 +248,15 @@ fn draw_lcd_brush(
     radius: u32,
     color: [u8; 4],
 ) -> Result<LcdEditorState, String> {
-    let points = points.into_iter().map(|point| (point.x, point.y)).collect::<Vec<_>>();
-    edit_lcd(&state, |editor| editor.brush(index, &points, radius, color).map_err(|error| error.to_string()))
+    let points = points
+        .into_iter()
+        .map(|point| (point.x, point.y))
+        .collect::<Vec<_>>();
+    edit_lcd(&state, |editor| {
+        editor
+            .brush(index, &points, radius, color)
+            .map_err(|error| error.to_string())
+    })
 }
 
 #[tauri::command]
@@ -243,8 +266,15 @@ fn erase_lcd(
     points: Vec<LcdPoint>,
     radius: u32,
 ) -> Result<LcdEditorState, String> {
-    let points = points.into_iter().map(|point| (point.x, point.y)).collect::<Vec<_>>();
-    edit_lcd(&state, |editor| editor.erase(index, &points, radius).map_err(|error| error.to_string()))
+    let points = points
+        .into_iter()
+        .map(|point| (point.x, point.y))
+        .collect::<Vec<_>>();
+    edit_lcd(&state, |editor| {
+        editor
+            .erase(index, &points, radius)
+            .map_err(|error| error.to_string())
+    })
 }
 
 #[tauri::command]
@@ -257,7 +287,11 @@ fn add_lcd_text(
     scale: u32,
     color: [u8; 4],
 ) -> Result<LcdEditorState, String> {
-    edit_lcd(&state, |editor| editor.text(index, x, y, &text, scale, color).map_err(|error| error.to_string()))
+    edit_lcd(&state, |editor| {
+        editor
+            .text(index, x, y, &text, scale, color)
+            .map_err(|error| error.to_string())
+    })
 }
 
 #[tauri::command]
@@ -267,24 +301,48 @@ fn crop_lcd_frame(
     crop: CropRect,
     fit: LcdFitMode,
 ) -> Result<LcdEditorState, String> {
-    edit_lcd(&state, |editor| editor.crop(index, crop, fit).map_err(|error| error.to_string()))
+    edit_lcd(&state, |editor| {
+        editor
+            .crop(index, crop, fit)
+            .map_err(|error| error.to_string())
+    })
 }
 
 #[tauri::command]
 fn undo_lcd_edit(state: State<'_, AppState>) -> Result<LcdEditorState, String> {
-    edit_lcd(&state, |editor| if editor.undo() { Ok(()) } else { Err("nothing to undo".into()) })
+    edit_lcd(&state, |editor| {
+        if editor.undo() {
+            Ok(())
+        } else {
+            Err("nothing to undo".into())
+        }
+    })
 }
 
 #[tauri::command]
 fn redo_lcd_edit(state: State<'_, AppState>) -> Result<LcdEditorState, String> {
-    edit_lcd(&state, |editor| if editor.redo() { Ok(()) } else { Err("nothing to redo".into()) })
+    edit_lcd(&state, |editor| {
+        if editor.redo() {
+            Ok(())
+        } else {
+            Err("nothing to redo".into())
+        }
+    })
 }
 
 #[tauri::command]
-fn export_lcd_asset(state: State<'_, AppState>, path: String) -> Result<mechkeymesh_lcd_engine::AssetSummary, String> {
+fn export_lcd_asset(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<mechkeymesh_lcd_engine::AssetSummary, String> {
     let guard = state.lcd.lock().expect("LCD editor lock poisoned");
-    let editor = guard.as_ref().ok_or_else(|| "no LCD project is open".to_string())?;
-    let asset = editor.project().compile().map_err(|error| error.to_string())?;
+    let editor = guard
+        .as_ref()
+        .ok_or_else(|| "no LCD project is open".to_string())?;
+    let asset = editor
+        .project()
+        .compile()
+        .map_err(|error| error.to_string())?;
     std::fs::write(path, asset.bytes()).map_err(|error| error.to_string())?;
     Ok(asset.summary())
 }
@@ -294,7 +352,9 @@ fn edit_lcd(
     operation: impl FnOnce(&mut LcdEditor) -> Result<(), String>,
 ) -> Result<LcdEditorState, String> {
     let mut guard = state.lcd.lock().expect("LCD editor lock poisoned");
-    let editor = guard.as_mut().ok_or_else(|| "no LCD project is open".to_string())?;
+    let editor = guard
+        .as_mut()
+        .ok_or_else(|| "no LCD project is open".to_string())?;
     operation(editor)?;
     Ok(lcd_editor_state(editor))
 }
@@ -302,7 +362,12 @@ fn edit_lcd(
 fn lcd_editor_state(editor: &LcdEditor) -> LcdEditorState {
     LcdEditorState {
         project: editor.project().summary(),
-        durations_ms: editor.project().frames.iter().map(|frame| frame.duration_ms).collect(),
+        durations_ms: editor
+            .project()
+            .frames
+            .iter()
+            .map(|frame| frame.duration_ms)
+            .collect(),
         can_undo: editor.can_undo(),
         can_redo: editor.can_redo(),
     }
