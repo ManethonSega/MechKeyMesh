@@ -93,6 +93,7 @@ pub fn classify_backend_error(message: impl Into<String>) -> HidTransportError {
         HidTransportError::Disconnected(message)
     } else if lower.contains("device is busy")
         || lower.contains("resource busy")
+        || lower.contains("sharing violation")
         || lower.contains("being used")
         || lower.contains("cannot access the file because it is being used")
     {

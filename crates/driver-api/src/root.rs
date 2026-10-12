@@ -521,6 +521,7 @@ impl CancellationToken {
 pub struct OperationContext {
     deadline: Instant,
     cancellation: CancellationToken,
+    suspend_guard: Option<Arc<AtomicBool>>,
 }
 
 impl OperationContext {
@@ -532,7 +533,13 @@ impl OperationContext {
         Self {
             deadline: Instant::now() + timeout,
             cancellation,
+            suspend_guard: None,
         }
+    }
+
+    pub fn with_suspend_guard(mut self, guard: Arc<AtomicBool>) -> Self {
+        self.suspend_guard = Some(guard);
+        self
     }
 
     pub fn cancellation_token(&self) -> CancellationToken {
@@ -544,7 +551,12 @@ impl OperationContext {
     }
 
     pub fn check(&self) -> Result<(), DriverError> {
-        if self.cancellation.is_cancelled() {
+        if self.cancellation.is_cancelled()
+            || self
+                .suspend_guard
+                .as_ref()
+                .is_some_and(|guard| guard.load(Ordering::Acquire))
+        {
             return Err(DriverError::Cancelled);
         }
         if Instant::now() >= self.deadline {
@@ -753,6 +765,16 @@ mod tests {
     fn zero_timeout_expires() {
         let context = OperationContext::new(Duration::ZERO);
         assert!(matches!(context.check(), Err(DriverError::Timeout(_))));
+    }
+
+    #[test]
+    fn suspension_gate_cancels_an_already_created_context() {
+        let gate = Arc::new(AtomicBool::new(false));
+        let context =
+            OperationContext::new(Duration::from_secs(1)).with_suspend_guard(gate.clone());
+        assert!(context.check().is_ok());
+        gate.store(true, Ordering::Release);
+        assert!(matches!(context.check(), Err(DriverError::Cancelled)));
     }
 
     #[test]

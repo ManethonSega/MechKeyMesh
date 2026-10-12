@@ -44,8 +44,10 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{Manager, State};
 
+mod background;
 mod foreground;
 mod native_observations;
+mod power;
 mod profiles_runtime;
 
 use profiles_runtime::*;
@@ -63,6 +65,7 @@ struct AppState {
     music: MusicController,
     lcd: Mutex<Option<LcdEditor>>,
     profiles: ProfileController,
+    background: background::BackgroundController,
 }
 
 #[derive(Default)]
@@ -96,6 +99,7 @@ struct ProfileRuntimeStatus {
 
 #[derive(Default)]
 struct LiveRgbController {
+    worker: Mutex<Option<thread::JoinHandle<()>>>,
     stop: Mutex<Option<Arc<AtomicBool>>>,
     pulses: Arc<Mutex<Vec<(String, Instant)>>>,
     last_error: Arc<Mutex<Option<String>>>,
@@ -103,6 +107,7 @@ struct LiveRgbController {
 
 #[derive(Default)]
 struct MusicController {
+    worker: Mutex<Option<thread::JoinHandle<()>>>,
     stop: Mutex<Option<Arc<AtomicBool>>>,
     last_error: Arc<Mutex<Option<String>>>,
     spectrum: Arc<Mutex<SpectrumFrame>>,
@@ -554,6 +559,11 @@ fn start_live_rgb(state: State<'_, AppState>, scene: LiveRgbScene) -> Result<(),
 }
 
 fn start_live_rgb_internal(state: &AppState, scene: LiveRgbScene) -> Result<(), String> {
+    if background::effects_blocked(state) {
+        return Err(
+            "Live effects are paused. Resume them from the tray or Background settings.".into(),
+        );
+    }
     let status = state.manager.status();
     let device = status
         .device
@@ -571,6 +581,9 @@ fn start_live_rgb_internal(state: &AppState, scene: LiveRgbScene) -> Result<(), 
     scene.validate(&layout).map_err(|error| error.to_string())?;
 
     stop_music_controller(state);
+
+    stop_live_rgb_controller(state);
+    settle_effect_workers(state);
 
     let stop = Arc::new(AtomicBool::new(false));
     {
@@ -593,7 +606,7 @@ fn start_live_rgb_internal(state: &AppState, scene: LiveRgbScene) -> Result<(), 
     let manager = state.manager.clone();
     let pulses = state.live_rgb.pulses.clone();
     let last_error = state.live_rgb.last_error.clone();
-    thread::Builder::new()
+    let worker = thread::Builder::new()
         .name("mechkeymesh-live-rgb".into())
         .spawn(move || {
             let started = Instant::now();
@@ -632,6 +645,11 @@ fn start_live_rgb_internal(state: &AppState, scene: LiveRgbScene) -> Result<(), 
             }
         })
         .map_err(|error| format!("failed to start live RGB renderer: {error}"))?;
+    *state
+        .live_rgb
+        .worker
+        .lock()
+        .expect("live RGB worker lock poisoned") = Some(worker);
     Ok(())
 }
 
@@ -667,6 +685,11 @@ fn start_music_lighting_internal(
     state: &AppState,
     config: MusicLightingConfig,
 ) -> Result<(), String> {
+    if background::effects_blocked(state) {
+        return Err(
+            "Live effects are paused. Resume them from the tray or Background settings.".into(),
+        );
+    }
     let status = state.manager.status();
     let device = status.device.ok_or_else(|| {
         "connect the F108 Pro over USB before starting music lighting".to_string()
@@ -686,6 +709,7 @@ fn start_music_lighting_internal(
 
     stop_live_rgb_controller(state);
     stop_music_controller(state);
+    settle_effect_workers(state);
     let stop = Arc::new(AtomicBool::new(false));
     *state.music.stop.lock().expect("music stop lock poisoned") = Some(stop.clone());
     *state
@@ -706,7 +730,7 @@ fn start_music_lighting_internal(
     let latest_spectrum = state.music.spectrum.clone();
     let frames_analyzed = state.music.frames_analyzed.clone();
     let frames_rendered = state.music.frames_rendered.clone();
-    thread::Builder::new()
+    let worker = thread::Builder::new()
         .name("mechkeymesh-music-lighting".into())
         .spawn(move || {
             let (sample_tx, sample_rx) = sync_channel(1);
@@ -765,8 +789,17 @@ fn start_music_lighting_internal(
                 frames_rendered.fetch_add(1, Ordering::Relaxed);
                 last_frame = Instant::now();
             }
+            stop.store(true, Ordering::Release);
+            if let Ok(capture_handle) = capture_handle {
+                let _ = capture_handle.join();
+            }
         })
         .map_err(|error| format!("failed to start music lighting: {error}"))?;
+    *state
+        .music
+        .worker
+        .lock()
+        .expect("music worker lock poisoned") = Some(worker);
     Ok(())
 }
 
@@ -786,6 +819,16 @@ fn stop_music_controller(state: &AppState) {
         .take()
     {
         stop.store(true, Ordering::Release);
+    }
+}
+
+fn settle_effect_workers(state: &AppState) {
+    // A stopped renderer cannot race its replacement or retain a WASAPI capture.
+    // Not called from the Windows power callback, where only cancellation is signalled.
+    for worker in [&state.live_rgb.worker, &state.music.worker] {
+        if let Some(handle) = worker.lock().expect("effect worker lock poisoned").take() {
+            let _ = handle.join();
+        }
     }
 }
 
@@ -1533,6 +1576,14 @@ fn require_active_capability(state: &AppState, capability: Capability) -> Result
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            background::show_main(app)
+        }))
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--minimized"]),
+        ))
+        .on_window_event(background::window_event)
         .setup(|app| {
             let primary_driver: Arc<dyn KeyboardDriver> = Arc::new(AulaF108ProRemapDriver::new());
             let mut registry = DriverRegistry::new();
@@ -1605,6 +1656,24 @@ pub fn run() {
 
             let manager = DeviceManager::start(registry, ManagerConfig::default());
 
+            let background =
+                background::BackgroundController::new(data_dir.join("background.json"));
+            let saved_profile_id = background
+                .preferences
+                .lock()
+                .expect("preferences lock poisoned")
+                .active_profile_id
+                .clone();
+            let initial_profile_id = if persistence
+                .list_profiles(&primary_device_model_id)?
+                .iter()
+                .any(|profile| profile.id == saved_profile_id)
+            {
+                saved_profile_id
+            } else {
+                "default".into()
+            };
+
             app.manage(AppState {
                 manager,
                 persistence,
@@ -1618,16 +1687,22 @@ pub fn run() {
                 music: MusicController::default(),
                 lcd: Mutex::new(None),
                 profiles: ProfileController {
-                    active_profile_id: Mutex::new("default".into()),
+                    active_profile_id: Mutex::new(initial_profile_id),
                     ..ProfileController::default()
                 },
+                background,
             });
+            background::setup(app.handle())?;
+            power::register(app.handle())?;
             monitor_profiles(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             get_status,
             native_observations::get_native_observations,
+            background::get_background_status,
+            background::save_background_preferences,
+            background::pause_background_effects,
             import_lcd_media,
             get_lcd_editor_state,
             select_lcd_media_file,
@@ -1702,6 +1777,9 @@ pub fn run() {
         .run(|app_handle, event| {
             if matches!(event, tauri::RunEvent::Exit) {
                 let state = app_handle.state::<AppState>();
+                state.background.exiting.store(true, Ordering::Release);
+                power::unregister(app_handle);
+                state.manager.cancel_active_operation();
                 if let Some(stop) = state
                     .live_rgb
                     .stop
@@ -1712,6 +1790,7 @@ pub fn run() {
                     stop.store(true, Ordering::Release);
                 }
                 stop_music_controller(&state);
+                settle_effect_workers(&state);
                 state.manager.shutdown();
             }
         });

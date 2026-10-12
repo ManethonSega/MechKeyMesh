@@ -526,7 +526,9 @@ fn map_transport_error(error: HidTransportError) -> DriverError {
         HidTransportError::NotFound => DriverError::NotFound,
         HidTransportError::Disconnected(message) => DriverError::Disconnected(message),
         HidTransportError::PermissionDenied(message) => DriverError::PermissionDenied(message),
-        HidTransportError::Busy(message) => DriverError::Busy(message),
+        HidTransportError::Busy(message) => DriverError::Busy(format!(
+            "Another application appears to be using the keyboard configuration interface. Close the OEM application and reconnect. Details: {message}"
+        )),
         HidTransportError::Timeout(message) => DriverError::Timeout(message),
         HidTransportError::UnsupportedPlatform => DriverError::UnsupportedPlatform,
         HidTransportError::Backend(message) => DriverError::Transport(message),

@@ -19,7 +19,8 @@ const pages = {
   lcd: ["LCD Media", "Safe 240 × 135 RGB565 asset editor with a hard 141-frame limit"],
   profiles: ["Profiles", "Application-aware desired states with subsystem-level diffing"],
   settings: ["Device Settings", "Locks, Fn behavior, sleep and key response"],
-  diagnostics: ["Diagnostics", "Connection, command and recovery log"]
+  diagnostics: ["Diagnostics", "Connection, command and recovery log"],
+  background: ["Background", "Windows tray, startup and live-effect pause controls"]
 };
 
 function showPage(name) {

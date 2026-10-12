@@ -28,6 +28,7 @@ pub enum DeviceState {
     Recovery,
     Ambiguous,
     Unsupported,
+    Suspended,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,6 +98,7 @@ impl Default for DeviceStatus {
 
 #[derive(Debug, Clone)]
 pub struct ManagerConfig {
+    pub suspend_guard: Arc<AtomicBool>,
     pub discovery_timeout: Duration,
     pub discovery_interval: Duration,
     pub open_timeout: Duration,
@@ -112,6 +114,7 @@ pub struct ManagerConfig {
 impl Default for ManagerConfig {
     fn default() -> Self {
         Self {
+            suspend_guard: Arc::new(AtomicBool::new(false)),
             discovery_timeout: Duration::from_secs(2),
             discovery_interval: Duration::from_millis(900),
             open_timeout: Duration::from_secs(2),
@@ -134,6 +137,8 @@ struct ActiveDevice {
 
 enum Command {
     Reconnect,
+    Suspend,
+    Resume,
     SetLighting {
         id: u64,
         config: LightingConfig,
@@ -209,6 +214,7 @@ pub struct DeviceManagerHandle {
     lcd_transfer: Arc<RwLock<LcdTransferStatus>>,
     live_frame: Arc<Mutex<Option<LiveRgbFrame>>>,
     live_telemetry: Arc<LiveRgbTelemetry>,
+    suspended: Arc<AtomicBool>,
 }
 
 impl DeviceManagerHandle {
@@ -229,6 +235,21 @@ impl DeviceManagerHandle {
         let _ = self.tx.send(Command::Reconnect);
     }
 
+    pub fn suspend(&self) {
+        self.suspended.store(true, Ordering::Release);
+        self.cancel_active_operation();
+        self.stop_live_rgb();
+        let _ = self.tx.send(Command::Suspend);
+    }
+
+    pub fn resume(&self) {
+        let _ = self.tx.send(Command::Resume);
+    }
+
+    pub fn is_suspended(&self) -> bool {
+        self.suspended.load(Ordering::Acquire)
+    }
+
     pub fn cancel_active_operation(&self) -> bool {
         let guard = self
             .active_cancellation
@@ -243,6 +264,9 @@ impl DeviceManagerHandle {
     }
 
     pub fn set_lighting(&self, config: LightingConfig) -> Result<(), String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
         let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
         let cancellation = CancellationToken::new();
         let (reply_tx, reply_rx) = mpsc::channel();
@@ -263,6 +287,9 @@ impl DeviceManagerHandle {
         layer: KeymapLayer,
         assignments: Vec<KeyAssignment>,
     ) -> Result<(), String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
         let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
         let cancellation = CancellationToken::new();
         let (reply_tx, reply_rx) = mpsc::channel();
@@ -280,6 +307,9 @@ impl DeviceManagerHandle {
     }
 
     pub fn set_macros(&self, programs: Vec<HardwareMacroProgram>) -> Result<(), String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
         let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
         let cancellation = CancellationToken::new();
         let (reply_tx, reply_rx) = mpsc::channel();
@@ -296,6 +326,9 @@ impl DeviceManagerHandle {
     }
 
     pub fn set_device_settings(&self, settings: DeviceSettings) -> Result<(), String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
         let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
         let cancellation = CancellationToken::new();
         let (reply_tx, reply_rx) = mpsc::channel();
@@ -312,6 +345,9 @@ impl DeviceManagerHandle {
     }
 
     pub fn set_per_key_rgb(&self, config: PerKeyRgbConfig) -> Result<(), String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
         let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
         let cancellation = CancellationToken::new();
         let (reply_tx, reply_rx) = mpsc::channel();
@@ -328,6 +364,9 @@ impl DeviceManagerHandle {
     }
 
     pub fn read_per_key_rgb(&self, led_indices: Vec<u16>) -> Result<PerKeyRgbReadback, String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
         let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
         let cancellation = CancellationToken::new();
         let (reply_tx, reply_rx) = mpsc::channel();
@@ -344,6 +383,9 @@ impl DeviceManagerHandle {
     }
 
     pub fn upload_lcd(&self, upload: LcdUpload) -> Result<(), String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
         let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
         let cancellation = CancellationToken::new();
         let (reply_tx, reply_rx) = mpsc::channel();
@@ -360,6 +402,9 @@ impl DeviceManagerHandle {
     }
 
     pub fn sync_clock(&self, clock: DeviceClock) -> Result<(), String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
         let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
         let cancellation = CancellationToken::new();
         let (reply_tx, reply_rx) = mpsc::channel();
@@ -383,10 +428,18 @@ impl DeviceManagerHandle {
     }
 
     pub fn submit_live_rgb(&self, frame: LiveRgbFrame) -> Result<(), String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
         let status = self.status();
         let Some(device) = status.device else {
             return Err("no supported keyboard is ready".into());
         };
+        // Persistent operations temporarily own the transport. Drop this frame
+        // without terminating its renderer or accumulating a queue.
+        if status.state == DeviceState::Busy {
+            return Ok(());
+        }
         if status.state != DeviceState::Ready || !device.capabilities.contains(&Capability::LiveRgb)
         {
             return Err("live RGB is not available on the active connection".into());
@@ -480,6 +533,7 @@ impl DeviceManager {
         let live_frame = Arc::new(Mutex::new(None));
         let live_telemetry = Arc::new(LiveRgbTelemetry::default());
         let lcd_transfer = Arc::new(RwLock::new(LcdTransferStatus::default()));
+        let suspended = config.suspend_guard.clone();
 
         let handle = DeviceManagerHandle {
             tx,
@@ -493,6 +547,7 @@ impl DeviceManager {
             lcd_transfer: lcd_transfer.clone(),
             live_frame: live_frame.clone(),
             live_telemetry: live_telemetry.clone(),
+            suspended: suspended.clone(),
         };
 
         thread::Builder::new()
@@ -507,6 +562,7 @@ impl DeviceManager {
                     live_frame,
                     live_telemetry,
                     lcd_transfer,
+                    suspended,
                     config,
                 )
             })
@@ -525,6 +581,7 @@ fn worker(
     live_frame: Arc<Mutex<Option<LiveRgbFrame>>>,
     live_telemetry: Arc<LiveRgbTelemetry>,
     lcd_transfer: Arc<RwLock<LcdTransferStatus>>,
+    suspended: Arc<AtomicBool>,
     config: ManagerConfig,
 ) {
     log.push("info", "Device Manager 3.0 started");
@@ -532,7 +589,12 @@ fn worker(
     let mut ever_connected = false;
 
     loop {
-        if active.is_none() {
+        if suspended.load(Ordering::Acquire) {
+            close_active(&mut active, &log);
+            live_frame.lock().expect("live frame lock poisoned").take();
+            live_telemetry.active.store(false, Ordering::Release);
+            set_status(&status, DeviceState::Suspended, None, None, None, 0);
+        } else if active.is_none() {
             active = discover_and_open(&registry, &status, &log, &config, &mut ever_connected);
         }
 
@@ -543,6 +605,18 @@ fn worker(
         };
 
         match rx.recv_timeout(wait) {
+            Ok(Command::Suspend) => {
+                close_active(&mut active, &log);
+                log.push(
+                    "info",
+                    "Windows suspend: I/O cancelled and device handles released",
+                );
+            }
+            Ok(Command::Resume) => {
+                suspended.store(false, Ordering::Release);
+                set_status(&status, DeviceState::Disconnected, None, None, None, 0);
+                log.push("info", "Windows resume: rediscovery requested");
+            }
             Ok(Command::Shutdown) => {
                 close_active(&mut active, &log);
                 log.push("info", "device manager stopped");
@@ -677,6 +751,7 @@ fn worker(
                     &status,
                     &log,
                     &active_cancellation,
+                    &config,
                     config.command_timeout,
                     id,
                     "read stored per-key RGB",
@@ -709,6 +784,7 @@ fn worker(
                     &status,
                     &log,
                     &active_cancellation,
+                    &config,
                     config.lcd_upload_timeout,
                     id,
                     "upload LCD media",
@@ -730,8 +806,8 @@ fn worker(
                         .write()
                         .expect("LCD transfer status lock poisoned");
                     transfer.active = false;
-                    transfer.incomplete =
-                        result.is_err() && transfer.pages_sent < transfer.total_pages;
+                    // Apply can fail after every page was acknowledged, too.
+                    transfer.incomplete = result.is_err();
                     transfer.last_error = result.as_ref().err().cloned();
                 }
                 let _ = reply.send(result);
@@ -822,7 +898,7 @@ fn send_live_frame(
     }
 
     let timeout = config.command_timeout.min(Duration::from_millis(500));
-    let context = OperationContext::new(timeout);
+    let context = OperationContext::new(timeout).with_suspend_guard(config.suspend_guard.clone());
     match device.session.send_live_rgb_frame(&context, frame) {
         Ok(()) => {
             telemetry.sent_frames.fetch_add(1, Ordering::Relaxed);
@@ -868,6 +944,7 @@ where
         status,
         log,
         active_cancellation,
+        config,
         config.command_timeout,
         id,
         name,
@@ -883,6 +960,7 @@ fn execute_operation_with_result<T, F>(
     status: &Arc<RwLock<DeviceStatus>>,
     log: &LogRing,
     active_cancellation: &Arc<Mutex<Option<CancellationToken>>>,
+    config: &ManagerConfig,
     command_timeout: Duration,
     id: u64,
     name: &str,
@@ -926,7 +1004,8 @@ where
     );
     log.push("info", format!("operation {id} started: {name}"));
 
-    let context = OperationContext::with_token(remaining, cancellation);
+    let context = OperationContext::with_token(remaining, cancellation)
+        .with_suspend_guard(config.suspend_guard.clone());
     let result = operation(device.session.as_mut(), &context);
     *active_cancellation
         .lock()
@@ -978,7 +1057,8 @@ fn discover_and_open(
     ever_connected: &mut bool,
 ) -> Option<ActiveDevice> {
     set_status(status, DeviceState::Detecting, None, None, None, 0);
-    let discovery_context = OperationContext::new(config.discovery_timeout);
+    let discovery_context = OperationContext::new(config.discovery_timeout)
+        .with_suspend_guard(config.suspend_guard.clone());
     let report = match registry.discover(&discovery_context) {
         Ok(report) => report,
         Err(error) => {
@@ -1071,7 +1151,8 @@ fn discover_and_open(
     let mut last_error = None;
 
     for attempt in 1..=attempts {
-        let open_context = OperationContext::new(config.open_timeout);
+        let open_context = OperationContext::new(config.open_timeout)
+            .with_suspend_guard(config.suspend_guard.clone());
         match driver.open(&open_context, &candidate) {
             Ok(mut session) => {
                 let descriptor = session.descriptor();
@@ -1083,7 +1164,8 @@ fn discover_and_open(
                     None,
                     1,
                 );
-                let initialization_context = OperationContext::new(config.initialization_timeout);
+                let initialization_context = OperationContext::new(config.initialization_timeout)
+                    .with_suspend_guard(config.suspend_guard.clone());
                 match session.initialize(&initialization_context) {
                     Ok(()) => {
                         let descriptor = session.descriptor();
@@ -1168,7 +1250,8 @@ fn discover_and_open(
 }
 
 fn active_device_present(active: &mut ActiveDevice, log: &LogRing, config: &ManagerConfig) -> bool {
-    let context = OperationContext::new(config.health_timeout);
+    let context = OperationContext::new(config.health_timeout)
+        .with_suspend_guard(config.suspend_guard.clone());
     match active.driver.is_present(&context, &active.candidate) {
         Ok(false) | Err(DriverError::NotFound) | Err(DriverError::Disconnected(_)) => false,
         Ok(true) => match active.session.health_check(&context) {
@@ -1432,6 +1515,7 @@ mod tests {
 
     fn test_config() -> ManagerConfig {
         ManagerConfig {
+            suspend_guard: Arc::new(AtomicBool::new(false)),
             discovery_timeout: Duration::from_millis(100),
             discovery_interval: Duration::from_millis(15),
             open_timeout: Duration::from_millis(100),
@@ -1460,6 +1544,28 @@ mod tests {
             thread::sleep(Duration::from_millis(5));
         }
         panic!("manager did not reach {wanted:?}: {:?}", handle.status());
+    }
+
+    #[test]
+    fn repeated_suspend_resume_blocks_writes_and_reopens() {
+        let driver = Arc::new(FakeDriver::new());
+        let calls = driver.keymap_calls.clone();
+        let handle = start_fake(driver);
+        wait_for_state(&handle, DeviceState::Ready);
+        for _ in 0..20 {
+            handle.suspend();
+            assert!(handle.is_suspended());
+            wait_for_state(&handle, DeviceState::Suspended);
+            let before = calls.load(Ordering::Acquire);
+            assert!(handle.set_keymap(KeymapLayer::Normal, Vec::new()).is_err());
+            thread::sleep(Duration::from_millis(20));
+            assert_eq!(calls.load(Ordering::Acquire), before);
+            assert!(handle.status().device.is_none());
+            handle.resume();
+            wait_for_state(&handle, DeviceState::Ready);
+            assert!(!handle.is_suspended());
+        }
+        handle.shutdown();
     }
 
     #[test]

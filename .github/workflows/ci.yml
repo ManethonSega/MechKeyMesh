@@ -25,6 +25,7 @@ jobs:
           node --check apps/desktop/frontend/dist/lcd.js
           node --check apps/desktop/frontend/dist/profiles.js
           node --check apps/desktop/frontend/dist/native.js
+          node --check apps/desktop/frontend/dist/background.js
       - name: Format check
         run: cargo fmt --all -- --check
       - name: Core tests

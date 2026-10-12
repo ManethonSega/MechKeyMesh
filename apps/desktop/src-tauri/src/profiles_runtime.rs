@@ -196,8 +196,8 @@ pub(crate) fn activate_profile_internal(
             .persistence
             .load_keymap(&scope, layer)
             .map_err(|error| error.to_string())?;
-        let digest = json(&desired)?;
         let assignments = resolve_key_assignments(state, &desired)?;
+        let digest = json(&assignments)?;
         apply_component(
             name,
             digest,
@@ -221,7 +221,7 @@ pub(crate) fn activate_profile_internal(
     {
         apply_component(
             "hardware-rgb",
-            json(&desired)?,
+            json(&desired.config)?,
             Some(Capability::HardwareRgb),
             &capabilities,
             &mut applied,
@@ -239,8 +239,8 @@ pub(crate) fn activate_profile_internal(
         .persistence
         .load_per_key_rgb(&per_key_scope)
         .map_err(|error| error.to_string())?;
-    let per_key_digest = json(&per_key)?;
     let per_key_config = resolve_per_key_rgb(state, &per_key)?;
+    let per_key_digest = json(&per_key_config)?;
     apply_component(
         "per-key-rgb",
         per_key_digest,
@@ -283,6 +283,9 @@ pub(crate) fn activate_profile_internal(
         .active_profile_id
         .lock()
         .expect("active profile lock poisoned") = profile_id.into();
+    if let Err(error) = background::remember_active_profile(state, profile_id) {
+        report.errors.push(format!("profile persistence: {error}"));
+    }
     *state
         .profiles
         .last_report
@@ -298,61 +301,77 @@ fn apply_host_state(
     applied: &mut BTreeMap<String, String>,
     report: &mut ProfileApplyReport,
 ) {
-    let digest = json(host).unwrap_or_default();
-    match host.host_mode.as_str() {
-        "live-rgb" => match host
-            .live_scene_json
-            .as_deref()
-            .ok_or_else(|| "profile has no live RGB scene".to_string())
-            .and_then(|value| {
-                serde_json::from_str::<LiveRgbScene>(value).map_err(|error| error.to_string())
-            }) {
-            Ok(scene) => apply_component(
-                "live-effects",
-                digest.clone(),
-                Some(Capability::LiveRgb),
-                capabilities,
-                applied,
-                report,
-                || start_live_rgb_internal(state, scene),
-            ),
-            Err(error) => report.errors.push(format!("live-effects: {error}")),
-        },
-        "music" => match host
-            .music_config_json
-            .as_deref()
-            .ok_or_else(|| "profile has no music configuration".to_string())
-            .and_then(|value| {
-                serde_json::from_str::<MusicLightingConfig>(value)
-                    .map_err(|error| error.to_string())
-            }) {
-            Ok(config) => apply_component(
-                "music",
-                digest.clone(),
-                Some(Capability::Music),
-                capabilities,
-                applied,
-                report,
-                || start_music_lighting_internal(state, config),
-            ),
-            Err(error) => report.errors.push(format!("music: {error}")),
-        },
-        _ => apply_component(
-            "host-lighting",
-            digest,
-            None,
-            capabilities,
-            applied,
-            report,
-            || {
-                stop_live_rgb_controller(state);
-                stop_music_controller(state);
-                Ok(())
+    let digest = json(&(
+        &host.host_mode,
+        &host.live_scene_json,
+        &host.music_config_json,
+    ))
+    .unwrap_or_default();
+    if background::effects_blocked(state) {
+        applied.remove("host-lighting");
+        report.skipped.push("host-lighting: paused".into());
+    } else {
+        match host.host_mode.as_str() {
+            "live-rgb" => match host
+                .live_scene_json
+                .as_deref()
+                .ok_or_else(|| "profile has no live RGB scene".to_string())
+                .and_then(|value| {
+                    serde_json::from_str::<LiveRgbScene>(value).map_err(|error| error.to_string())
+                }) {
+                Ok(scene) => apply_component(
+                    "host-lighting",
+                    digest.clone(),
+                    Some(Capability::LiveRgb),
+                    capabilities,
+                    applied,
+                    report,
+                    || start_live_rgb_internal(state, scene),
+                ),
+                Err(error) => report.errors.push(format!("live-effects: {error}")),
             },
-        ),
+            "music" => match host
+                .music_config_json
+                .as_deref()
+                .ok_or_else(|| "profile has no music configuration".to_string())
+                .and_then(|value| {
+                    serde_json::from_str::<MusicLightingConfig>(value)
+                        .map_err(|error| error.to_string())
+                }) {
+                Ok(config) => apply_component(
+                    "host-lighting",
+                    digest.clone(),
+                    Some(Capability::Music),
+                    capabilities,
+                    applied,
+                    report,
+                    || start_music_lighting_internal(state, config),
+                ),
+                Err(error) => report.errors.push(format!("music: {error}")),
+            },
+            _ => apply_component(
+                "host-lighting",
+                digest,
+                None,
+                capabilities,
+                applied,
+                report,
+                || {
+                    stop_live_rgb_controller(state);
+                    stop_music_controller(state);
+                    Ok(())
+                },
+            ),
+        }
     }
 
     if let (Some(path), Some(content_hash)) = (&host.lcd_asset_path, &host.lcd_content_hash) {
+        if state.manager.lcd_transfer_status().incomplete {
+            report
+                .skipped
+                .push("lcd-media: previous transfer incomplete; manual re-upload required".into());
+            return;
+        }
         let asset = match std::fs::read(path)
             .map_err(|error| error.to_string())
             .and_then(|bytes| {
@@ -429,6 +448,49 @@ fn apply_component(
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn identical_components_emit_no_second_write_and_failure_does_not_cache() {
+        let mut applied = BTreeMap::new();
+        let mut report = ProfileApplyReport {
+            profile_id: "test".into(),
+            changed: Vec::new(),
+            skipped: Vec::new(),
+            errors: Vec::new(),
+        };
+        let mut writes = 0;
+        for _ in 0..2 {
+            apply_component(
+                "rgb",
+                "same".into(),
+                None,
+                &[],
+                &mut applied,
+                &mut report,
+                || {
+                    writes += 1;
+                    Ok(())
+                },
+            );
+        }
+        assert_eq!(writes, 1);
+        apply_component(
+            "rgb",
+            "new".into(),
+            None,
+            &[],
+            &mut applied,
+            &mut report,
+            || Err("failed".into()),
+        );
+        assert_eq!(applied.get("rgb").map(String::as_str), Some("same"));
+        assert_eq!(report.errors.len(), 1);
+    }
+}
+
 fn active_profile_id(state: &AppState) -> String {
     state
         .profiles
@@ -449,6 +511,21 @@ pub(crate) fn monitor_profiles(app_handle: tauri::AppHandle) {
             loop {
                 thread::sleep(Duration::from_millis(500));
                 let state = app_handle.state::<AppState>();
+                if state.background.exiting.load(Ordering::Acquire) {
+                    break;
+                }
+                if state.background.sleeping.load(Ordering::Acquire) || state.manager.is_suspended()
+                {
+                    continue;
+                }
+                let status = state.manager.status();
+                if status.state != mechkeymesh_core::DeviceState::Ready {
+                    continue;
+                }
+                let resume_pending = state
+                    .background
+                    .resume_pending
+                    .swap(false, Ordering::AcqRel);
                 let device_instance = state
                     .manager
                     .status()
@@ -474,6 +551,16 @@ pub(crate) fn monitor_profiles(app_handle: tauri::AppHandle) {
                         .lock()
                         .expect("profile applied-state lock poisoned")
                         .clear();
+                    let _ = activate_profile_internal(&state, &active_profile_id(&state));
+                }
+
+                if resume_pending && !reconnected {
+                    state
+                        .profiles
+                        .applied
+                        .lock()
+                        .expect("profile applied-state lock poisoned")
+                        .remove("host-lighting");
                     let _ = activate_profile_internal(&state, &active_profile_id(&state));
                 }
 

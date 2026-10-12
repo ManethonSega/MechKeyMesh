@@ -39,8 +39,9 @@
       <button data-page="profiles">Profiles <b>R17</b></button>
       <button data-page="settings" data-requires-capability="device-settings">Device Settings <b>R11</b></button>
       <button data-page="diagnostics">Diagnostics</button>
+      <button data-page="background">Background <b>R19</b></button>
     </nav>
-    <div class="version">v0.18.0-alpha.1 · Profiles</div>
+    <div class="version">v0.20.0-alpha.1 · Background</div>
   </aside>
 
   <main>
@@ -730,6 +731,22 @@
         <pre id="logView">No log entries yet.</pre>
       </div>
     </section>
+    <section id="page-background" class="page">
+      <article class="card">
+        <div class="sectiontitle"><div><span class="eyebrow">WINDOWS INTEGRATION · R19</span><h3>Keep MechKeyMesh in the background</h3></div></div>
+        <div class="settings-stack">
+          <label class="settings-check"><input id="minimizeToTray" type="checkbox" checked /> Closing or minimizing the window keeps the app in the system tray</label>
+          <label class="settings-check"><input id="startMinimized" type="checkbox" /> Open silently in the system tray</label>
+          <label class="settings-check"><input id="startWithWindows" type="checkbox" /> Start with Windows (optional)</label>
+        </div>
+        <p class="muted">Right-click the tray icon to select a profile, pause or resume effects, reconnect, or exit. Left-click it to reopen the window. Selecting a profile in the tray turns automatic switching off until you enable it again.</p>
+        <button id="saveBackgroundPreferences" class="primary" type="button">Save preferences</button>
+        <button id="pauseEffects" class="secondary" type="button">Pause live effects</button>
+        <p id="backgroundRuntime" class="muted">Loading background status...</p>
+        <p id="backgroundMessage" class="muted">Startup with Windows is disabled unless you choose it.</p>
+        <p class="muted">Sleep cancels hardware I/O and stops streams. Wake redetects the keyboard and reconciles the active profile. A cancelled LCD transfer is never silently resumed or applied.</p>
+      </article>
+    </section>
   </main>
 </div>
 <script src="app.js"></script>
@@ -742,5 +759,6 @@
 <script src="lcd.js"></script>
 <script src="profiles.js"></script>
 <script src="native.js"></script>
+<script src="background.js"></script>
 </body>
 </html>
