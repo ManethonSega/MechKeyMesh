@@ -2,14 +2,14 @@ use super::{
     AulaF108ProSession, CONFIG_USAGE_PAGE, DRIVER_ID, PRODUCT_ID, VENDOR_ID, f108pro_layout,
     lighting_effects, map_transport_error, validate_candidate,
 };
-use crate::{macro_bank, per_key_rgb, remap, settings, wireless};
+use crate::{live_rgb, macro_bank, per_key_rgb, remap, settings, wireless};
 use mechkeymesh_driver_api::{
     Capability, Connection, DeviceCandidate, DeviceDescriptor, DeviceMatch, DeviceSession,
     DeviceSettings, DeviceSettingsDescriptor, DriverError, DriverManifest, FnActivationMode,
     FnActivationModeOption, FnLayerDescriptor, HardwareMacroProgram, KeyAssignment, KeyboardDriver,
-    KeymapCapabilities, KeymapLayer, LightingConfig, LightingEffectDescriptor, MacroBankDescriptor,
-    OperationContext, PerKeyRgbCapabilities, PerKeyRgbConfig, PerKeyRgbReadback, TransportKind,
-    TransportRequirement,
+    KeymapCapabilities, KeymapLayer, LightingConfig, LightingEffectDescriptor, LiveRgbFrame,
+    MacroBankDescriptor, OperationContext, PerKeyRgbCapabilities, PerKeyRgbConfig,
+    PerKeyRgbReadback, TransportKind, TransportRequirement,
 };
 use mechkeymesh_hid::{
     FEATURE_REPORT_SIZE, INTERRUPT_REPORT_SIZE, enumerate_feature_devices,
@@ -22,6 +22,7 @@ const USB_CAPABILITIES: &[Capability] = &[
     Capability::Macros,
     Capability::HardwareRgb,
     Capability::PerKeyRgb,
+    Capability::LiveRgb,
     Capability::DeviceSettings,
 ];
 
@@ -53,6 +54,7 @@ impl KeyboardDriver for AulaF108ProRemapDriver {
                 Capability::Macros,
                 Capability::HardwareRgb,
                 Capability::PerKeyRgb,
+                Capability::LiveRgb,
                 Capability::DeviceSettings,
                 Capability::Battery,
             ],
@@ -359,6 +361,19 @@ impl DeviceSession for AulaF108ProRemapSession {
         }
     }
 
+    fn send_live_rgb_frame(
+        &mut self,
+        context: &OperationContext,
+        frame: &LiveRgbFrame,
+    ) -> Result<(), DriverError> {
+        match &mut self.inner {
+            RemapTransportSession::Usb(inner) => live_rgb::send_frame(inner, context, frame),
+            RemapTransportSession::Wireless(_) => {
+                Err(DriverError::UnsupportedCapability("live RGB over 2.4 GHz"))
+            }
+        }
+    }
+
     fn close(&mut self) -> Result<(), DriverError> {
         match &mut self.inner {
             RemapTransportSession::Usb(inner) => inner.close(),
@@ -399,6 +414,7 @@ mod tests {
                 Capability::Macros,
                 Capability::HardwareRgb,
                 Capability::PerKeyRgb,
+                Capability::LiveRgb,
                 Capability::DeviceSettings,
                 Capability::Battery,
             ]

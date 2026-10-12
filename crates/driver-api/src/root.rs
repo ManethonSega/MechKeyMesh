@@ -292,6 +292,20 @@ pub struct PerKeyRgbReadback {
     pub colors: Vec<PerKeyRgbAssignment>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveRgbFrame {
+    pub colors: Vec<PerKeyRgbAssignment>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveRgbCapabilities {
+    pub maximum_frames_per_second: u16,
+    pub maximum_leds: usize,
+    pub transport_buffered_frames: usize,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PerKeyRgbCapabilities {
@@ -589,6 +603,14 @@ pub trait DeviceSession: Send {
         _led_indices: &[u16],
     ) -> Result<PerKeyRgbReadback, DriverError> {
         Err(DriverError::UnsupportedCapability("per-key-rgb-readback"))
+    }
+
+    fn send_live_rgb_frame(
+        &mut self,
+        _context: &OperationContext,
+        _frame: &LiveRgbFrame,
+    ) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("live-rgb"))
     }
 
     fn close(&mut self) -> Result<(), DriverError> {

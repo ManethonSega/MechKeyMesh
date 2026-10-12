@@ -1,0 +1,12 @@
+[package]
+name = "mechkeymesh-lighting-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+mechkeymesh-driver-api = { path = "../driver-api" }
+mechkeymesh-layout = { path = "../layout" }
+serde.workspace = true
+thiserror.workspace = true

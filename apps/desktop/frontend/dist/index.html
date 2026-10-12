@@ -31,12 +31,13 @@
       <button data-page="keys" data-requires-capability="keys">Keys <b>R7</b></button>
       <button data-page="macros" data-requires-capability="macros">Macros <b>R10</b></button>
       <button data-page="lighting" data-requires-any-capability="hardware-rgb,per-key-rgb">Lighting <b>R8</b></button>
+      <button data-page="live-rgb" data-requires-capability="live-rgb">Live RGB <b>R13</b></button>
       <button data-page="lcd" disabled>LCD <b>Soon</b></button>
       <button data-page="profiles" disabled>Profiles <b>Soon</b></button>
       <button data-page="settings" data-requires-capability="device-settings">Device Settings <b>R11</b></button>
       <button data-page="diagnostics">Diagnostics</button>
     </nav>
-    <div class="version">v0.13.0-alpha.1 · USB + 2.4 GHz</div>
+    <div class="version">v0.14.0-alpha.1 · Live RGB</div>
   </aside>
 
   <main>
@@ -440,6 +441,51 @@
       </article>
     </section>
 
+    <section id="page-live-rgb" class="page">
+      <article class="card live-rgb-card">
+        <div class="sectiontitle">
+          <div>
+            <span class="eyebrow">HOST-GENERATED LIGHTING</span>
+            <h3>Layered live RGB</h3>
+            <p class="muted">Frames use the volatile <code>04 20</code> preview path. Stored keyboard lighting is not rewritten.</p>
+          </div>
+          <span id="liveRgbRunState" class="verification pending">Stopped</span>
+        </div>
+
+        <div class="live-rgb-toolbar">
+          <label>Scene name<input id="liveRgbSceneName" type="text" value="Live gradient" /></label>
+          <label>Frame rate
+            <select id="liveRgbFps"><option>15</option><option>20</option><option selected>30</option></select>
+          </label>
+          <label>Master brightness
+            <input id="liveRgbBrightness" type="range" min="0" max="100" value="80" />
+            <output id="liveRgbBrightnessOut">80%</output>
+          </label>
+          <button id="addLiveRgbLayer" class="secondary" type="button">Add layer</button>
+        </div>
+
+        <div class="live-rgb-column-labels muted">
+          <span>Layer and type</span><span>Effect and blend</span><span>Colors and motion</span><span>Selection / mask</span><span>Order</span>
+        </div>
+        <div id="liveRgbLayers" class="live-rgb-layers"></div>
+
+        <div class="live-rgb-preview">
+          <label>Reactive preview key<select id="liveRgbPreviewKey"></select></label>
+          <button id="previewLiveRgbKey" class="secondary" type="button">Trigger key</button>
+          <span class="muted">Exercises highlight, ripple, and trail layers without installing a keyboard hook.</span>
+        </div>
+
+        <div class="live-rgb-footer">
+          <div>
+            <strong id="liveRgbTransportSummary">Bounded queue · 0 sent · 0 coalesced</strong>
+            <p id="liveRgbStatus" class="muted">Loading live RGB engine...</p>
+          </div>
+          <button id="stopLiveRgb" class="secondary" type="button">Stop</button>
+          <button id="startLiveRgb" class="primary" type="button">Start live RGB</button>
+        </div>
+      </article>
+    </section>
+
     <section id="page-settings" class="page">
       <div class="settings-grid">
         <article class="card">
@@ -499,5 +545,6 @@
 <script src="perkey.js"></script>
 <script src="macros.js"></script>
 <script src="settings.js"></script>
+<script src="live-rgb.js"></script>
 </body>
 </html>

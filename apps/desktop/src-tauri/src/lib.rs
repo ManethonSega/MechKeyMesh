@@ -3,20 +3,30 @@ use mechkeymesh_config::{
     KeyMapping, MacroEvent, MacroMouseButton, MacroPlayback, MacroProgram, MacroSimulation,
 };
 use mechkeymesh_core::{
-    DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LogEntry, ManagerConfig,
+    DeviceManager, DeviceManagerHandle, DeviceStatus, DriverRegistry, LiveRgbTransportStatus,
+    LogEntry, ManagerConfig,
 };
 use mechkeymesh_driver_api::{
     Capability, DeviceSettings, DeviceSettingsDescriptor, DriverManifest, FnLayerDescriptor,
     HardwareMacroEvent, HardwareMacroMouseButton, HardwareMacroProgram, KeyAssignment,
     KeyboardDriver, KeymapCapabilities, KeymapLayer, LightingConfig, LightingEffectDescriptor,
-    MacroBankDescriptor, PerKeyRgbAssignment, PerKeyRgbCapabilities, PerKeyRgbConfig, RgbColor,
+    LiveRgbCapabilities, MacroBankDescriptor, PerKeyRgbAssignment, PerKeyRgbCapabilities,
+    PerKeyRgbConfig, RgbColor,
 };
 use mechkeymesh_driver_aula_f108pro::AulaF108ProRemapDriver;
 use mechkeymesh_layout::{KeyAction, Layout, LayoutRegistry};
+use mechkeymesh_lighting_engine::{
+    LiveRgbScene, ReactivePulse, RenderInput, default_scene, render as render_live_rgb,
+};
 use mechkeymesh_persistence::{PersistenceStatus, PersistenceStore};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashSet};
-use std::sync::Arc;
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
+use std::thread;
+use std::time::{Duration, Instant};
 use tauri::{Manager, State};
 
 struct AppState {
@@ -28,6 +38,22 @@ struct AppState {
     lighting_effects: Vec<LightingEffectDescriptor>,
     primary_device_model_id: String,
     primary_layout_id: String,
+    live_rgb: LiveRgbController,
+}
+
+#[derive(Default)]
+struct LiveRgbController {
+    stop: Mutex<Option<Arc<AtomicBool>>>,
+    pulses: Arc<Mutex<Vec<(String, Instant)>>>,
+    last_error: Arc<Mutex<Option<String>>>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LiveRgbRuntimeStatus {
+    running: bool,
+    last_error: Option<String>,
+    transport: LiveRgbTransportStatus,
 }
 
 #[derive(Debug, Serialize)]
@@ -82,6 +108,155 @@ struct DeviceSettingsApplyResult {
 #[tauri::command]
 fn get_status(state: State<'_, AppState>) -> DeviceStatus {
     state.manager.status()
+}
+
+#[tauri::command]
+fn get_live_rgb_defaults() -> LiveRgbScene {
+    default_scene()
+}
+
+#[tauri::command]
+fn get_live_rgb_capabilities() -> LiveRgbCapabilities {
+    LiveRgbCapabilities {
+        maximum_frames_per_second: 30,
+        maximum_leds: 112,
+        transport_buffered_frames: 1,
+    }
+}
+
+#[tauri::command]
+fn get_live_rgb_status(state: State<'_, AppState>) -> LiveRgbRuntimeStatus {
+    let running = state
+        .live_rgb
+        .stop
+        .lock()
+        .expect("live RGB stop lock poisoned")
+        .as_ref()
+        .is_some_and(|stop| !stop.load(Ordering::Acquire));
+    LiveRgbRuntimeStatus {
+        running,
+        last_error: state
+            .live_rgb
+            .last_error
+            .lock()
+            .expect("live RGB error lock poisoned")
+            .clone(),
+        transport: state.manager.live_rgb_status(),
+    }
+}
+
+#[tauri::command]
+fn start_live_rgb(state: State<'_, AppState>, scene: LiveRgbScene) -> Result<(), String> {
+    let status = state.manager.status();
+    let device = status
+        .device
+        .ok_or_else(|| "connect the F108 Pro over USB before starting live RGB".to_string())?;
+    if !device.capabilities.contains(&Capability::LiveRgb) {
+        return Err("live RGB is unavailable on the active connection".into());
+    }
+
+    let layout_id = active_layout_id(&state)?;
+    let layout = state
+        .layouts
+        .get(&layout_id)
+        .cloned()
+        .ok_or_else(|| format!("active layout {layout_id} is unavailable"))?;
+    scene.validate(&layout).map_err(|error| error.to_string())?;
+
+    let stop = Arc::new(AtomicBool::new(false));
+    {
+        let mut current = state
+            .live_rgb
+            .stop
+            .lock()
+            .expect("live RGB stop lock poisoned");
+        if let Some(previous) = current.replace(stop.clone()) {
+            previous.store(true, Ordering::Release);
+        }
+    }
+    state.manager.stop_live_rgb();
+    *state
+        .live_rgb
+        .last_error
+        .lock()
+        .expect("live RGB error lock poisoned") = None;
+
+    let manager = state.manager.clone();
+    let pulses = state.live_rgb.pulses.clone();
+    let last_error = state.live_rgb.last_error.clone();
+    thread::Builder::new()
+        .name("mechkeymesh-live-rgb".into())
+        .spawn(move || {
+            let started = Instant::now();
+            let frame_period = Duration::from_secs_f64(1.0 / f64::from(scene.frames_per_second));
+            while !stop.load(Ordering::Acquire) {
+                let frame_started = Instant::now();
+                let reactive_pulses = {
+                    let mut pulses = pulses.lock().expect("live RGB pulse lock poisoned");
+                    pulses.retain(|(_, instant)| instant.elapsed() <= Duration::from_millis(1500));
+                    pulses
+                        .iter()
+                        .map(|(key_id, instant)| ReactivePulse {
+                            key_id: key_id.clone(),
+                            age_seconds: instant.elapsed().as_secs_f32(),
+                        })
+                        .collect()
+                };
+                let input = RenderInput {
+                    elapsed_seconds: started.elapsed().as_secs_f32(),
+                    reactive_pulses,
+                    ..RenderInput::default()
+                };
+                let result = render_live_rgb(&scene, &layout, &input)
+                    .map_err(|error| error.to_string())
+                    .and_then(|frame| manager.submit_live_rgb(frame));
+                if let Err(error) = result {
+                    *last_error.lock().expect("live RGB error lock poisoned") = Some(error);
+                    stop.store(true, Ordering::Release);
+                    manager.stop_live_rgb();
+                    break;
+                }
+                let remaining = frame_period.saturating_sub(frame_started.elapsed());
+                if !remaining.is_zero() {
+                    thread::sleep(remaining);
+                }
+            }
+        })
+        .map_err(|error| format!("failed to start live RGB renderer: {error}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn stop_live_rgb(state: State<'_, AppState>) {
+    if let Some(stop) = state
+        .live_rgb
+        .stop
+        .lock()
+        .expect("live RGB stop lock poisoned")
+        .take()
+    {
+        stop.store(true, Ordering::Release);
+    }
+    state.manager.stop_live_rgb();
+}
+
+#[tauri::command]
+fn preview_live_rgb_key(state: State<'_, AppState>, key_id: String) -> Result<(), String> {
+    let layout_id = active_layout_id(&state)?;
+    let layout = state
+        .layouts
+        .get(&layout_id)
+        .ok_or_else(|| format!("active layout {layout_id} is unavailable"))?;
+    if layout.key(&key_id).is_none() {
+        return Err(format!("layout has no key {key_id}"));
+    }
+    state
+        .live_rgb
+        .pulses
+        .lock()
+        .expect("live RGB pulse lock poisoned")
+        .push((key_id, Instant::now()));
+    Ok(())
 }
 
 #[tauri::command]
@@ -836,11 +1011,18 @@ pub fn run() {
                 lighting_effects,
                 primary_device_model_id,
                 primary_layout_id,
+                live_rgb: LiveRgbController::default(),
             });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             get_status,
+            get_live_rgb_defaults,
+            get_live_rgb_capabilities,
+            get_live_rgb_status,
+            start_live_rgb,
+            stop_live_rgb,
+            preview_live_rgb_key,
             get_logs,
             get_driver_registry,
             get_persistence_status,
@@ -874,7 +1056,17 @@ pub fn run() {
         .expect("error while building MechKeyMesh")
         .run(|app_handle, event| {
             if matches!(event, tauri::RunEvent::Exit) {
-                app_handle.state::<AppState>().manager.shutdown();
+                let state = app_handle.state::<AppState>();
+                if let Some(stop) = state
+                    .live_rgb
+                    .stop
+                    .lock()
+                    .expect("live RGB stop lock poisoned")
+                    .take()
+                {
+                    stop.store(true, Ordering::Release);
+                }
+                state.manager.shutdown();
             }
         });
 }

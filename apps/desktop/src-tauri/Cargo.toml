@@ -22,6 +22,7 @@ mechkeymesh-core = { path = "../../../crates/core" }
 mechkeymesh-driver-api = { path = "../../../crates/driver-api" }
 mechkeymesh-driver-aula-f108pro = { path = "../../../drivers/aula-f108pro" }
 mechkeymesh-layout = { path = "../../../crates/layout" }
+mechkeymesh-lighting-engine = { path = "../../../crates/lighting-engine" }
 mechkeymesh-persistence = { path = "../../../crates/persistence" }
 serde.workspace = true
 tauri = { version = "2.12.0", features = [] }

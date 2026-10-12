@@ -1,14 +1,15 @@
 use crate::{DriverRegistry, LogEntry, LogRing};
 use mechkeymesh_driver_api::{
-    CancellationToken, DeviceCandidate, DeviceDescriptor, DeviceSession, DeviceSettings,
-    DriverError, DriverManifest, ErrorClass, HardwareMacroProgram, KeyAssignment, KeyboardDriver,
-    KeymapLayer, LightingConfig, OperationContext, PerKeyRgbConfig, PerKeyRgbReadback,
+    CancellationToken, Capability, DeviceCandidate, DeviceDescriptor, DeviceSession,
+    DeviceSettings, DriverError, DriverManifest, ErrorClass, HardwareMacroProgram, KeyAssignment,
+    KeyboardDriver, KeymapLayer, LightingConfig, LiveRgbFrame, OperationContext, PerKeyRgbConfig,
+    PerKeyRgbReadback,
 };
 use serde::{Deserialize, Serialize};
 use std::{
     sync::{
         Arc, Mutex, RwLock,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc::{self, Receiver, RecvTimeoutError, Sender},
     },
     thread,
@@ -48,6 +49,26 @@ pub struct DeviceStatus {
     pub active_operation: Option<ActiveOperation>,
     pub candidate_count: usize,
     pub reconnect_count: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveRgbTransportStatus {
+    pub active: bool,
+    pub submitted_frames: u64,
+    pub sent_frames: u64,
+    pub coalesced_frames: u64,
+    pub failed_frames: u64,
+    pub buffered_frames: usize,
+}
+
+#[derive(Default)]
+struct LiveRgbTelemetry {
+    active: AtomicBool,
+    submitted_frames: AtomicU64,
+    sent_frames: AtomicU64,
+    coalesced_frames: AtomicU64,
+    failed_frames: AtomicU64,
 }
 
 impl Default for DeviceStatus {
@@ -144,6 +165,8 @@ enum Command {
         cancellation: CancellationToken,
         reply: Sender<Result<PerKeyRgbReadback, String>>,
     },
+    LiveFrameReady,
+    StopLiveRgb,
     Shutdown,
 }
 
@@ -156,6 +179,8 @@ pub struct DeviceManagerHandle {
     active_cancellation: Arc<Mutex<Option<CancellationToken>>>,
     next_operation_id: Arc<AtomicU64>,
     command_timeout: Duration,
+    live_frame: Arc<Mutex<Option<LiveRgbFrame>>>,
+    live_telemetry: Arc<LiveRgbTelemetry>,
 }
 
 impl DeviceManagerHandle {
@@ -290,6 +315,79 @@ impl DeviceManagerHandle {
         wait_for_reply(reply_rx, cancellation, self.command_timeout)
     }
 
+    pub fn submit_live_rgb(&self, frame: LiveRgbFrame) -> Result<(), String> {
+        let status = self.status();
+        let Some(device) = status.device else {
+            return Err("no supported keyboard is ready".into());
+        };
+        if status.state != DeviceState::Ready
+            || !device.capabilities.contains(&Capability::LiveRgb)
+        {
+            return Err("live RGB is not available on the active connection".into());
+        }
+
+        self.live_telemetry
+            .submitted_frames
+            .fetch_add(1, Ordering::Relaxed);
+        self.live_telemetry.active.store(true, Ordering::Release);
+        let mut slot = self.live_frame.lock().expect("live frame lock poisoned");
+        let signal = slot.is_none();
+        if !signal {
+            self.live_telemetry
+                .coalesced_frames
+                .fetch_add(1, Ordering::Relaxed);
+        }
+        *slot = Some(frame);
+        drop(slot);
+
+        if signal && self.tx.send(Command::LiveFrameReady).is_err() {
+            self.live_frame
+                .lock()
+                .expect("live frame lock poisoned")
+                .take();
+            return Err("device manager is not running".into());
+        }
+        Ok(())
+    }
+
+    pub fn stop_live_rgb(&self) {
+        self.live_telemetry.active.store(false, Ordering::Release);
+        self.live_frame
+            .lock()
+            .expect("live frame lock poisoned")
+            .take();
+        let _ = self.tx.send(Command::StopLiveRgb);
+    }
+
+    pub fn live_rgb_status(&self) -> LiveRgbTransportStatus {
+        LiveRgbTransportStatus {
+            active: self.live_telemetry.active.load(Ordering::Acquire),
+            submitted_frames: self
+                .live_telemetry
+                .submitted_frames
+                .load(Ordering::Relaxed),
+            sent_frames: self.live_telemetry.sent_frames.load(Ordering::Relaxed),
+            coalesced_frames: self
+                .live_telemetry
+                .coalesced_frames
+                .load(Ordering::Relaxed),
+            failed_frames: self
+                .live_telemetry
+                .failed_frames
+                .load(Ordering::Relaxed),
+            buffered_frames: if self
+                .live_frame
+                .lock()
+                .expect("live frame lock poisoned")
+                .is_some()
+            {
+                1
+            } else {
+                0
+            },
+        }
+    }
+
     pub fn shutdown(&self) {
         self.cancel_active_operation();
         let _ = self.tx.send(Command::Shutdown);
@@ -322,6 +420,8 @@ impl DeviceManager {
         let status = Arc::new(RwLock::new(DeviceStatus::default()));
         let log = LogRing::new(600);
         let active_cancellation = Arc::new(Mutex::new(None));
+        let live_frame = Arc::new(Mutex::new(None));
+        let live_telemetry = Arc::new(LiveRgbTelemetry::default());
 
         let handle = DeviceManagerHandle {
             tx,
@@ -331,11 +431,24 @@ impl DeviceManager {
             active_cancellation: active_cancellation.clone(),
             next_operation_id: Arc::new(AtomicU64::new(1)),
             command_timeout: config.command_timeout,
+            live_frame: live_frame.clone(),
+            live_telemetry: live_telemetry.clone(),
         };
 
         thread::Builder::new()
             .name("mechkeymesh-device-manager".into())
-            .spawn(move || worker(rx, status, log, registry, active_cancellation, config))
+            .spawn(move || {
+                worker(
+                    rx,
+                    status,
+                    log,
+                    registry,
+                    active_cancellation,
+                    live_frame,
+                    live_telemetry,
+                    config,
+                )
+            })
             .expect("failed to start device manager");
         handle
     }
@@ -347,6 +460,8 @@ fn worker(
     log: LogRing,
     registry: DriverRegistry,
     active_cancellation: Arc<Mutex<Option<CancellationToken>>>,
+    live_frame: Arc<Mutex<Option<LiveRgbFrame>>>,
+    live_telemetry: Arc<LiveRgbTelemetry>,
     config: ManagerConfig,
 ) {
     log.push("info", "Device Manager 3.0 started");
@@ -371,6 +486,8 @@ fn worker(
                 return;
             }
             Ok(Command::Reconnect) => {
+                live_telemetry.active.store(false, Ordering::Release);
+                live_frame.lock().expect("live frame lock poisoned").take();
                 close_active(&mut active, &log);
                 set_status(&status, DeviceState::Disconnected, None, None, None, 0);
                 log.push("info", "manual reconnect requested");
@@ -506,6 +623,27 @@ fn worker(
                 );
                 let _ = reply.send(result);
             }
+            Ok(Command::LiveFrameReady) => {
+                if !live_telemetry.active.load(Ordering::Acquire) {
+                    live_frame.lock().expect("live frame lock poisoned").take();
+                    continue;
+                }
+                let frame = live_frame.lock().expect("live frame lock poisoned").take();
+                if let Some(frame) = frame {
+                    send_live_frame(
+                        &mut active,
+                        &status,
+                        &log,
+                        &live_telemetry,
+                        &config,
+                        &frame,
+                    );
+                }
+            }
+            Ok(Command::StopLiveRgb) => {
+                live_frame.lock().expect("live frame lock poisoned").take();
+                live_telemetry.active.store(false, Ordering::Release);
+            }
             Err(RecvTimeoutError::Timeout) => {
                 if let Some(device) = active.as_mut() {
                     if !active_device_present(device, &log, &config) {
@@ -528,6 +666,55 @@ fn worker(
             Err(RecvTimeoutError::Disconnected) => {
                 close_active(&mut active, &log);
                 return;
+            }
+        }
+    }
+}
+
+fn send_live_frame(
+    active: &mut Option<ActiveDevice>,
+    status: &Arc<RwLock<DeviceStatus>>,
+    log: &LogRing,
+    telemetry: &LiveRgbTelemetry,
+    config: &ManagerConfig,
+    frame: &LiveRgbFrame,
+) {
+    let Some(device) = active.as_mut() else {
+        telemetry.failed_frames.fetch_add(1, Ordering::Relaxed);
+        return;
+    };
+    if !device
+        .session
+        .descriptor()
+        .capabilities
+        .contains(&Capability::LiveRgb)
+    {
+        telemetry.failed_frames.fetch_add(1, Ordering::Relaxed);
+        telemetry.active.store(false, Ordering::Release);
+        return;
+    }
+
+    let timeout = config.command_timeout.min(Duration::from_millis(500));
+    let context = OperationContext::new(timeout);
+    match device.session.send_live_rgb_frame(&context, frame) {
+        Ok(()) => {
+            telemetry.sent_frames.fetch_add(1, Ordering::Relaxed);
+        }
+        Err(error) => {
+            telemetry.failed_frames.fetch_add(1, Ordering::Relaxed);
+            log.push("warning", format!("live RGB frame failed: {error}"));
+            if error.requires_recovery() {
+                telemetry.active.store(false, Ordering::Release);
+                let descriptor = device.session.descriptor();
+                set_status(
+                    status,
+                    DeviceState::Recovery,
+                    Some(descriptor),
+                    Some((error.class(), error.to_string())),
+                    None,
+                    0,
+                );
+                close_active(active, log);
             }
         }
     }
