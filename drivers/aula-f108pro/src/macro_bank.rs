@@ -206,11 +206,15 @@ fn validate_payload_readback(
     if first == Some(response.as_slice()) || last == Some(response.as_slice()) {
         return Ok(());
     }
-    validate_ack(response).map_err(|error| {
-        DriverError::Protocol(format!(
-            "macro payload readback did not match the transmitted first/last report: {error}"
-        ))
-    })
+    if validate_ack(response).is_ok() {
+        return Ok(());
+    }
+    Err(DriverError::Protocol(format!(
+        "macro payload readback did not match ACK or transmitted first/last report; received {:02X?}; first {:02X?}; last {:02X?}",
+        response,
+        first.unwrap_or(&[]),
+        last.unwrap_or(&[]),
+    )))
 }
 
 fn validate_event(
