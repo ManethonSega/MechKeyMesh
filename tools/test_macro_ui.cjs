@@ -7,7 +7,8 @@ async function runChecks(page, frontend, section) {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.setContent('<html data-theme="dark"><body>' + section + '</body></html>');
-    await page.addStyleTag({ content: fs.readFileSync(path.join(frontend, 'app.css'), 'utf8') + fs.readFileSync(path.join(frontend, 'macros.css'), 'utf8') + '.page {display:block!important}' });
+    const stylesheetPaths = [...fs.readFileSync(path.join(frontend, 'index.html'), 'utf8').matchAll(/href="([^"]+\.css)"/g)].map(match => match[1]);
+    await page.addStyleTag({ content: stylesheetPaths.map(name => fs.readFileSync(path.join(frontend, name), 'utf8')).join('\n') + '.page {display:block!important}' });
     await page.evaluate(() => {
       window.saved = [];
       window.calls = [];
@@ -62,6 +63,13 @@ async function runChecks(page, frontend, section) {
     await page.evaluate(() => macroLoadLibrary());
     assert.equal(await page.evaluate(() => window.saved.length), 3);
     assert.equal(await page.locator('#macroLibrary option:not(:disabled)').count(), 3);
+    if (page.locator('#deleteMacro').boundingBox) {
+      const panel = await page.locator('.macro-library').boundingBox();
+      for (const id of ['newMacro', 'duplicateMacro', 'deleteMacro']) {
+        const button = await page.locator('#' + id).boundingBox();
+        assert(button.x >= panel.x && button.x + button.width <= panel.x + panel.width);
+      }
+    }
     assert.deepEqual(errors, []);
     if (process.env.MACRO_UI_SCREENSHOT) await page.screenshot({ path: process.env.MACRO_UI_SCREENSHOT, fullPage: true });
     console.log('Macro UI: create, save, copy, select, delete, reload and editing during a pending/failed hardware upload passed.');

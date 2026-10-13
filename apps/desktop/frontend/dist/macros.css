@@ -31,6 +31,8 @@
   margin-top: 12px;
 }
 
+.macro-library-actions { flex-wrap: wrap; }
+
 .macro-meta {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) minmax(150px, .45fr) auto;
