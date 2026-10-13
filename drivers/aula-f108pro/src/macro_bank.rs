@@ -189,8 +189,28 @@ fn send_payload(
         .transport
         .get_feature_report()
         .map_err(map_transport_error)?;
-    validate_ack(&response)?;
+    validate_payload_readback(payload, &response)?;
     context.sleep(COMMAND_DELAY)
+}
+
+fn validate_payload_readback(
+    payload: &[u8],
+    response: &[u8; FEATURE_REPORT_SIZE],
+) -> Result<(), DriverError> {
+    // Data readback is not a command status byte. The user's payload
+    // readback starts FF FF FF FF, consistent with unused directory slots. Accept
+    // an exact first/last report echo, not an arbitrary FF response. The final
+    // 04 02 command must still produce its normal ACK before completion.
+    let first = payload.get(..FEATURE_REPORT_SIZE);
+    let last = payload.get(payload.len().saturating_sub(FEATURE_REPORT_SIZE)..);
+    if first == Some(response.as_slice()) || last == Some(response.as_slice()) {
+        return Ok(());
+    }
+    validate_ack(response).map_err(|error| {
+        DriverError::Protocol(format!(
+            "macro payload readback did not match the transmitted first/last report: {error}"
+        ))
+    })
 }
 
 fn validate_event(
@@ -258,6 +278,174 @@ fn invalid<T>(message: String) -> Result<T, DriverError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mechkeymesh_driver_api::{Connection, DeviceCandidate, DeviceSession, LightingConfig};
+    use mechkeymesh_hid::{FeatureTransport, HidTransportError};
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+
+    struct FirmwareState {
+        reports: Vec<[u8; FEATURE_REPORT_SIZE]>,
+        payload: Vec<[u8; FEATURE_REPORT_SIZE]>,
+        remaining: usize,
+        pending: bool,
+        next_reply: [u8; FEATURE_REPORT_SIZE],
+    }
+
+    struct MacroTransport {
+        state: Arc<Mutex<FirmwareState>>,
+        corrupt_payload: bool,
+        reject_apply: bool,
+    }
+
+    impl FeatureTransport for MacroTransport {
+        fn set_feature_report(
+            &self,
+            report: &[u8; FEATURE_REPORT_SIZE],
+        ) -> Result<(), HidTransportError> {
+            let mut state = self.state.lock().unwrap();
+            state.reports.push(*report);
+            if state.remaining > 0 {
+                state.payload.push(*report);
+                state.remaining -= 1;
+                state.pending = true;
+                state.next_reply = state.payload[0];
+                if self.corrupt_payload {
+                    state.next_reply[0] ^= 0x80;
+                }
+            } else {
+                state.next_reply = *report;
+                state.next_reply[3] = 1;
+                match report[..2] {
+                    [4, DATA_HEADER_COMMAND] => {
+                        state.remaining = usize::from(report[8]);
+                        state.payload.clear();
+                    }
+                    [4, APPLY_COMMAND] => {
+                        if self.reject_apply {
+                            state.next_reply[3] = 0xff;
+                        } else {
+                            state.pending = false;
+                        }
+                    }
+                    [4, 0x18] if state.pending => state.next_reply[3] = 0xff,
+                    _ => {}
+                }
+            }
+            Ok(())
+        }
+
+        fn get_feature_report(&self) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
+            Ok(self.state.lock().unwrap().next_reply)
+        }
+    }
+
+    fn session(
+        corrupt_payload: bool,
+        reject_apply: bool,
+    ) -> (AulaF108ProSession, Arc<Mutex<FirmwareState>>) {
+        let state = Arc::new(Mutex::new(FirmwareState {
+            reports: Vec::new(),
+            payload: Vec::new(),
+            remaining: 0,
+            pending: false,
+            next_reply: [0; FEATURE_REPORT_SIZE],
+        }));
+        let session = AulaF108ProSession {
+            candidate: DeviceCandidate {
+                driver_id: super::super::DRIVER_ID.into(),
+                instance_id: "test-macros".into(),
+                name: "AULA F108 Pro".into(),
+                connection: Connection::Usb,
+                vendor_id: Some(super::super::VENDOR_ID),
+                product_id: Some(super::super::PRODUCT_ID),
+                usage_page: Some(super::super::CONFIG_USAGE_PAGE),
+                interface_number: Some(3),
+                serial_number: None,
+            },
+            transport: Box::new(MacroTransport {
+                state: Arc::clone(&state),
+                corrupt_payload,
+                reject_apply,
+            }),
+            lcd_transport: None,
+        };
+        (session, state)
+    }
+
+    #[test]
+    fn ff_directory_echo_reaches_apply_and_leaves_next_transaction_ready() {
+        let (mut session, state) = session(false, false);
+        let context = OperationContext::new(Duration::from_secs(3));
+        send_bank(&mut session, &context, &[]).unwrap();
+        assert!(!state.lock().unwrap().pending);
+        session
+            .set_lighting(
+                &context,
+                LightingConfig {
+                    mode: 1,
+                    r: 255,
+                    g: 0,
+                    b: 0,
+                    brightness: 5,
+                    speed: 0,
+                    direction: 0,
+                    colorful: false,
+                },
+            )
+            .unwrap();
+        let state = state.lock().unwrap();
+        assert_eq!(state.payload[0], [0xff; FEATURE_REPORT_SIZE]);
+        assert!(state.reports.iter().any(|r| r[..2] == [4, APPLY_COMMAND]));
+    }
+
+    #[test]
+    fn mismatched_payload_stops_before_apply_and_ff_begin_still_fails() {
+        let (mut session, state) = session(true, false);
+        let context = OperationContext::new(Duration::from_secs(3));
+        let error = send_bank(&mut session, &context, &[]).unwrap_err();
+        assert!(error.to_string().contains("macro payload readback"));
+        assert!(
+            !state
+                .lock()
+                .unwrap()
+                .reports
+                .iter()
+                .any(|r| r[..2] == [4, APPLY_COMMAND])
+        );
+        assert!(session.begin_transaction(&context).is_err());
+    }
+
+    #[test]
+    fn ff_apply_is_rejected_even_after_matching_payload() {
+        let (mut session, state) = session(false, true);
+        let context = OperationContext::new(Duration::from_secs(3));
+        assert!(send_bank(&mut session, &context, &[]).is_err());
+        assert!(state.lock().unwrap().pending);
+    }
+
+    #[test]
+    fn payload_echo_must_match_a_complete_first_or_last_report() {
+        let bank = serialize_bank(&[program(
+            "one",
+            vec![HardwareMacroEvent::KeyDown { usage: 4 }],
+        )])
+        .unwrap();
+        let first: [u8; FEATURE_REPORT_SIZE] =
+            bank.payload[..FEATURE_REPORT_SIZE].try_into().unwrap();
+        let last: [u8; FEATURE_REPORT_SIZE] = bank.payload
+            [bank.payload.len() - FEATURE_REPORT_SIZE..]
+            .try_into()
+            .unwrap();
+        assert!(validate_payload_readback(&bank.payload, &first).is_ok());
+        assert!(validate_payload_readback(&bank.payload, &last).is_ok());
+        assert!(validate_payload_readback(&bank.payload, &[0xff; FEATURE_REPORT_SIZE]).is_err());
+        let mut corrupted = first;
+        corrupted[63] ^= 1;
+        assert!(validate_payload_readback(&bank.payload, &corrupted).is_err());
+        let mut ack = [0u8; FEATURE_REPORT_SIZE];
+        ack[..4].copy_from_slice(&[4, DATA_HEADER_COMMAND, 0, 1]);
+        assert!(validate_payload_readback(&bank.payload, &ack).is_ok());
+    }
 
     fn program(id: &str, events: Vec<HardwareMacroEvent>) -> HardwareMacroProgram {
         HardwareMacroProgram {
