@@ -76,6 +76,22 @@
     } catch (error) { status(error, true); }
   });
   $("#profileAutoSwitch").addEventListener("change", () => invoke("set_profile_auto_switch", { enabled: $("#profileAutoSwitch").checked }));
+  $("#ruleBrowse").addEventListener("click", async () => {
+    const button = $("#ruleBrowse");
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      status("Choose an application...");
+      const executable = await invoke("select_profile_application_file");
+      if (executable === null) {
+        status("No application selected.");
+        return;
+      }
+      $("#rulePattern").value = executable;
+      status(`Selected ${executable}. Choose a profile, then click Add rule.`);
+    } catch (error) { status(error, true); }
+    finally { button.disabled = false; }
+  });
   $("#ruleAdd").addEventListener("click", async () => {
     const pattern = $("#rulePattern").value.trim();
     const profileId = $("#ruleProfile").value;

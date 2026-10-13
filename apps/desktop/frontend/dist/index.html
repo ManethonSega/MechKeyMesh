@@ -691,11 +691,15 @@
           </div>
           <p>Foreground executable: <strong id="profileForeground">Unavailable</strong></p>
           <div class="association-fields">
-            <input id="rulePattern" type="text" placeholder="Photoshop.exe or game*.exe" />
-            <select id="ruleProfile"></select>
+            <div class="association-app">
+              <input id="rulePattern" type="text" placeholder="Choose an app or enter game*.exe" aria-label="Application executable" />
+              <button id="ruleBrowse" class="secondary" type="button">Browse…</button>
+            </div>
+            <select id="ruleProfile" aria-label="Associated profile"></select>
             <input id="rulePriority" type="number" value="0" aria-label="Priority" />
             <button id="ruleAdd" class="primary" type="button">Add rule</button>
           </div>
+          <p class="muted">Browse to the application's .exe file, choose a profile, then click Add rule.</p>
           <div id="ruleList" class="rule-list"></div>
           <hr />
           <label>Optional validated LCD asset path<input id="profileLcdPath" type="text" placeholder="f108-lcd.bin" /></label>

@@ -3,6 +3,32 @@ use mechkeymesh_config::Profile;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 #[tauri::command]
+pub(crate) async fn select_profile_application_file() -> Result<Option<String>, String> {
+    #[cfg(windows)]
+    {
+        tauri::async_runtime::spawn_blocking(|| {
+            let Some(path) = rfd::FileDialog::new()
+                .set_title("Choose an application for automatic profile switching")
+                .add_filter("Windows applications", &["exe"])
+                .pick_file()
+            else {
+                return Ok(None);
+            };
+            if !path.is_file() {
+                return Err("Choose an existing application (.exe) file.".into());
+            }
+            foreground::application_executable_name(&path).map(Some)
+        })
+        .await
+        .map_err(|error| error.to_string())?
+    }
+    #[cfg(not(windows))]
+    {
+        Err("Application browsing is available on Windows.".into())
+    }
+}
+
+#[tauri::command]
 pub(crate) fn get_profiles(state: State<'_, AppState>) -> Result<Vec<Profile>, String> {
     state
         .persistence

@@ -44,6 +44,21 @@
   background: var(--surface-2);
 }
 
+.association-app {
+  display: flex;
+  flex: 1 1 100%;
+  min-width: 0;
+  gap: 8px;
+}
+
+.association-app input {
+  min-width: 0;
+}
+
+#ruleBrowse {
+  flex-shrink: 0;
+}
+
 .rule-list {
   display: grid;
   gap: 7px;

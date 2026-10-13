@@ -1726,6 +1726,7 @@ pub fn run() {
             rename_profile,
             delete_profile,
             get_application_rules,
+            select_profile_application_file,
             save_application_rule,
             delete_application_rule,
             get_profile_runtime_status,

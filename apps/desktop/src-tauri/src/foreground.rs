@@ -1,5 +1,21 @@
-#[cfg(windows)]
+#[cfg(any(windows, test))]
 use std::path::Path;
+
+#[cfg(any(windows, test))]
+pub fn application_executable_name(path: &Path) -> Result<String, String> {
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "The application filename cannot be read.".to_string())?;
+    if !path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("exe"))
+    {
+        return Err("Choose an application (.exe) file.".into());
+    }
+    Ok(name.to_string())
+}
 
 #[cfg(windows)]
 pub fn executable_name() -> Option<String> {
@@ -78,6 +94,24 @@ pub fn pattern_matches(pattern: &str, executable: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn browsed_application_names_match_foreground_processes() {
+        let path = Path::new("C:/Program Files/Adobe/Photoshop.exe");
+        let name = application_executable_name(path).unwrap();
+        assert_eq!(name, "Photoshop.exe");
+        assert!(pattern_matches(&name, "PHOTOSHOP.EXE"));
+        assert_eq!(
+            application_executable_name(Path::new("C:/Apps/My App.EXE")).unwrap(),
+            "My App.EXE"
+        );
+        assert_eq!(
+            application_executable_name(Path::new("C:/Apps/Éditeur.exe")).unwrap(),
+            "Éditeur.exe"
+        );
+        assert!(application_executable_name(Path::new("C:/Apps/Shortcut.lnk")).is_err());
+        assert!(application_executable_name(Path::new("C:/Apps/Image.png")).is_err());
+    }
 
     #[test]
     fn application_patterns_are_case_insensitive_and_support_wildcards() {
