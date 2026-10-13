@@ -24,6 +24,12 @@ def square_icon(master, size):
 def verify(master):
     checksum = (MASTER.parent / "logo.sha256").read_text().strip().split()[0]
     assert hashlib.sha256(MASTER.read_bytes()).hexdigest() == checksum, "Master logo changed"
+    alpha = master.getchannel("A")
+    assert alpha.getextrema() == (0, 255), "Logo must have transparent surroundings"
+    assert all(alpha.getpixel(p) == 0 for p in (
+        (0, 0), (master.width - 1, 0),
+        (0, master.height - 1), (master.width - 1, master.height - 1),
+    )), "White background returned"
     for name, size in PNG_SIZES.items():
         with Image.open(ICONS / name) as actual:
             expected = square_icon(master, size)
@@ -44,7 +50,7 @@ def verify(master):
     assert config["bundle"]["icon"] == expected_paths, "Window/executable icon binding"
     tray = (ROOT / "apps/desktop/src-tauri/src/background.rs").read_text()
     assert 'include_bytes!("../icons/32x32.png")' in tray, "Tray logo binding"
-    print("Original logo checksum, UI bindings and all 12 icon variants verified.")
+    print("Transparent original logo checksum, UI bindings and all 12 icon variants verified.")
 
 
 def main():

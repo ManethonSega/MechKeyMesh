@@ -32,18 +32,18 @@ The master logo is the futuristic mechanical-keycap/shield mark with:
 - four network nodes
 - small orange side accent
 
-The approved master is `apps/desktop/frontend/dist/assets/logo.png`, an unchanged copy of the supplied **MechKeyMesh Futuristic Keycap Logo(1)(1).png**. Use this exact artwork everywhere; do not redraw it or substitute an approximation. Its supplied white background is preserved.
+The approved master is `apps/desktop/frontend/dist/assets/logo.png`, an unchanged copy of the supplied **MechKeyMesh Futuristic Keycap Logo(1)(2).png**. Use this exact artwork everywhere; do not redraw it or substitute an approximation. This updated original has transparent surroundings. Preserve its alpha channel and the opaque silver `M`; never restore a white rectangle around it.
 
 ## Application icon family
 
-1. **Square app icon**: the original logo fitted proportionally into a square, with transparent padding outside the supplied image.
-2. **UI logo**: the unchanged original PNG, retaining its aspect ratio and supplied background.
+1. **Square app icon**: the original logo fitted proportionally into a square, preserving transparency and adding only transparent padding.
+2. **UI logo**: the unchanged original PNG, retaining its aspect ratio and transparent surroundings.
 3. **Tray icon**: the same original artwork resized to 32 px; no separate replacement symbol.
 4. **Installer icon**: use the normal app mark. A separate download arrow is optional in installer UI, but the executable/install target should retain the normal app identity.
 
 Windows `.ico` output includes 16, 20, 24, 32, 40, 48, 64, 128 and 256 px variants. Tauri embeds it into the executable and uses the configured icon family for windows. The tray PNG is embedded independently. Splash, sidebar and favicon reference the original master directly.
 
-To regenerate the icon family, install Pillow and run `python tools/brand_assets.py`. Run `python tools/brand_assets.py --check` to verify every generated PNG/ICO against the original, its approved checksum, and the frontend/tray/config references. CI performs this check. No background removal, cropping, recoloring or redesign is performed.
+To regenerate the icon family, install Pillow and run `python tools/brand_assets.py`. Run `python tools/brand_assets.py --check` to verify every generated PNG/ICO against the transparent original, its approved checksum, its alpha channel, and the frontend/tray/config references. CI performs this check. The supplied transparent master is used directly, with no cropping, recoloring or redesign.
 
 ## Startup branding
 
