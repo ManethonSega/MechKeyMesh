@@ -105,12 +105,33 @@ pub fn classify_backend_error(message: impl Into<String>) -> HidTransportError {
     }
 }
 
+#[cfg(any(windows, test))]
+fn decode_feature_report(
+    buffer: &[u8],
+    read: usize,
+) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
+    if read != buffer.len() {
+        return Err(HidTransportError::Backend(format!(
+            "short HID feature read: {read} of {} bytes",
+            buffer.len()
+        )));
+    }
+    if buffer.first() != Some(&0) || !(2..=FEATURE_REPORT_SIZE + 1).contains(&buffer.len()) {
+        return Err(HidTransportError::Backend(
+            "unexpected HID feature report ID or length".into(),
+        ));
+    }
+    let mut report = [0u8; FEATURE_REPORT_SIZE];
+    report[..buffer.len() - 1].copy_from_slice(&buffer[1..]);
+    Ok(report)
+}
+
 #[cfg(windows)]
 mod windows {
     use super::{
         FEATURE_REPORT_SIZE, FeatureTransport, HidDeviceInfo, HidTransportError,
         INTERRUPT_REPORT_SIZE, InterruptTransport, LCD_ACK_SIZE, LCD_PAGE_SIZE, LcdTransport,
-        classify_backend_error,
+        classify_backend_error, decode_feature_report,
     };
     use hidapi::{HidApi, HidDevice};
     use std::ffi::CString;
@@ -143,13 +164,11 @@ mod windows {
 
         fn get_feature_report(&self) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
             let mut buffer = [0u8; FEATURE_REPORT_SIZE + 1];
-            self.device
+            let read = self
+                .device
                 .get_feature_report(&mut buffer)
                 .map_err(|error| classify_backend_error(error.to_string()))?;
-
-            let mut report = [0u8; FEATURE_REPORT_SIZE];
-            report.copy_from_slice(&buffer[1..]);
-            Ok(report)
+            decode_feature_report(&buffer, read)
         }
 
         fn get_feature_report_prefix(
@@ -166,13 +185,11 @@ mod windows {
             // The F108 OEM 04 F5 reader requests a 9-byte total report for
             // its initial ACK, which is report ID + 8 payload bytes.
             let mut buffer = vec![0u8; payload_length + 1];
-            self.device
+            let read = self
+                .device
                 .get_feature_report(&mut buffer)
                 .map_err(|error| classify_backend_error(error.to_string()))?;
-
-            let mut report = [0u8; FEATURE_REPORT_SIZE];
-            report[..payload_length].copy_from_slice(&buffer[1..]);
-            Ok(report)
+            decode_feature_report(&buffer, read)
         }
     }
 
@@ -409,6 +426,29 @@ pub fn open_lcd_path(_path: &str) -> Result<Box<dyn LcdTransport>, HidTransportE
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn feature_read_strips_report_id_and_preserves_clock_year() {
+        let mut buffer = [0u8; FEATURE_REPORT_SIZE + 1];
+        buffer[1..5].copy_from_slice(&[0, 1, 0x5a, 0x1a]);
+        let report = decode_feature_report(&buffer, buffer.len()).unwrap();
+        assert_eq!(&report[..4], &[0, 1, 0x5a, 0x1a]);
+        let prefix = [0, 4, 0xf5, 0, 1, 0, 0, 0, 0];
+        let report = decode_feature_report(&prefix, prefix.len()).unwrap();
+        assert_eq!(&report[..4], &[4, 0xf5, 0, 1]);
+    }
+
+    #[test]
+    fn feature_read_rejects_short_or_unexpected_reports() {
+        let buffer = [0u8; FEATURE_REPORT_SIZE + 1];
+        assert!(decode_feature_report(&buffer, 5).is_err());
+        assert!(decode_feature_report(&buffer, 0).is_err());
+        assert!(decode_feature_report(&[1, 4, 0x18, 0, 1], 5).is_err());
+        assert!(decode_feature_report(&[], 0).is_err());
+        assert!(
+            decode_feature_report(&[0; FEATURE_REPORT_SIZE + 2], FEATURE_REPORT_SIZE + 2).is_err()
+        );
+    }
 
     #[test]
     fn feature_report_prefix_rejects_invalid_lengths_by_default() {

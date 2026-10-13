@@ -1,4 +1,4 @@
-use super::{AulaF108ProSession, FEATURE_REPORT_SIZE};
+use super::{AulaF108ProSession, FEATURE_REPORT_SIZE, FeatureReadback};
 use mechkeymesh_driver_api::{
     Connection, DeviceClock, DriverError, LcdPixelFormat, LcdUpload, OperationContext,
 };
@@ -95,8 +95,23 @@ pub(crate) fn sync_clock(
     data[10] = clock.weekday_sunday_zero;
     data[62] = 0x55;
     data[63] = 0xaa;
-    session.send(context, data, true)?;
+    session.send_with_readback(context, data, FeatureReadback::ClockData)?;
     session.apply_transaction(context)
+}
+
+pub(crate) fn validate_clock_readback(
+    sent: &[u8; FEATURE_REPORT_SIZE],
+    response: &[u8; FEATURE_REPORT_SIZE],
+) -> Result<(), DriverError> {
+    // The clock data report stores year - 2000 at payload byte 3. A complete
+    // echo of the report therefore contains 0x1A for 2026, not ACK 0x01.
+    // Match all 64 bytes before accepting an echo; a year byte alone is not
+    // evidence that the readback belongs to this request.
+    if response == sent {
+        return Ok(());
+    }
+    // Retain support for the command-style ACK form used by existing firmware.
+    super::validate_ack(response)
 }
 
 pub(crate) fn validate_upload(upload: &LcdUpload) -> Result<(), DriverError> {
@@ -190,6 +205,115 @@ fn invalid<T>(message: String) -> Result<T, DriverError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mechkeymesh_driver_api::DeviceCandidate;
+    use mechkeymesh_hid::{FeatureTransport, HidTransportError};
+    use std::sync::{Arc, Mutex};
+
+    type CapturedReports = Arc<Mutex<Vec<[u8; FEATURE_REPORT_SIZE]>>>;
+
+    struct ClockTransport {
+        reports: CapturedReports,
+        corrupt_echo: bool,
+    }
+
+    impl FeatureTransport for ClockTransport {
+        fn set_feature_report(
+            &self,
+            report: &[u8; FEATURE_REPORT_SIZE],
+        ) -> Result<(), HidTransportError> {
+            self.reports.lock().unwrap().push(*report);
+            Ok(())
+        }
+
+        fn get_feature_report(&self) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
+            let mut response = *self.reports.lock().unwrap().last().unwrap();
+            if response[0] == 0x04 {
+                response[3] = 0x01;
+            } else if self.corrupt_echo {
+                response[7] ^= 1;
+            }
+            Ok(response)
+        }
+    }
+
+    fn clock_session(corrupt_echo: bool) -> (AulaF108ProSession, CapturedReports) {
+        let reports = Arc::new(Mutex::new(Vec::new()));
+        let session = AulaF108ProSession {
+            candidate: DeviceCandidate {
+                driver_id: super::super::DRIVER_ID.into(),
+                instance_id: "test-clock".into(),
+                name: "AULA F108 Pro".into(),
+                connection: Connection::Usb,
+                vendor_id: Some(super::super::VENDOR_ID),
+                product_id: Some(super::super::PRODUCT_ID),
+                usage_page: Some(super::super::CONFIG_USAGE_PAGE),
+                interface_number: Some(3),
+                serial_number: None,
+            },
+            transport: Box::new(ClockTransport {
+                reports: Arc::clone(&reports),
+                corrupt_echo,
+            }),
+            lcd_transport: None,
+        };
+        (session, reports)
+    }
+
+    fn clock() -> DeviceClock {
+        DeviceClock {
+            year: 2026,
+            month: 10,
+            day: 13,
+            hour: 13,
+            minute: 25,
+            second: 15,
+            weekday_sunday_zero: 2,
+        }
+    }
+
+    #[test]
+    fn clock_echo_with_year_0x1a_reaches_apply() {
+        let (mut session, reports) = clock_session(false);
+        sync_clock(
+            &mut session,
+            &OperationContext::new(Duration::from_secs(2)),
+            clock(),
+        )
+        .unwrap();
+        let reports = reports.lock().unwrap();
+        assert_eq!(reports.len(), 4);
+        assert_eq!(&reports[0][..2], &[0x04, 0x18]);
+        assert_eq!(&reports[1][..2], &[0x04, 0x28]);
+        assert_eq!(&reports[2][..9], &[0, 1, 0x5a, 0x1a, 10, 13, 13, 25, 15]);
+        assert_eq!(&reports[3][..2], &[0x04, 0x02]);
+        // The command ACK checker must not globally accept the year byte.
+        assert!(super::super::validate_ack(&reports[2]).is_err());
+    }
+
+    #[test]
+    fn mismatched_clock_echo_fails_before_apply() {
+        let (mut session, reports) = clock_session(true);
+        let error = sync_clock(
+            &mut session,
+            &OperationContext::new(Duration::from_secs(2)),
+            clock(),
+        )
+        .unwrap_err();
+        assert_eq!(reports.lock().unwrap().len(), 3);
+        assert!(error.to_string().contains("sent [00, 01, 5A, 1A"));
+        assert!(error.to_string().contains("received [00, 01, 5A, 1A"));
+    }
+
+    #[test]
+    fn clock_path_preserves_ack_and_rejects_unrelated_data() {
+        let mut sent = [0u8; FEATURE_REPORT_SIZE];
+        sent[..4].copy_from_slice(&[0, 1, 0x5a, 0x1a]);
+        let mut ack = [0u8; FEATURE_REPORT_SIZE];
+        ack[..4].copy_from_slice(&[0x04, 0x28, 0, 1]);
+        assert!(validate_clock_readback(&sent, &ack).is_ok());
+        assert!(validate_clock_readback(&sent, &[0xff; FEATURE_REPORT_SIZE]).is_err());
+        assert!(validate_clock_readback(&sent, &[0; FEATURE_REPORT_SIZE]).is_err());
+    }
 
     fn valid_upload(frames: usize) -> LcdUpload {
         let content_length = HEADER_BYTES + frames * FRAME_BYTES;

@@ -204,19 +204,46 @@ impl AulaF108ProSession {
         report: [u8; FEATURE_REPORT_SIZE],
         readback: bool,
     ) -> Result<(), DriverError> {
+        self.send_with_readback(
+            context,
+            report,
+            if readback {
+                FeatureReadback::Acknowledgment
+            } else {
+                FeatureReadback::None
+            },
+        )
+    }
+
+    pub(crate) fn send_with_readback(
+        &self,
+        context: &OperationContext,
+        report: [u8; FEATURE_REPORT_SIZE],
+        readback: FeatureReadback,
+    ) -> Result<(), DriverError> {
         context.check()?;
         self.transport
             .set_feature_report(&report)
             .map_err(map_transport_error)?;
         context.sleep(COMMAND_DELAY)?;
 
-        if readback {
+        if !matches!(readback, FeatureReadback::None) {
             context.check()?;
             let response = self
                 .transport
                 .get_feature_report()
                 .map_err(map_transport_error)?;
-            validate_ack(&response)?;
+            match readback {
+                FeatureReadback::Acknowledgment => validate_ack(&response),
+                FeatureReadback::ClockData => crate::lcd::validate_clock_readback(&report, &response),
+                FeatureReadback::None => unreachable!(),
+            }
+            .map_err(|error| {
+                DriverError::Protocol(format!(
+                    "feature readback after sent {:02X?}: {error}",
+                    &report[..16],
+                ))
+            })?;
             context.sleep(COMMAND_DELAY)?;
         }
         Ok(())
@@ -250,6 +277,13 @@ impl AulaF108ProSession {
         report[1] = 0xF0;
         self.send(context, report, false)
     }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum FeatureReadback {
+    None,
+    Acknowledgment,
+    ClockData,
 }
 
 fn open_lcd_transport(
@@ -514,8 +548,8 @@ pub(crate) fn build_lighting_payload(
 fn validate_ack(response: &[u8; FEATURE_REPORT_SIZE]) -> Result<(), DriverError> {
     if response[3] != 0x01 {
         return Err(DriverError::Protocol(format!(
-            "unexpected acknowledgment byte 3: 0x{:02X}",
-            response[3]
+            "unexpected acknowledgment byte 3: 0x{:02X}; received {:02X?}",
+            response[3], &response[..16]
         )));
     }
     Ok(())
