@@ -36,7 +36,7 @@ Replace the short-lived Go/Wails prototype before more functionality depends on 
 - [x] Windows workspace tests
 - [x] Windows Clippy
 - [x] Windows release executable build and existence verification
-- [x] old Go/Wails prototype preserved in `archive/go-wails-prototype`
+- [x] old Go/Wails prototype preserved in Git history at commit `841481d298a3c13719f0c009bb033869cc598c7a`
 - [x] Rust/Tauri migration merged into `main`
 
 ## R1 automated exit criterion

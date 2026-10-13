@@ -27,7 +27,12 @@ Current Rust implementation:
 - persistent per-key RGB desired state using physical key IDs and layout LED indices
 - universal macro model, transactional persistence, timeline editor and hardware-free simulation
 - preflighted F108 macro-bank serializer, upload queue and stable macro key references; physical verification remains pending
+- saved macro library with immediate New/Duplicate entries and responsive editing during hardware uploads
 - complete F108 function-settings desired state for locks, Fn behavior, sleep and key response; physical verification remains pending
+- 240 × 135 LCD media editor, validated still/animation import, USB LCD upload and clock sync
+- profiles, application association with a native executable picker, and automatic foreground-application switching
+- Windows tray, startup preferences, single-instance handling and suspend/resume integration
+- native knob guidance and user-observed volume/menu behavior; custom knob remapping is unavailable
 - verified software encoders for keyboard keys, modifiers, shortcuts, media, selected mouse actions and selected Windows/system actions
 - strict lighting and remap parameter validation
 - runtime diagnostics
@@ -78,11 +83,13 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.18.0-alpha.1`, **R17 profiles and automatic switching in validation**. Profiles clone and combine mappings, Fn mappings, macros, onboard and per-key RGB, live effects, music, device settings and an optional validated LCD asset. A native Windows foreground-process monitor applies executable rules, while per-subsystem state fingerprints prevent unchanged systems from generating USB traffic. Physical switching validation remains pending because no keyboard is available in this environment.
+`v0.20.0-alpha.4`, **current consolidated test version**. The R8 through R19 implementations, original transparent artwork, application picker, clock/macro readback fixes and macro-library/RGB recovery corrections are included. Continue new work from `main`; the old stacked development branches are superseded.
 
-The previous Go/Wails prototype is preserved in the branch:
+Automated Linux, Windows and browser checks pass for the current implementation. This remains an alpha: physical stored/live RGB, macro execution and persistence, transport switching, profile behavior and the 72-hour Windows background test remain pending. Clock sync and native knob behavior have user observations recorded. A completed transport log alone does not prove the intended physical effect.
 
-`archive/go-wails-prototype`
+See [current validation status](docs/runs/STATUS.md), [alpha.4 feedback and fixes](docs/runs/F108-2026-10-13-ALPHA4.md), and [branch consolidation history](docs/runs/CONSOLIDATION-2026-10-14.md).
+
+The previous Go/Wails prototype is preserved in Git history at [`841481d298a3c13719f0c009bb033869cc598c7a`](https://github.com/ManethonSega/MechKeyMesh/tree/841481d298a3c13719f0c009bb033869cc598c7a). New production development continues in Rust/Tauri.
 
 ## Build prerequisites
 

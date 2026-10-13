@@ -1984,7 +1984,7 @@ Why:
 
 Static HTML/CSS/JavaScript initially, evolving to TypeScript as the editors become more complex.
 
-The previous Go/Wails prototype is preserved in `archive/go-wails-prototype`. Its protocol knowledge and design work remain valuable references, but new production development continues in Rust/Tauri.
+The previous Go/Wails prototype is preserved in Git history at commit `841481d298a3c13719f0c009bb033869cc598c7a`. Its protocol knowledge and design work remain valuable references, but new production development continues in Rust/Tauri on `main`.
 
 ---
 

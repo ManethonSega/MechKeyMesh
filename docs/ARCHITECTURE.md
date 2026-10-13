@@ -574,7 +574,7 @@ Saving a per-key design replaces the complete desired key-color set and brightne
 
 ### F108 stored RGB protocol
 
-Exact analysis of the supplied `DeviceDriver.exe` confirms the F108 wired RGB path:
+Exact analysis of the supplied `DeviceDriver.exe` establishes the table format. The current alpha.4 sender also incorporates the capture-based reference's flash settling behavior:
 
 ```text
 brightness/setup preamble
@@ -585,14 +585,14 @@ brightness/setup preamble
     byte 9  = brightness 0..5
     14..15  = AA 55
   04 02              ACK
-  04 F0              no readback
+  04 F0              no readback, then 300 ms settling
 
 stored RGB table
   04 18              ACK
   04 23, byte 8=09   ACK
-  576-byte table     readback after complete table
+  576-byte table     matching first/last data echo or existing ACK
   04 02              ACK
-  04 F0              ACK
+  04 F0              no readback, then 800 ms settling
 ```
 
 RGB table slot for LED index `i`:
