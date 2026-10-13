@@ -1,4 +1,4 @@
-use super::{AulaF108ProSession, map_transport_error, validate_ack};
+use super::{AulaF108ProSession, map_transport_error};
 use mechkeymesh_driver_api::{DriverError, LiveRgbFrame, OperationContext};
 use mechkeymesh_hid::FEATURE_REPORT_SIZE;
 use std::collections::HashSet;
@@ -11,7 +11,7 @@ const RECORD_SIZE: usize = 4;
 pub struct LiveRgbTransfer {
     pub start: [u8; FEATURE_REPORT_SIZE],
     pub data: [[u8; FEATURE_REPORT_SIZE]; DATA_REPORTS],
-    pub clear: [[u8; FEATURE_REPORT_SIZE]; 2],
+    pub clear: [[u8; FEATURE_REPORT_SIZE]; 1],
     pub apply: [u8; FEATURE_REPORT_SIZE],
 }
 
@@ -61,7 +61,7 @@ pub fn build_transfer(frame: &LiveRgbFrame) -> Result<LiveRgbTransfer, DriverErr
     Ok(LiveRgbTransfer {
         start,
         data,
-        clear: [[0u8; FEATURE_REPORT_SIZE]; 2],
+        clear: [[0u8; FEATURE_REPORT_SIZE]; 1],
         apply,
     })
 }
@@ -107,13 +107,66 @@ fn send_with_ack(
         .transport
         .get_feature_report()
         .map_err(map_transport_error)?;
-    validate_ack(&response)
+    validate_frame_reply(report, &response)
+}
+
+fn validate_frame_reply(
+    sent: &[u8; FEATURE_REPORT_SIZE],
+    response: &[u8; FEATURE_REPORT_SIZE],
+) -> Result<(), DriverError> {
+    if response == sent || (response[..2] == sent[..2] && response[3] == 1) {
+        return Ok(());
+    }
+    Err(DriverError::Protocol(format!(
+        "live RGB command reply did not match echo or ACK; sent {:02X?}; received {:02X?}",
+        sent, response,
+    )))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use mechkeymesh_driver_api::{PerKeyRgbAssignment, RgbColor};
+
+    #[test]
+    fn live_frame_matches_reference_count_and_accepts_correlated_echoes() {
+        let (session, reports) = crate::test_transport::session(true);
+        let frame = LiveRgbFrame {
+            colors: vec![color(1, 255, 0, 0)],
+        };
+        send_frame(
+            &session,
+            &OperationContext::new(std::time::Duration::from_secs(1)),
+            &frame,
+        )
+        .unwrap();
+        let reports = reports.lock().unwrap();
+        assert_eq!(reports.writes.len(), 10); // start + 7 colours + 1 clear + apply
+        assert_eq!(reports.reads.len(), 2);
+        assert_eq!(reports.writes[0][8], 8);
+        assert_eq!(reports.writes[8], [0; FEATURE_REPORT_SIZE]);
+        assert_eq!(&reports.writes[9][..2], &[4, 2]);
+    }
+
+    #[test]
+    fn live_reply_rejects_ff_unrelated_and_corrupted_echoes() {
+        let mut sent = [0; FEATURE_REPORT_SIZE];
+        sent[0] = 4;
+        sent[1] = 0x20;
+        sent[8] = 8;
+        let mut reply = sent;
+        reply[3] = 0xff;
+        assert!(validate_frame_reply(&sent, &reply).is_err());
+        assert!(validate_frame_reply(&sent, &[0; FEATURE_REPORT_SIZE]).is_err());
+        reply = sent;
+        reply[63] = 1;
+        assert!(validate_frame_reply(&sent, &reply).is_err());
+        reply = sent;
+        reply[3] = 1;
+        assert!(validate_frame_reply(&sent, &reply).is_ok());
+        reply[1] = 2;
+        assert!(validate_frame_reply(&sent, &reply).is_err());
+    }
 
     fn color(led_index: u16, r: u8, g: u8, b: u8) -> PerKeyRgbAssignment {
         PerKeyRgbAssignment {

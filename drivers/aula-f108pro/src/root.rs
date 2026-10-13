@@ -9,4 +9,7 @@ mod remap_driver;
 mod settings;
 mod wireless;
 
+#[cfg(test)]
+mod test_transport;
+
 pub use remap_driver::AulaF108ProRemapDriver;

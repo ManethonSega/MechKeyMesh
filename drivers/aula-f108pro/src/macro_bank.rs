@@ -1,4 +1,4 @@
-use super::{AulaF108ProSession, COMMAND_DELAY, map_transport_error, validate_ack};
+use super::{AulaF108ProSession, COMMAND_DELAY, map_transport_error};
 use mechkeymesh_driver_api::{
     DriverError, HardwareMacroEvent, HardwareMacroMouseButton, HardwareMacroProgram,
     MacroBankDescriptor, OperationContext,
@@ -201,20 +201,7 @@ fn validate_payload_readback(
     // readback starts FF FF FF FF, consistent with unused directory slots. Accept
     // an exact first/last report echo, not an arbitrary FF response. The final
     // 04 02 command must still produce its normal ACK before completion.
-    let first = payload.get(..FEATURE_REPORT_SIZE);
-    let last = payload.get(payload.len().saturating_sub(FEATURE_REPORT_SIZE)..);
-    if first == Some(response.as_slice()) || last == Some(response.as_slice()) {
-        return Ok(());
-    }
-    if validate_ack(response).is_ok() {
-        return Ok(());
-    }
-    Err(DriverError::Protocol(format!(
-        "macro payload readback did not match ACK or transmitted first/last report; received {:02X?}; first {:02X?}; last {:02X?}",
-        response,
-        first.unwrap_or(&[]),
-        last.unwrap_or(&[]),
-    )))
+    super::validate_data_readback(payload, response, "macro")
 }
 
 fn validate_event(

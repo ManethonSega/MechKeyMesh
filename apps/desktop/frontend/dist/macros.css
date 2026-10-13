@@ -38,6 +38,15 @@
   align-items: end;
 }
 
+.macro-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.macro-footer > button { align-self: start; white-space: nowrap; }
+#macroStatus { grid-column: 1 / -1; }
+
 .macro-meta label {
   display: grid;
   gap: 6px;

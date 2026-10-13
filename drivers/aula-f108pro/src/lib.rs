@@ -555,6 +555,25 @@ fn validate_ack(response: &[u8; FEATURE_REPORT_SIZE]) -> Result<(), DriverError>
     Ok(())
 }
 
+fn validate_data_readback(
+    payload: &[u8],
+    response: &[u8; FEATURE_REPORT_SIZE],
+    family: &str,
+) -> Result<(), DriverError> {
+    let first = payload.get(..FEATURE_REPORT_SIZE);
+    let last = payload.get(payload.len().saturating_sub(FEATURE_REPORT_SIZE)..);
+    if first == Some(response.as_slice()) || last == Some(response.as_slice()) {
+        return Ok(());
+    }
+    if validate_ack(response).is_ok() {
+        return Ok(());
+    }
+    Err(DriverError::Protocol(format!(
+        "{family} payload readback did not match ACK or transmitted first/last report; received {:02X?}; first {:02X?}; last {:02X?}",
+        response, first.unwrap_or(&[]), last.unwrap_or(&[]),
+    )))
+}
+
 fn map_transport_error(error: HidTransportError) -> DriverError {
     match error {
         HidTransportError::NotFound => DriverError::NotFound,

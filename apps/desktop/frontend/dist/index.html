@@ -43,7 +43,7 @@
       <button data-page="diagnostics">Diagnostics</button>
       <button data-page="background">Background <b>R19</b></button>
     </nav>
-    <div class="version">v0.20.0-alpha.3 · Macro readback</div>
+    <div class="version">v0.20.0-alpha.4 · Macro library and RGB</div>
   </aside>
 
   <main>
@@ -249,13 +249,14 @@
             <div><span class="eyebrow">MACRO LIBRARY</span><h3>Saved macros</h3></div>
             <span class="verification pending">Hardware verification pending</span>
           </div>
+          <p id="macroLibraryStatus" class="layout-note" role="status" aria-live="polite">Loading macro library...</p>
           <select id="macroLibrary" size="10" aria-label="Saved macros"></select>
           <div class="macro-library-actions">
             <button id="newMacro" class="primary compact" type="button">New</button>
             <button id="duplicateMacro" class="secondary compact" type="button">Duplicate</button>
             <button id="deleteMacro" class="secondary compact danger-soft" type="button">Delete</button>
           </div>
-          <p class="layout-note">Macros are saved locally until you explicitly upload the complete bank.</p>
+          <p class="layout-note">New and Duplicate create saved local macros. Edits are saved when you click Save, switch macros or upload the bank. Creating a macro does not contact the keyboard.</p>
         </article>
 
         <article class="card macro-editor-card">

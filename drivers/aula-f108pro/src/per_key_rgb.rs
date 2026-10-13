@@ -98,6 +98,7 @@ pub fn send_per_key_rgb(
     preamble_finalize[0] = 0x04;
     preamble_finalize[1] = 0xF0;
     session.send(context, preamble_finalize, false)?;
+    context.sleep(std::time::Duration::from_millis(300))?;
 
     // OEM FUN_0044b910 RGB table transaction.
     session.begin_transaction(context)?;
@@ -113,7 +114,10 @@ pub fn send_per_key_rgb(
     let mut finalize = [0u8; FEATURE_REPORT_SIZE];
     finalize[0] = 0x04;
     finalize[1] = 0xF0;
-    session.send(context, finalize, true)?;
+    // Flash finalization has no command ACK in the captured reference path.
+    // Keep the apply ACK, then allow the firmware to finish writing flash.
+    session.send(context, finalize, false)?;
+    context.sleep(std::time::Duration::from_millis(800))?;
     Ok(())
 }
 
@@ -229,7 +233,7 @@ fn send_multi_packet(
             .transport
             .get_feature_report()
             .map_err(map_transport_error)?;
-        super::validate_ack(&response)?;
+        super::validate_data_readback(data, &response, "stored RGB")?;
         context.sleep(COMMAND_DELAY)?;
     }
     Ok(())
@@ -248,6 +252,43 @@ fn validate_led_index(index: u16) -> Result<(), DriverError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn zero_rgb_data_echo_reaches_apply_and_flash_without_flash_readback() {
+        let (mut session, reports) = crate::test_transport::session(false);
+        let context = OperationContext::new(std::time::Duration::from_secs(3));
+        send_per_key_rgb(
+            &mut session,
+            &context,
+            &PerKeyRgbConfig {
+                brightness: 5,
+                colors: vec![],
+            },
+        )
+        .unwrap();
+        let reports = reports.lock().unwrap();
+        assert_eq!(reports.reads.len(), 7);
+        assert!(reports.replies.contains(&[0; FEATURE_REPORT_SIZE]));
+        assert!(!reports.reads.iter().any(|r| r[..2] == [4, 0xf0]));
+        assert_eq!(&reports.writes[reports.writes.len() - 2][..2], &[4, 2]);
+        assert_eq!(&reports.writes.last().unwrap()[..2], &[4, 0xf0]);
+    }
+
+    #[test]
+    fn zero_rgb_reply_requires_matching_data() {
+        let config = PerKeyRgbConfig {
+            brightness: 5,
+            colors: vec![PerKeyRgbAssignment {
+                led_index: 1,
+                color: RgbColor { r: 255, g: 0, b: 0 },
+            }],
+        };
+        let table = build_rgb_table(&config).unwrap();
+        assert!(
+            super::super::validate_data_readback(&table, &[0; FEATURE_REPORT_SIZE], "stored RGB")
+                .is_err()
+        );
+    }
 
     fn assignment(index: u16, r: u8, g: u8, b: u8) -> PerKeyRgbAssignment {
         PerKeyRgbAssignment {

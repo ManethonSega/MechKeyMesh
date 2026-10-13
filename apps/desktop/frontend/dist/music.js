@@ -121,7 +121,7 @@ async function pollMusicStatus() {
     renderMusicSpectrum(status.spectrum);
     $("#musicTransportSummary").textContent =
       `${status.framesAnalyzed} analyses · ${status.framesRendered} rendered · ${status.transport.coalescedFrames} transport coalesced`;
-    if (status.lastError) $("#musicStatus").textContent = status.lastError;
+    if (status.lastError || status.transport.lastError) $("#musicStatus").textContent = status.lastError || status.transport.lastError;
   } catch (error) {
     $("#musicStatus").textContent = String(error);
   }

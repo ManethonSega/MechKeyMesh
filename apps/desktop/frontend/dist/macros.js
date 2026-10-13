@@ -7,6 +7,9 @@ let macroSelectedEvents = new Set();
 let macroEventClipboard = [];
 let macroRecording = false;
 let macroRecordLast = 0;
+let macroBusy = false;
+let macroDirty = false;
+let macroUploading = false;
 
 function macroId() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -25,10 +28,25 @@ function macroSetStatus(message, isError = false) {
   const status = macroQ("#macroStatus");
   status.textContent = message;
   status.style.color = isError ? "#ff718c" : "";
+  const libraryStatus = macroQ("#macroLibraryStatus");
+  if (libraryStatus) {
+    libraryStatus.textContent = message;
+    libraryStatus.style.color = isError ? "#ff718c" : "";
+  }
 }
 
 function macroMarkDirty(message = "Unsaved macro changes") {
+  macroDirty = true;
   macroSetStatus(message);
+}
+
+function macroUpdateControls() {
+  for (const id of ["newMacro", "duplicateMacro", "saveMacro", "macroLibrary"]) {
+    macroQ(`#${id}`).disabled = macroBusy;
+  }
+  macroQ("#deleteMacro").disabled = macroBusy || !macroPrograms.some(p => p.id === macroDraft?.id);
+  macroQ("#uploadMacros").disabled = macroBusy || macroUploading;
+  macroQ(".macro-editor-card").inert = macroBusy;
 }
 
 function macroEventName(event) {
@@ -74,15 +92,24 @@ function macroRenderLibrary() {
     option.selected = program.id === selected;
     select.appendChild(option);
   }
+  if (!macroPrograms.length) {
+    const option = document.createElement("option");
+    option.textContent = "No saved macros. Click New.";
+    option.disabled = true;
+    select.appendChild(option);
+  }
+  macroUpdateControls();
 }
 
 function macroSetDraft(program) {
   macroStopRecording();
   macroDraft = macroClone(program);
+  macroDirty = false;
   macroSelectedEvents.clear();
   macroQ("#macroName").value = macroDraft.name;
   macroQ("#macroPlayback").value = "once";
   macroQ("#macroSimulation").textContent = "No simulation run.";
+  macroQ("#macroJson").value = JSON.stringify(macroDraft, null, 2);
   macroRenderLibrary();
   macroRenderTimeline();
   macroSetStatus(`${macroDraft.name} loaded. Hardware was not contacted.`);
@@ -300,11 +327,16 @@ function macroStopRecording() {
 }
 
 async function macroSave() {
-  if (!macroDraft) return;
+  if (!macroDraft || macroBusy) return false;
+  macroStopRecording();
   macroDraft.name = macroQ("#macroName").value.trim();
   macroDraft.playback = { mode: "once" };
+  const snapshot = macroClone(macroDraft);
+  macroBusy = true;
+  macroUpdateControls();
+  macroSetStatus("Saving macro...");
   try {
-    const saved = await macroInvoke("save_macro", { program: macroDraft });
+    const saved = await macroInvoke("save_macro", { program: snapshot });
     const index = macroPrograms.findIndex((program) => program.id === saved.id);
     if (index >= 0) macroPrograms[index] = saved;
     else macroPrograms.push(saved);
@@ -314,13 +346,30 @@ async function macroSave() {
     window.dispatchEvent(new CustomEvent("mechkeymesh-macros-changed", {
       detail: { programs: macroClone(macroPrograms) }
     }));
+    return true;
   } catch (error) {
     macroSetStatus(String(error), true);
+    return false;
+  } finally {
+    macroBusy = false;
+    macroUpdateControls();
   }
 }
 
+async function macroNew() {
+  if (macroBusy) return;
+  if (macroDirty && !await macroSave()) return;
+  let number = 1;
+  const names = new Set(macroPrograms.map(p => p.name));
+  while (names.has(`New macro ${number}`)) number++;
+  macroSetDraft(newMacroProgram(`New macro ${number}`));
+  await macroSave();
+}
+
 async function macroDelete() {
-  if (!macroDraft) return;
+  if (!macroDraft || macroBusy || !macroPrograms.some(p => p.id === macroDraft.id)) return;
+  macroBusy = true;
+  macroUpdateControls();
   try {
     await macroInvoke("delete_macro", { macroId: macroDraft.id });
     macroPrograms = macroPrograms.filter((program) => program.id !== macroDraft.id);
@@ -332,16 +381,20 @@ async function macroDelete() {
     }));
   } catch (error) {
     macroSetStatus(String(error), true);
+  } finally {
+    macroBusy = false;
+    macroUpdateControls();
   }
 }
 
-function macroDuplicateProgram() {
-  if (!macroDraft) return;
+async function macroDuplicateProgram() {
+  if (!macroDraft || macroBusy) return;
+  if (macroDirty && !await macroSave()) return;
   const copy = macroClone(macroDraft);
   copy.id = macroId();
   copy.name = `${copy.name} copy`;
   macroSetDraft(copy);
-  macroMarkDirty("Macro duplicated. Save to keep the copy.");
+  await macroSave();
 }
 
 async function macroSimulate() {
@@ -403,6 +456,10 @@ async function macroLoadLibrary() {
 }
 
 async function macroUploadBank() {
+  if (macroBusy || macroUploading) return;
+  macroStopRecording();
+  if (macroDirty && !await macroSave()) return;
+  macroUploading = true;
   macroQ("#uploadMacros").disabled = true;
   macroSetStatus("Validating the complete F108 macro bank...");
   try {
@@ -418,16 +475,22 @@ async function macroUploadBank() {
   } catch (error) {
     macroSetStatus(`No upload performed: ${String(error)}`, true);
   } finally {
-    macroQ("#uploadMacros").disabled = false;
+    macroUploading = false;
+    macroUpdateControls();
   }
 }
 
 function macroBind() {
-  macroQ("#macroLibrary").addEventListener("change", () => {
-    const program = macroPrograms.find((item) => item.id === macroQ("#macroLibrary").value);
+  macroQ("#macroLibrary").addEventListener("change", async () => {
+    const selected = macroQ("#macroLibrary").value;
+    if (macroDirty && !await macroSave()) {
+      macroRenderLibrary();
+      return;
+    }
+    const program = macroPrograms.find((item) => item.id === selected);
     if (program) macroSetDraft(program);
   });
-  macroQ("#newMacro").addEventListener("click", () => macroSetDraft(newMacroProgram()));
+  macroQ("#newMacro").addEventListener("click", macroNew);
   macroQ("#duplicateMacro").addEventListener("click", macroDuplicateProgram);
   macroQ("#deleteMacro").addEventListener("click", macroDelete);
   macroQ("#saveMacro").addEventListener("click", macroSave);

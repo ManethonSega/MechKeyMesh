@@ -597,6 +597,7 @@ fn start_live_rgb_internal(state: &AppState, scene: LiveRgbScene) -> Result<(), 
         }
     }
     state.manager.stop_live_rgb();
+    state.manager.reset_live_rgb_failure();
     *state
         .live_rgb
         .last_error
@@ -712,6 +713,7 @@ fn start_music_lighting_internal(
     settle_effect_workers(state);
     let stop = Arc::new(AtomicBool::new(false));
     *state.music.stop.lock().expect("music stop lock poisoned") = Some(stop.clone());
+    state.manager.reset_live_rgb_failure();
     *state
         .music
         .last_error
@@ -1012,7 +1014,7 @@ fn save_device_settings(
 }
 
 #[tauri::command]
-fn upload_macros(state: State<'_, AppState>) -> Result<MacroBankApplyResult, String> {
+async fn upload_macros(state: State<'_, AppState>) -> Result<MacroBankApplyResult, String> {
     require_active_capability(&state, Capability::Macros)?;
     let programs = load_hardware_macros(&state)?;
     state
@@ -1020,17 +1022,21 @@ fn upload_macros(state: State<'_, AppState>) -> Result<MacroBankApplyResult, Str
         .validate_macro_bank(&programs)
         .map_err(|error| error.to_string())?;
     let event_count = programs.iter().map(|program| program.events.len()).sum();
-
-    match state.manager.set_macros(programs.clone()) {
+    let macro_count = programs.len();
+    let manager = state.manager.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || manager.set_macros(programs))
+        .await
+        .map_err(|error| format!("macro upload worker failed: {error}"))?;
+    match result {
         Ok(()) => Ok(MacroBankApplyResult {
             applied: true,
-            macro_count: programs.len(),
+            macro_count,
             event_count,
             message: None,
         }),
         Err(error) => Ok(MacroBankApplyResult {
             applied: false,
-            macro_count: programs.len(),
+            macro_count,
             event_count,
             message: Some(error),
         }),

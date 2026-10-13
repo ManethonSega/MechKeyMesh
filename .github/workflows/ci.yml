@@ -35,6 +35,18 @@ jobs:
           node --check apps/desktop/frontend/dist/background.js
       - name: Format check
         run: cargo fmt --all -- --check
+      - name: Macro library browser regression
+        env:
+          MACRO_UI_SCREENSHOT: macro-ui.png
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE="$(command -v google-chrome)" node tools/test_macro_ui.cjs
+      - name: Upload macro UI test screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: MechKeyMesh-Macro-UI
+          path: macro-ui.png
+          retention-days: 14
       - name: Core tests
         run: cargo test --workspace --exclude mechkeymesh-desktop
       - name: Clippy

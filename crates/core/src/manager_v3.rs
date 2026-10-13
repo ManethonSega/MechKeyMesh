@@ -52,7 +52,7 @@ pub struct DeviceStatus {
     pub reconnect_count: u64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveRgbTransportStatus {
     pub active: bool,
@@ -61,6 +61,7 @@ pub struct LiveRgbTransportStatus {
     pub coalesced_frames: u64,
     pub failed_frames: u64,
     pub buffered_frames: usize,
+    pub last_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -80,6 +81,7 @@ struct LiveRgbTelemetry {
     sent_frames: AtomicU64,
     coalesced_frames: AtomicU64,
     failed_frames: AtomicU64,
+    last_error: Mutex<Option<String>>,
 }
 
 impl Default for DeviceStatus {
@@ -106,6 +108,7 @@ pub struct ManagerConfig {
     pub health_timeout: Duration,
     pub health_interval: Duration,
     pub command_timeout: Duration,
+    pub macro_upload_timeout: Duration,
     pub lcd_upload_timeout: Duration,
     pub open_attempts: usize,
     pub retry_delay: Duration,
@@ -122,6 +125,7 @@ impl Default for ManagerConfig {
             health_timeout: Duration::from_millis(700),
             health_interval: Duration::from_millis(900),
             command_timeout: Duration::from_secs(3),
+            macro_upload_timeout: Duration::from_secs(15),
             lcd_upload_timeout: Duration::from_secs(20 * 60),
             open_attempts: 2,
             retry_delay: Duration::from_millis(120),
@@ -210,6 +214,7 @@ pub struct DeviceManagerHandle {
     active_cancellation: Arc<Mutex<Option<CancellationToken>>>,
     next_operation_id: Arc<AtomicU64>,
     command_timeout: Duration,
+    macro_upload_timeout: Duration,
     lcd_upload_timeout: Duration,
     lcd_transfer: Arc<RwLock<LcdTransferStatus>>,
     live_frame: Arc<Mutex<Option<LiveRgbFrame>>>,
@@ -322,7 +327,7 @@ impl DeviceManagerHandle {
                 reply: reply_tx,
             })
             .map_err(|_| "device manager is not running".to_string())?;
-        wait_for_reply(reply_rx, cancellation, self.command_timeout)
+        wait_for_reply(reply_rx, cancellation, self.macro_upload_timeout)
     }
 
     pub fn set_device_settings(&self, settings: DeviceSettings) -> Result<(), String> {
@@ -428,6 +433,17 @@ impl DeviceManagerHandle {
     }
 
     pub fn submit_live_rgb(&self, frame: LiveRgbFrame) -> Result<(), String> {
+        if let Some(error) = self
+            .live_telemetry
+            .last_error
+            .lock()
+            .expect("live RGB error lock poisoned")
+            .as_ref()
+        {
+            return Err(format!(
+                "Live RGB stopped after a transport failure. Press Start to retry. {error}"
+            ));
+        }
         if self.is_suspended() {
             return Err("Keyboard I/O is paused while Windows sleeps.".into());
         }
@@ -478,6 +494,14 @@ impl DeviceManagerHandle {
         let _ = self.tx.send(Command::StopLiveRgb);
     }
 
+    pub fn reset_live_rgb_failure(&self) {
+        *self
+            .live_telemetry
+            .last_error
+            .lock()
+            .expect("live RGB error lock poisoned") = None;
+    }
+
     pub fn live_rgb_status(&self) -> LiveRgbTransportStatus {
         LiveRgbTransportStatus {
             active: self.live_telemetry.active.load(Ordering::Acquire),
@@ -485,6 +509,12 @@ impl DeviceManagerHandle {
             sent_frames: self.live_telemetry.sent_frames.load(Ordering::Relaxed),
             coalesced_frames: self.live_telemetry.coalesced_frames.load(Ordering::Relaxed),
             failed_frames: self.live_telemetry.failed_frames.load(Ordering::Relaxed),
+            last_error: self
+                .live_telemetry
+                .last_error
+                .lock()
+                .expect("live RGB error lock poisoned")
+                .clone(),
             buffered_frames: if self
                 .live_frame
                 .lock()
@@ -543,6 +573,7 @@ impl DeviceManager {
             active_cancellation: active_cancellation.clone(),
             next_operation_id: Arc::new(AtomicU64::new(1)),
             command_timeout: config.command_timeout,
+            macro_upload_timeout: config.macro_upload_timeout,
             lcd_upload_timeout: config.lcd_upload_timeout,
             lcd_transfer: lcd_transfer.clone(),
             live_frame: live_frame.clone(),
@@ -683,12 +714,13 @@ fn worker(
                 cancellation,
                 reply,
             }) => {
-                let result = execute_operation(
+                let result = execute_operation_with_result(
                     &mut active,
                     &status,
                     &log,
                     &active_cancellation,
                     &config,
+                    config.macro_upload_timeout,
                     id,
                     "upload hardware macro bank",
                     submitted,
@@ -886,6 +918,14 @@ fn send_live_frame(
         telemetry.failed_frames.fetch_add(1, Ordering::Relaxed);
         return;
     };
+    if telemetry
+        .last_error
+        .lock()
+        .expect("live RGB error lock poisoned")
+        .is_some()
+    {
+        return;
+    }
     if !device
         .session
         .descriptor()
@@ -905,6 +945,11 @@ fn send_live_frame(
         }
         Err(error) => {
             telemetry.failed_frames.fetch_add(1, Ordering::Relaxed);
+            telemetry.active.store(false, Ordering::Release);
+            *telemetry
+                .last_error
+                .lock()
+                .expect("live RGB error lock poisoned") = Some(error.to_string());
             log.push("warning", format!("live RGB frame failed: {error}"));
             if error.requires_recovery() {
                 telemetry.active.store(false, Ordering::Release);
@@ -1318,6 +1363,8 @@ mod tests {
         keymap_calls: Arc<AtomicUsize>,
         per_key_calls: Arc<AtomicUsize>,
         readback_calls: Arc<AtomicUsize>,
+        live_calls: Arc<AtomicUsize>,
+        live_fail: Arc<AtomicBool>,
         operation_delay: Duration,
     }
 
@@ -1328,6 +1375,8 @@ mod tests {
         keymap_calls: Arc<AtomicUsize>,
         per_key_calls: Arc<AtomicUsize>,
         readback_calls: Arc<AtomicUsize>,
+        live_calls: Arc<AtomicUsize>,
+        live_fail: Arc<AtomicBool>,
         operation_delay: Duration,
     }
 
@@ -1341,6 +1390,8 @@ mod tests {
                 keymap_calls: Arc::new(AtomicUsize::new(0)),
                 per_key_calls: Arc::new(AtomicUsize::new(0)),
                 readback_calls: Arc::new(AtomicUsize::new(0)),
+                live_calls: Arc::new(AtomicUsize::new(0)),
+                live_fail: Arc::new(AtomicBool::new(false)),
                 operation_delay: Duration::from_millis(10),
             }
         }
@@ -1354,7 +1405,11 @@ mod tests {
                 vendor: "Fake".into(),
                 device_name: "Fake Keyboard".into(),
                 supported_connections: vec![Connection::Usb],
-                capabilities: vec![Capability::Keys, Capability::HardwareRgb],
+                capabilities: vec![
+                    Capability::Keys,
+                    Capability::HardwareRgb,
+                    Capability::LiveRgb,
+                ],
                 layout_ids: vec![],
                 matchers: vec![DeviceMatch {
                     vendor_id: 0x1234,
@@ -1407,6 +1462,8 @@ mod tests {
                 keymap_calls: self.keymap_calls.clone(),
                 per_key_calls: self.per_key_calls.clone(),
                 readback_calls: self.readback_calls.clone(),
+                live_calls: self.live_calls.clone(),
+                live_fail: self.live_fail.clone(),
                 operation_delay: self.operation_delay,
             }))
         }
@@ -1423,7 +1480,11 @@ mod tests {
                 connection: Connection::Usb,
                 vendor_id: self.candidate.vendor_id,
                 product_id: self.candidate.product_id,
-                capabilities: vec![Capability::Keys, Capability::HardwareRgb],
+                capabilities: vec![
+                    Capability::Keys,
+                    Capability::HardwareRgb,
+                    Capability::LiveRgb,
+                ],
                 firmware: None,
                 battery_percent: None,
             }
@@ -1440,6 +1501,33 @@ mod tests {
                 &self.max_parallel,
                 self.operation_delay,
             )
+        }
+
+        fn set_macros(
+            &mut self,
+            context: &OperationContext,
+            _programs: &[HardwareMacroProgram],
+        ) -> Result<(), DriverError> {
+            run_fake_operation(
+                context,
+                &self.active_operations,
+                &self.max_parallel,
+                self.operation_delay,
+            )
+        }
+
+        fn send_live_rgb_frame(
+            &mut self,
+            context: &OperationContext,
+            _frame: &LiveRgbFrame,
+        ) -> Result<(), DriverError> {
+            context.check()?;
+            self.live_calls.fetch_add(1, Ordering::AcqRel);
+            if self.live_fail.load(Ordering::Acquire) {
+                Err(DriverError::Protocol("simulated live frame failure".into()))
+            } else {
+                Ok(())
+            }
         }
 
         fn set_keymap(
@@ -1523,10 +1611,78 @@ mod tests {
             health_timeout: Duration::from_millis(100),
             health_interval: Duration::from_millis(15),
             command_timeout: Duration::from_millis(300),
+            macro_upload_timeout: Duration::from_secs(2),
             lcd_upload_timeout: Duration::from_secs(2),
             open_attempts: 1,
             retry_delay: Duration::from_millis(2),
         }
+    }
+
+    #[test]
+    fn live_failure_remains_stopped_after_reconnect_until_explicit_restart() {
+        let driver = Arc::new(FakeDriver::new());
+        driver.live_fail.store(true, Ordering::Release);
+        let handle = start_fake(driver.clone());
+        wait_for_state(&handle, DeviceState::Ready);
+        handle
+            .submit_live_rgb(LiveRgbFrame { colors: vec![] })
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while handle.live_rgb_status().last_error.is_none() && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert!(handle.live_rgb_status().last_error.is_some());
+        wait_for_state(&handle, DeviceState::Ready);
+        for _ in 0..10 {
+            assert!(
+                handle
+                    .submit_live_rgb(LiveRgbFrame { colors: vec![] })
+                    .is_err()
+            );
+        }
+        assert_eq!(driver.live_calls.load(Ordering::Acquire), 1);
+        assert!(!handle.live_rgb_status().active);
+        driver.live_fail.store(false, Ordering::Release);
+        handle.reset_live_rgb_failure();
+        handle
+            .submit_live_rgb(LiveRgbFrame { colors: vec![] })
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while handle.live_rgb_status().sent_frames == 0 && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(handle.live_rgb_status().sent_frames, 1);
+        assert_eq!(driver.live_calls.load(Ordering::Acquire), 2);
+        handle.shutdown();
+    }
+
+    #[test]
+    fn macro_upload_uses_its_own_deadline_for_queue_and_execution() {
+        let mut driver = FakeDriver::new();
+        driver.operation_delay = Duration::from_millis(100);
+        let mut registry = DriverRegistry::new();
+        registry.register(Arc::new(driver)).unwrap();
+        let mut config = test_config();
+        config.command_timeout = Duration::from_millis(30);
+        config.macro_upload_timeout = Duration::from_millis(300);
+        let handle = DeviceManager::start(registry, config);
+        wait_for_state(&handle, DeviceState::Ready);
+        handle.set_macros(vec![]).unwrap();
+        assert!(
+            handle
+                .set_lighting(LightingConfig {
+                    mode: 1,
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    brightness: 5,
+                    speed: 0,
+                    direction: 0,
+                    colorful: false
+                })
+                .is_err()
+        );
+        handle.shutdown();
     }
 
     fn start_fake(driver: Arc<FakeDriver>) -> DeviceManagerHandle {

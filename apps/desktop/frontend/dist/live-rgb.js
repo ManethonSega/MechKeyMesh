@@ -230,7 +230,7 @@ async function pollLiveRgbStatus() {
     const transport = status.transport;
     $("#liveRgbTransportSummary").textContent =
       `Bounded queue ${transport.bufferedFrames}/1 · ${transport.sentFrames} sent · ${transport.coalescedFrames} coalesced · ${transport.failedFrames} failed`;
-    if (status.lastError) $("#liveRgbStatus").textContent = status.lastError;
+    if (status.lastError || transport.lastError) $("#liveRgbStatus").textContent = status.lastError || transport.lastError;
   } catch (error) {
     $("#liveRgbStatus").textContent = String(error);
   }
