@@ -83,9 +83,9 @@ The full product blueprint lives in [`docs/MANIFESTO.md`](docs/MANIFESTO.md).
 
 ## Current version
 
-`v0.20.0-alpha.4`, **current consolidated test version**. The R8 through R19 implementations, original transparent artwork, application picker, clock/macro readback fixes and macro-library/RGB recovery corrections are included. Continue new work from `main`; the old stacked development branches are superseded.
+`v0.20.0-alpha.5`, **current test version**. This update adds a Home charging-status card and clearer native-device reporting. R18 is closed as an investigation with charging detection, firmware/revision readback and automatic menu synchronization explicitly unavailable. The R8 through R19 implementations, original transparent artwork, application picker, clock/macro readback fixes and macro-library/RGB recovery corrections are included. Continue new work from `main`; the old stacked development branches are superseded.
 
-Automated Linux, Windows and browser checks pass for the current implementation. This remains an alpha: physical stored/live RGB, macro execution and persistence, transport switching, profile behavior and the 72-hour Windows background test remain pending. Clock sync and native knob behavior have user observations recorded. A completed transport log alone does not prove the intended physical effect.
+Automated Linux, Windows and browser checks validate each update through [CI](https://github.com/ManethonSega/MechKeyMesh/actions/workflows/ci.yml). This remains an alpha: physical stored/live RGB, macro execution and persistence, transport switching, profile behavior and the 72-hour Windows background test remain pending. Clock sync and native knob behavior have user observations recorded. A completed transport log alone does not prove the intended physical effect.
 
 See [current validation status](docs/runs/STATUS.md), [alpha.4 feedback and fixes](docs/runs/F108-2026-10-13-ALPHA4.md), and [branch consolidation history](docs/runs/CONSOLIDATION-2026-10-14.md).
 

@@ -8,8 +8,8 @@
       const charging = !data.connection ? "Disconnected" : typeof data.charging !== "boolean" ? "Not reported" : data.charging ? "Charging" : "Not charging";
       field("nativeCharging", charging);
       field("homeCharging", charging);
-      field("nativeFirmware", data.firmware || "Not verified / unavailable");
-      field("nativeRevision", data.hardwareRevision || "Not verified / unavailable");
+      field("nativeFirmware", data.firmware || "Unavailable");
+      field("nativeRevision", data.hardwareRevision || "Unavailable");
       field("nativeKnob", data.knobPolicy);
       field("nativeEvidence", data.evidenceNote);
     } catch (_) {

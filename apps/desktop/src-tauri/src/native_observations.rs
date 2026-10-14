@@ -25,7 +25,7 @@ pub(crate) fn get_native_observations(state: State<'_, AppState>) -> NativeObser
         charging: None,
         firmware: device.and_then(|device| device.firmware),
         hardware_revision: None,
-        knob_policy: "Native firmware control. MechKeyMesh does not intercept or remap the knob.",
-        evidence_note: "Battery percentage is available through the mapped 2.4 GHz command. Charging, firmware, hardware revision and menu readback have no verified decoder. No unknown commands are sent.",
+        knob_policy: "The knob controls the keyboard screen or Windows volume. User testing confirms the same behavior over USB and 2.4 GHz. MechKeyMesh leaves native controls unchanged.",
+        evidence_note: "Battery percentage is reported over 2.4 GHz. The keyboard can charge from external power while using wireless. Charging status, firmware and hardware revision are unavailable to the app. Changes made in the keyboard menu do not update app settings automatically; Save & apply sends your app settings to the keyboard.",
     }
 }

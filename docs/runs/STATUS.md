@@ -1,10 +1,10 @@
 # Current validation status
 
-Current test version: **0.20.0-alpha.4**. Development continues from `main` after [branch consolidation](CONSOLIDATION-2026-10-14.md). Repository cleanup does not close physical acceptance gates.
+Current test version: **0.20.0-alpha.5**. This update adds native-hardware reporting and closes R18 as a bounded investigation with explicitly unavailable capabilities. Development continues from `main` after [branch consolidation](CONSOLIDATION-2026-10-14.md). Repository cleanup does not close physical acceptance gates.
 
 ## Automated evidence
 
-[CI run 154](https://github.com/ManethonSega/MechKeyMesh/actions/runs/38426430321) passed at `d5858f41f86c588d3d06ff4bd687c912e755361e`, including Linux core tests/Clippy, Windows workspace tests/Clippy, the Chrome macro-library regression, branding/format/syntax checks and a Windows release build. That head includes the latest user-observed knob record. Consolidation changes documentation and preserves history; its exact head is checked again by CI before merge.
+[CI run 154](https://github.com/ManethonSega/MechKeyMesh/actions/runs/38426430321) passed at `d5858f41f86c588d3d06ff4bd687c912e755361e`, including Linux core tests/Clippy, Windows workspace tests/Clippy, the Chrome macro-library regression, branding/format/syntax checks and a Windows release build. That historical head includes the then-current user-observed knob record. Alpha.5 is validated separately by the [CI workflow](https://github.com/ManethonSega/MechKeyMesh/actions/workflows/ci.yml). Consolidation changes documentation and preserves history; its exact head is checked again by CI before merge.
 
 ## Acceptance gates
 
@@ -23,7 +23,7 @@ Current test version: **0.20.0-alpha.4**. Development continues from `main` afte
 | R15 LCD media engine | Hardware-independent import/edit/compile and format limits tested | No physical hardware required; software implementation included | Yes, software scope |
 | R16 LCD upload and clock | Dedicated interface, preflight, cancellation and clock-echo handling implemented | User confirmed clock sync physically works; LCD uploads complete in logs; repeated upload matrix pending | No |
 | R17 profiles | Cloning, native application picker, matching and output diffing implemented | Physical switching and redundant-traffic capture pending | No |
-| R18 native hardware | Observation reporting and evidence ledger implemented | User confirmed knob/menu/volume actions; raw reports, Fn+rotation, firmware/revision and menu correlations pending | No |
+| R18 native hardware | Closed investigation; Home charging status and clear unavailable/readback reporting included | USB volume reports captured; wireless behavior and battery display confirmed by user; firmware/revision, charging decoder and automatic menu readback remain unavailable/deferred | Yes, bounded investigation; limitations documented |
 | R19 Windows integration | Tray, startup preferences, single instance and power lifecycle implemented | Interactive Windows behavior and 72-hour background test pending | No |
 
 See each `R*.md` run record for its detailed exit criterion, and [alpha.4 feedback](F108-2026-10-13-ALPHA4.md) for the latest failures/fixes. Historical run records describe their original scope; this page and the current architecture describe the consolidated version. Unknown observations remain unknown. Successful builds, ACKs and completed transport logs do not establish physical functionality.

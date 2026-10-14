@@ -43,7 +43,7 @@
       <button data-page="diagnostics">Diagnostics</button>
       <button data-page="background">Background <b>R19</b></button>
     </nav>
-    <div class="version">v0.20.0-alpha.4 · Macro library and RGB</div>
+    <div class="version">v0.20.0-alpha.5 · Native hardware reporting</div>
   </aside>
 
   <main>
@@ -79,7 +79,7 @@
         <article class="card metric"><span>Database integrity</span><strong id="databaseIntegrity">—</strong></article>
         <article class="card metric"><span>Desired profile</span><strong id="desiredProfile">Default</strong></article>
         <article id="batteryMetric" class="card metric hidden-control"><span>Battery</span><strong id="batteryPercent">—</strong></article>
-        <article class="card metric"><span>Charging status</span><strong id="homeCharging">Disconnected</strong><p class="muted">Charging status is not yet reported to the app by this keyboard driver.</p></article>
+        <article class="card metric"><span>Charging status</span><strong id="homeCharging">Disconnected</strong><p class="muted">The keyboard screen may show charging. The app cannot read that status yet.</p></article>
       </div>
 
       <article class="card">
@@ -742,7 +742,7 @@
 
     <section id="page-diagnostics" class="page">
       <article class="card">
-        <div class="sectiontitle"><div><span class="eyebrow">NATIVE HARDWARE · R18</span><h3>Observed, not assumed</h3></div></div>
+        <div class="sectiontitle"><div><span class="eyebrow">NATIVE HARDWARE</span><h3>Device information</h3></div></div>
         <p>Connection: <strong id="nativeConnection">Disconnected</strong></p>
         <p>Battery: <strong id="nativeBattery">Unavailable</strong></p>
         <p>Charging: <strong id="nativeCharging">Unavailable</strong></p>
