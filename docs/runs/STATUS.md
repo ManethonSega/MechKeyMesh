@@ -4,7 +4,11 @@ Current test version: **0.20.0-alpha.5**. This update adds native-hardware repor
 
 ## Automated evidence
 
-[CI run 154](https://github.com/ManethonSega/MechKeyMesh/actions/runs/38426430321) passed at `d5858f41f86c588d3d06ff4bd687c912e755361e`, including Linux core tests/Clippy, Windows workspace tests/Clippy, the Chrome macro-library regression, branding/format/syntax checks and a Windows release build. That historical head includes the then-current user-observed knob record. Alpha.5 is validated separately by the [CI workflow](https://github.com/ManethonSega/MechKeyMesh/actions/workflows/ci.yml). Consolidation changes documentation and preserves history; its exact head is checked again by CI before merge.
+[CI run 166](https://github.com/ManethonSega/MechKeyMesh/actions/runs/38641628120) passed for alpha.5 at `4feb896a8b10f6ddc1a36b6532a584a79adff2a9`, including Linux core tests/Clippy, Windows workspace tests/Clippy, the Chrome macro-library regression, branding/format/frontend-syntax checks and the Windows release build. The desktop-build job produced the executable and its SHA-256 sidecar.
+
+Windows download: [MechKeyMesh-Windows-test artifact](https://github.com/ManethonSega/MechKeyMesh/actions/runs/38641628120/artifacts/11930572093), containing `MechKeyMesh.exe` and `MechKeyMesh.exe.sha256`. The downloaded ZIP hash matches the GitHub artifact digest, and the executable hash matches its sidecar: `6de1cacf7d7a7189cac3d795ebe7981c84f0b0df3f0569927725a929bdf2d6dd`.
+
+This establishes a checked software build. Charging detection and other explicitly unavailable native readbacks are not claimed as functional. Physical acceptance gates for other runs remain independent of R18 closure.
 
 ## Acceptance gates
 
