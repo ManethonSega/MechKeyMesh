@@ -10,7 +10,9 @@ use std::{
 };
 use thiserror::Error;
 
-pub const CURRENT_SCHEMA_VERSION: i64 = 3;
+pub use profiles::{ApplicationRule, ProfileHostState};
+
+pub const CURRENT_SCHEMA_VERSION: i64 = 5;
 
 struct Migration {
     version: i64,
@@ -286,6 +288,57 @@ const MIGRATIONS: &[Migration] = &[
                     capability,
                     project_id
                 ),
+                FOREIGN KEY (device_model_id, profile_id)
+                    REFERENCES profiles(device_model_id, id)
+                    ON DELETE CASCADE
+            );
+        "#,
+    },
+    Migration {
+        version: 4,
+        name: "stable-macro-hardware-slots",
+        sql: r#"
+            ALTER TABLE macros ADD COLUMN hardware_slot INTEGER
+                CHECK (hardware_slot IS NULL OR hardware_slot BETWEEN 0 AND 99);
+
+            UPDATE macros
+            SET hardware_slot = (
+                SELECT COUNT(*) - 1
+                FROM macros AS preceding
+                WHERE preceding.device_model_id = macros.device_model_id
+                  AND preceding.profile_id = macros.profile_id
+                  AND preceding.capability = macros.capability
+                  AND preceding.id <= macros.id
+            )
+            WHERE (
+                SELECT COUNT(*)
+                FROM macros AS preceding
+                WHERE preceding.device_model_id = macros.device_model_id
+                  AND preceding.profile_id = macros.profile_id
+                  AND preceding.capability = macros.capability
+                  AND preceding.id <= macros.id
+            ) <= 100;
+
+            CREATE UNIQUE INDEX macros_one_hardware_slot
+                ON macros(device_model_id, profile_id, capability, hardware_slot)
+                WHERE hardware_slot IS NOT NULL;
+        "#,
+    },
+    Migration {
+        version: 5,
+        name: "profile-host-state",
+        sql: r#"
+            CREATE TABLE profile_host_state (
+                device_model_id TEXT NOT NULL,
+                profile_id TEXT NOT NULL,
+                live_scene_json TEXT,
+                music_config_json TEXT,
+                host_mode TEXT NOT NULL DEFAULT 'off'
+                    CHECK (host_mode IN ('off', 'live-rgb', 'music')),
+                lcd_asset_path TEXT,
+                lcd_content_hash TEXT,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY (device_model_id, profile_id),
                 FOREIGN KEY (device_model_id, profile_id)
                     REFERENCES profiles(device_model_id, id)
                     ON DELETE CASCADE
@@ -709,6 +762,7 @@ mod tests {
         "lcd_projects",
         "device_settings",
         "application_rules",
+        "profile_host_state",
     ];
 
     fn model() -> DeviceModel {

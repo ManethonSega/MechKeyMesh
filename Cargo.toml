@@ -1,10 +1,13 @@
 [workspace]
 members = [
   "crates/config",
+  "crates/audio-engine",
   "crates/core",
   "crates/driver-api",
   "crates/hid",
   "crates/layout",
+  "crates/lcd-engine",
+  "crates/lighting-engine",
   "crates/persistence",
   "drivers/aula-f108pro",
   "apps/desktop/src-tauri",
@@ -12,7 +15,7 @@ members = [
 resolver = "3"
 
 [workspace.package]
-version = "0.8.0-alpha.1"
+version = "0.20.0-alpha.4"
 edition = "2024"
 rust-version = "1.90"
 repository = "https://github.com/ManethonSega/MechKeyMesh"

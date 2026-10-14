@@ -5,12 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#081327" />
   <title>MechKeyMesh</title>
+  <link rel="icon" type="image/png" href="assets/logo.png" />
   <link rel="stylesheet" href="app.css" />
   <link rel="stylesheet" href="keymap.css" />
+  <link rel="stylesheet" href="perkey.css" />
+  <link rel="stylesheet" href="macros.css" />
+  <link rel="stylesheet" href="settings.css" />
+  <link rel="stylesheet" href="lcd.css" />
+  <link rel="stylesheet" href="profiles.css" />
 </head>
 <body>
 <div id="splash" class="splash">
-  <img src="assets/logo.svg" alt="MechKeyMesh" />
+  <img src="assets/logo.png" alt="MechKeyMesh" />
   <h1>Mech<span>Key</span>Mesh</h1>
   <p>UNIVERSAL KEYBOARD STUDIO</p>
   <div class="splashline"><i></i></div>
@@ -20,20 +26,24 @@
 <div id="app" class="app hidden">
   <aside>
     <div class="brand">
-      <img src="assets/logo.svg" alt="" />
+      <img src="assets/logo.png" alt="" />
       <div><strong>MechKeyMesh</strong><span>Universal Keyboard Studio</span></div>
     </div>
     <nav id="nav">
       <button class="active" data-page="home">Home</button>
-      <button data-page="keys">Keys <b>R7</b></button>
-      <button data-page="macros" disabled>Macros <b>Soon</b></button>
-      <button data-page="lighting">Lighting</button>
-      <button data-page="lcd" disabled>LCD <b>Soon</b></button>
-      <button data-page="profiles" disabled>Profiles <b>Soon</b></button>
-      <button data-page="settings" disabled>Device Settings <b>Soon</b></button>
+      <button data-page="keys" data-requires-capability="keys">Keys <b>R7</b></button>
+      <button data-page="macros" data-requires-capability="macros">Macros <b>R10</b></button>
+      <button data-page="lighting" data-requires-any-capability="hardware-rgb,per-key-rgb">Lighting <b>R8</b></button>
+      <button data-page="live-rgb" data-requires-capability="live-rgb">Live RGB <b>R13</b></button>
+      <button data-page="music" data-requires-capability="music">Music <b>R14</b></button>
+      <button data-page="lcd">LCD <b>R15</b></button>
+      <button data-page="knob">Knob</button>
+      <button data-page="profiles">Profiles <b>R17</b></button>
+      <button data-page="settings" data-requires-capability="device-settings">Device Settings <b>R11</b></button>
       <button data-page="diagnostics">Diagnostics</button>
+      <button data-page="background">Background <b>R19</b></button>
     </nav>
-    <div class="version">v0.8.0-alpha.1 · Normal + Fn Layers</div>
+    <div class="version">v0.20.0-alpha.4 · Macro library and RGB</div>
   </aside>
 
   <main>
@@ -61,13 +71,14 @@
       <div class="grid3">
         <article class="card metric"><span>Connection</span><strong id="connectionType">—</strong></article>
         <article class="card metric"><span>VID / PID</span><strong id="vidpid">—</strong></article>
-        <article class="card metric"><span>Driver</span><strong id="driverId">aula.f108pro.usb</strong></article>
+        <article class="card metric"><span>Driver</span><strong id="driverId">aula.f108pro</strong></article>
         <article class="card metric"><span>Lifecycle</span><strong id="stateText">Disconnected</strong></article>
         <article class="card metric"><span>Candidates</span><strong id="candidateCount">0</strong></article>
         <article class="card metric"><span>Reconnects</span><strong id="reconnectCount">0</strong></article>
         <article class="card metric"><span>Database schema</span><strong id="schemaVersion">—</strong></article>
         <article class="card metric"><span>Database integrity</span><strong id="databaseIntegrity">—</strong></article>
         <article class="card metric"><span>Desired profile</span><strong id="desiredProfile">Default</strong></article>
+        <article id="batteryMetric" class="card metric hidden-control"><span>Battery</span><strong id="batteryPercent">—</strong></article>
       </div>
 
       <article class="card">
@@ -105,7 +116,7 @@
             <strong>Fn activation behavior</strong>
             <span id="fnModeSummary" class="muted">Loading OEM Fn-mode evidence...</span>
           </div>
-          <span class="verification pending">Setting write not enabled</span>
+          <span class="verification pending">Change in Device Settings · verification pending</span>
         </div>
 
         <div class="keymap-toolbar" role="toolbar" aria-label="Keymap editing">
@@ -166,7 +177,7 @@
               <option value="open-file" disabled>Open file (not verified)</option>
               <option value="open-url" disabled>Open website (not verified)</option>
               <option value="send-text" disabled>Send text (not verified)</option>
-              <option value="macro" disabled>Macro (R9/R10)</option>
+              <option value="macro" disabled>Macro</option>
             </select>
           </label>
 
@@ -207,6 +218,10 @@
           <div id="windowsFields" class="action-fields hidden-control">
             <label class="editor-field">Windows action<select id="windowsTarget"></select></label>
           </div>
+          <div id="macroFields" class="action-fields hidden-control">
+            <label class="editor-field">Saved macro<select id="macroTarget"></select></label>
+            <p class="muted">The macro ID is stored here; its stable F108 bank slot is resolved immediately before the keymap write.</p>
+          </div>
 
           <div id="hostActionNotice" class="protocol-notice">
             Open application, file, URL and send-text assignments in the OEM software depend on an indexed host-side handler. They stay disabled until MechKeyMesh verifies that event channel rather than pretending the four-byte mapping alone is sufficient.
@@ -222,6 +237,101 @@
           <div class="editor-actions">
             <span id="selectedKeyCount" class="muted">No keys selected</span>
             <button id="applyKeyAction" class="primary" type="button" disabled>Apply to selected</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="page-macros" class="page">
+      <div class="macro-workspace">
+        <article class="card macro-library">
+          <div class="sectiontitle">
+            <div><span class="eyebrow">MACRO LIBRARY</span><h3>Saved macros</h3></div>
+            <span class="verification pending">Hardware verification pending</span>
+          </div>
+          <p id="macroLibraryStatus" class="layout-note" role="status" aria-live="polite">Loading macro library...</p>
+          <select id="macroLibrary" size="10" aria-label="Saved macros"></select>
+          <div class="macro-library-actions">
+            <button id="newMacro" class="primary compact" type="button">New</button>
+            <button id="duplicateMacro" class="secondary compact" type="button">Duplicate</button>
+            <button id="deleteMacro" class="secondary compact danger-soft" type="button">Delete</button>
+          </div>
+          <p class="layout-note">New and Duplicate create saved local macros. Edits are saved when you click Save, switch macros or upload the bank. Creating a macro does not contact the keyboard.</p>
+        </article>
+
+        <article class="card macro-editor-card">
+          <div class="sectiontitle">
+            <div>
+              <span class="eyebrow">UNIVERSAL MACRO ENGINE</span>
+              <h3>Timeline editor</h3>
+            </div>
+            <div class="layout-badges">
+              <span id="macroEventCount" class="tag neutral">0 events</span>
+              <span id="macroDuration" class="tag neutral">0 ms</span>
+            </div>
+          </div>
+
+          <div class="macro-meta">
+            <label>Name<input id="macroName" type="text" maxlength="160" value="New macro" /></label>
+            <label>Playback<select id="macroPlayback"><option value="once">Once</option></select></label>
+            <button id="saveMacro" class="primary" type="button">Save macro</button>
+          </div>
+          <p class="muted macro-evidence-note">Repeat, repeat while held, toggle and release-to-stop exist in the internal model, but remain hidden until R10 proves their exact F108 encodings on hardware.</p>
+
+          <div id="macroControls" class="macro-toolbar" role="toolbar" aria-label="Macro editing">
+            <button id="recordMacro" class="primary compact" type="button">Record</button>
+            <button id="stopMacro" class="secondary compact" type="button" disabled>Stop</button>
+            <select id="insertMacroEvent" class="compact-select" aria-label="Event to insert">
+              <option value="key-down">Key down</option>
+              <option value="key-up">Key up</option>
+              <option value="mouse-down">Mouse down</option>
+              <option value="mouse-up">Mouse up</option>
+              <option value="delay">Delay</option>
+            </select>
+            <button id="insertMacroEventButton" class="secondary compact" type="button">Insert</button>
+            <button id="moveMacroEventUp" class="secondary compact" type="button">Move up</button>
+            <button id="moveMacroEventDown" class="secondary compact" type="button">Move down</button>
+            <button id="duplicateMacroEvent" class="secondary compact" type="button">Duplicate event</button>
+            <button id="copyMacroEvents" class="secondary compact" type="button">Copy</button>
+            <button id="pasteMacroEvents" class="secondary compact" type="button">Paste</button>
+            <button id="deleteMacroEvents" class="secondary compact danger-soft" type="button">Delete</button>
+          </div>
+
+          <div id="macroCapturePad" class="macro-capture-pad" tabindex="0" role="application" aria-label="Macro recording area">
+            <strong id="macroCaptureTitle">Recording area</strong>
+            <span id="macroCaptureHelp">Choose Record, then press keys or mouse buttons here. Choose Stop when finished.</span>
+          </div>
+
+          <div class="macro-table-wrap">
+            <table class="macro-table">
+              <thead><tr><th></th><th>Time</th><th>Event</th><th>Value</th></tr></thead>
+              <tbody id="macroTimeline"></tbody>
+            </table>
+          </div>
+
+          <div class="macro-bottom-grid">
+            <section class="macro-json-panel">
+              <span class="eyebrow">IMPORT / EXPORT</span>
+              <textarea id="macroJson" spellcheck="false" placeholder="Macro JSON appears here"></textarea>
+              <div class="macro-inline-actions">
+                <button id="exportMacro" class="secondary compact" type="button">Export</button>
+                <button id="importMacro" class="secondary compact" type="button">Import</button>
+              </div>
+            </section>
+            <section class="macro-simulation-panel">
+              <span class="eyebrow">SAFE SIMULATION</span>
+              <button id="simulateMacro" class="primary" type="button">Simulate without keyboard</button>
+              <pre id="macroSimulation">No simulation run.</pre>
+            </section>
+          </div>
+          <div class="macro-footer">
+            <div>
+              <strong>F108 hardware bank</strong>
+              <p id="macroHardwareLimits" class="muted">Loading device limits...</p>
+              <p class="muted">The reverse-engineered upload path has not yet been physically verified. An invalid bank is rejected before any packet is sent.</p>
+            </div>
+            <button id="uploadMacros" class="primary" type="button">Upload complete bank</button>
+            <span id="macroStatus" class="muted">Loading macro library...</span>
           </div>
         </article>
       </div>
@@ -252,9 +362,394 @@
           <button id="applyLighting" class="primary">Save desired state</button>
         </div>
       </div>
+
+      <article class="card perkey-card">
+        <div class="sectiontitle">
+          <div>
+            <span class="eyebrow">STORED PER-KEY RGB</span>
+            <h3>Persistent key colors</h3>
+            <p class="muted">Colors are stored by physical key ID and translated through each layout's LED index. Unassigned keys are sent as off.</p>
+          </div>
+          <div class="layout-badges">
+            <span id="perKeyVerification" class="verification pending">Physical verification pending</span>
+            <span id="perKeyLedCount" class="tag neutral">— LEDs</span>
+          </div>
+        </div>
+
+        <div class="perkey-toolbar" role="toolbar" aria-label="Per-key RGB selection">
+          <div class="toolbar-group">
+            <select id="perKeyRowSelect" class="compact-select" aria-label="Keyboard row"></select>
+            <button id="selectPerKeyRow" class="secondary compact" type="button">Select row</button>
+            <button id="selectWasd" class="secondary compact" type="button">WASD</button>
+            <button id="selectNumpad" class="secondary compact" type="button">Numpad</button>
+            <button id="regionSelect" class="secondary compact" type="button" aria-pressed="false">Region</button>
+            <button id="clearPerKeySelection" class="secondary compact" type="button">Deselect</button>
+          </div>
+          <div class="toolbar-group">
+            <button id="copyPerKeyColor" class="secondary compact" type="button" disabled>Copy</button>
+            <button id="pastePerKeyColor" class="secondary compact" type="button" disabled>Paste</button>
+            <button id="clearPerKeyColor" class="secondary compact" type="button" disabled>Clear selected</button>
+          </div>
+        </div>
+
+        <div id="perKeyKeyboardViewport" class="keyboard-viewport perkey-viewport">
+          <div class="layout-loading">Loading per-key RGB layout...</div>
+        </div>
+
+        <div class="perkey-controls">
+          <section class="perkey-control-panel">
+            <span class="eyebrow">COLOR</span>
+            <div class="perkey-color-row">
+              <input id="perKeyColor" type="color" value="#21e6e8" aria-label="Per-key color" />
+              <button id="applyPerKeyColor" class="primary" type="button" disabled>Apply color</button>
+            </div>
+            <div id="perKeyPalette" class="perkey-palette" aria-label="Color palette">
+              <button type="button" data-color="#21E6E8" style="--swatch:#21E6E8" aria-label="Mesh Cyan"></button>
+              <button type="button" data-color="#18D7F1" style="--swatch:#18D7F1" aria-label="Neon Aqua"></button>
+              <button type="button" data-color="#1C8DFF" style="--swatch:#1C8DFF" aria-label="Electric Blue"></button>
+              <button type="button" data-color="#FF922E" style="--swatch:#FF922E" aria-label="Accent Orange"></button>
+              <button type="button" data-color="#FF355E" style="--swatch:#FF355E" aria-label="Red"></button>
+              <button type="button" data-color="#65FF7A" style="--swatch:#65FF7A" aria-label="Green"></button>
+              <button type="button" data-color="#B56CFF" style="--swatch:#B56CFF" aria-label="Purple"></button>
+              <button type="button" data-color="#FFFFFF" style="--swatch:#FFFFFF" aria-label="White"></button>
+            </div>
+          </section>
+
+          <section class="perkey-control-panel">
+            <span class="eyebrow">GRADIENT</span>
+            <div class="gradient-controls">
+              <label>Start<input id="perKeyGradientStart" type="color" value="#21e6e8"/></label>
+              <span>→</span>
+              <label>End<input id="perKeyGradientEnd" type="color" value="#1c8dff"/></label>
+            </div>
+            <button id="applyPerKeyGradient" class="secondary" type="button" disabled>Apply gradient to selection</button>
+          </section>
+
+          <section class="perkey-control-panel">
+            <span class="eyebrow">HARDWARE</span>
+            <label class="perkey-brightness">Brightness
+              <input id="perKeyBrightness" type="range" min="0" max="5" value="5"/>
+              <output id="perKeyBrightnessOut">5</output>
+            </label>
+            <div class="perkey-hardware-actions">
+              <button id="readPerKeyHardware" class="secondary" type="button">Read keyboard colors</button>
+              <button id="savePerKeyRgb" class="primary" type="button">Save & apply stored RGB</button>
+            </div>
+          </section>
+        </div>
+
+        <div class="perkey-footer">
+          <span id="perKeySelectionCount" class="muted">No keys selected</span>
+          <span id="perKeyStatus" class="muted">Loading desired per-key colors...</span>
+        </div>
+        <p class="layout-note">
+          <code>04 F5</code> readback is optional and never replaces the database as source of truth. Reading hardware colors updates only the editor until you explicitly save.
+        </p>
+      </article>
+    </section>
+
+    <section id="page-live-rgb" class="page">
+      <article class="card live-rgb-card">
+        <div class="sectiontitle">
+          <div>
+            <span class="eyebrow">HOST-GENERATED LIGHTING</span>
+            <h3>Layered live RGB</h3>
+            <p class="muted">Frames use the volatile <code>04 20</code> preview path. Stored keyboard lighting is not rewritten.</p>
+          </div>
+          <span id="liveRgbRunState" class="verification pending">Stopped</span>
+        </div>
+
+        <div class="live-rgb-toolbar">
+          <label>Scene name<input id="liveRgbSceneName" type="text" value="Live gradient" /></label>
+          <label>Frame rate
+            <select id="liveRgbFps"><option>15</option><option>20</option><option selected>30</option></select>
+          </label>
+          <label>Master brightness
+            <input id="liveRgbBrightness" type="range" min="0" max="100" value="80" />
+            <output id="liveRgbBrightnessOut">80%</output>
+          </label>
+          <button id="addLiveRgbLayer" class="secondary" type="button">Add layer</button>
+        </div>
+
+        <div class="live-rgb-column-labels muted">
+          <span>Layer and type</span><span>Effect and blend</span><span>Colors and motion</span><span>Selection / mask</span><span>Order</span>
+        </div>
+        <div id="liveRgbLayers" class="live-rgb-layers"></div>
+
+        <div class="live-rgb-preview">
+          <label>Reactive preview key<select id="liveRgbPreviewKey"></select></label>
+          <button id="previewLiveRgbKey" class="secondary" type="button">Trigger key</button>
+          <span class="muted">Exercises highlight, ripple, and trail layers without installing a keyboard hook.</span>
+        </div>
+
+        <div class="live-rgb-footer">
+          <div>
+            <strong id="liveRgbTransportSummary">Bounded queue · 0 sent · 0 coalesced</strong>
+            <p id="liveRgbStatus" class="muted">Loading live RGB engine...</p>
+          </div>
+          <button id="stopLiveRgb" class="secondary" type="button">Stop</button>
+          <button id="startLiveRgb" class="primary" type="button">Start live RGB</button>
+        </div>
+      </article>
+    </section>
+
+    <section id="page-music" class="page">
+      <article class="card music-card">
+        <div class="sectiontitle">
+          <div>
+            <span class="eyebrow">WINDOWS OUTPUT LOOPBACK</span>
+            <h3>Music lighting</h3>
+            <p class="muted">A Hann-window FFT feeds the volatile live RGB stream. Audio is processed in memory and is never recorded.</p>
+          </div>
+          <span id="musicRunState" class="verification pending">Stopped</span>
+        </div>
+
+        <div class="music-grid">
+          <section class="music-controls">
+            <label>Output device<select id="musicOutputDevice"><option value="">System default</option></select></label>
+            <label>Mode<select id="musicMode">
+              <option value="spectrum">Spectrum</option>
+              <option value="rainbow">Rainbow</option>
+              <option value="reverse-rainbow">Reverse rainbow</option>
+              <option value="amplitude">Amplitude</option>
+              <option value="rhythm">Rhythm</option>
+            </select></label>
+            <label>Background<select id="musicBackground">
+              <option value="off">Off</option>
+              <option value="solid">Solid</option>
+              <option value="palette">Palette glow</option>
+            </select></label>
+            <label>Sensitivity<input id="musicSensitivity" type="range" min="25" max="400" value="125" /><output id="musicSensitivityOut">1.25×</output></label>
+            <label>Smoothing<input id="musicSmoothing" type="range" min="0" max="95" value="45" /><output id="musicSmoothingOut">45%</output></label>
+            <label>Falloff<input id="musicFalloff" type="range" min="0" max="99" value="82" /><output id="musicFalloffOut">82%</output></label>
+            <label>Brightness<input id="musicBrightness" type="range" min="0" max="100" value="85" /><output id="musicBrightnessOut">85%</output></label>
+          </section>
+
+          <section class="music-eq">
+            <span class="eyebrow">FREQUENCY WEIGHTS</span>
+            <label>Bass<input id="musicBass" type="range" min="0" max="200" value="115" /><output id="musicBassOut">1.15×</output></label>
+            <label>Mids<input id="musicMids" type="range" min="0" max="200" value="100" /><output id="musicMidsOut">1.00×</output></label>
+            <label>Treble<input id="musicTreble" type="range" min="0" max="200" value="100" /><output id="musicTrebleOut">1.00×</output></label>
+            <span class="eyebrow music-palette-title">PALETTE</span>
+            <div id="musicPalette" class="music-palette">
+              <input type="color" value="#00d2ff" aria-label="Palette color 1" />
+              <input type="color" value="#7543ff" aria-label="Palette color 2" />
+              <input type="color" value="#ff2d95" aria-label="Palette color 3" />
+              <input type="color" value="#ffbe00" aria-label="Palette color 4" />
+            </div>
+          </section>
+
+          <section class="music-meter-wrap">
+            <div class="music-meter-heading"><span class="eyebrow">LIVE SPECTRUM</span><span id="musicBandSummary" class="muted">Bass 0% · Mids 0% · Treble 0%</span></div>
+            <div id="musicSpectrumBars" class="music-spectrum" aria-label="16 frequency bands"></div>
+          </section>
+        </div>
+
+        <div class="live-rgb-footer">
+          <div>
+            <strong id="musicTransportSummary">0 analyses · 0 frames</strong>
+            <p id="musicStatus" class="muted">Loading Windows output devices...</p>
+          </div>
+          <button id="stopMusic" class="secondary" type="button">Stop</button>
+          <button id="startMusic" class="primary" type="button">Start music lighting</button>
+        </div>
+      </article>
+    </section>
+
+    <section id="page-knob" class="page">
+      <article class="card">
+        <div class="sectiontitle"><div><span class="eyebrow">AULA F108 PRO</span><h3>Knob actions</h3></div><span class="tag">Firmware controls</span></div>
+        <p>Use the physical knob for these actions. On the reference firmware, select the clock or GIF screen and press <strong>Fn + knob</strong> to lock that screen and enable volume control.</p>
+        <div class="settings-timing-wrap">
+          <table class="settings-timing-table">
+            <thead><tr><th>Action</th><th>Volume control</th><th>LCD menus</th></tr></thead>
+            <tbody>
+              <tr><td>Turn clockwise</td><td>Volume up</td><td>Navigate / adjust value</td></tr>
+              <tr><td>Turn counterclockwise</td><td>Volume down</td><td>Navigate / adjust value</td></tr>
+              <tr><td>Press knob</td><td>Mute / unmute</td><td>Select menu item</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">These actions are documented for reference firmware. MechKeyMesh cannot read the selected knob mode; confirm the behavior on your keyboard.</p>
+      </article>
+      <article class="card">
+        <div class="sectiontitle"><div><span class="eyebrow">CUSTOM ASSIGNMENTS</span><h3>Knob remapping</h3></div><span class="verification pending">Unavailable</span></div>
+        <p>The F108 Pro knob is outside the key remapping table. The reference driver has no verified command to change its turn or press assignments.</p>
+        <p class="muted">Knob navigation in the LCD menus is handled by keyboard firmware.</p>
+      </article>
+    </section>
+
+    <section id="page-settings" class="page">
+      <div class="settings-grid">
+        <article class="card">
+          <div class="sectiontitle">
+            <div><span class="eyebrow">F108 FUNCTION SETTINGS</span><h3>Keyboard behavior</h3></div>
+            <span class="verification pending">Physical verification pending</span>
+          </div>
+          <div class="settings-stack">
+            <label class="settings-check"><input id="disableWindowsKey" type="checkbox" /> Disable Windows key</label>
+            <label class="settings-check"><input id="disableAltTab" type="checkbox" /> Disable Alt+Tab</label>
+            <label class="settings-check"><input id="disableAltF4" type="checkbox" /> Disable Alt+F4</label>
+          </div>
+          <div class="settings-selects">
+            <label>Fn behavior<select id="deviceFnMode"></select></label>
+            <label>Sleep after<select id="sleepTimeout"></select></label>
+            <label>Key response<select id="keyResponseLevel"></select></label>
+          </div>
+          <p class="layout-note">This protocol is write-only. Applying sends every field as one complete settings block; the keyboard cannot report its current values.</p>
+        </article>
+
+        <article class="card">
+          <div class="sectiontitle">
+            <div><span class="eyebrow">KEY RESPONSE</span><h3>Approximate timing</h3></div>
+          </div>
+          <p class="muted">Lower levels respond faster but may increase chatter on unstable switches. Timing varies with switch type and environment.</p>
+          <div class="settings-timing-wrap">
+            <table class="settings-timing-table">
+              <thead><tr><th>Level</th><th>Meaning</th><th>Wired</th><th>2.4G</th><th>Bluetooth</th></tr></thead>
+              <tbody id="responseTimingRows"></tbody>
+            </table>
+          </div>
+          <div class="protocol-notice" id="settingsEvidenceNote">Loading raw-value evidence...</div>
+        </article>
+      </div>
+      <article class="card settings-footer">
+        <span id="deviceSettingsStatus" class="muted">Loading desired settings...</span>
+        <button id="applyDeviceSettings" class="primary" type="button">Save & apply all settings</button>
+      </article>
+    </section>
+
+    <section id="page-lcd" class="page">
+      <article class="card lcd-import-card">
+        <div class="sectiontitle">
+          <div>
+            <span class="eyebrow">SAFE F108 ASSET PIPELINE</span>
+            <h3>LCD media editor</h3>
+            <p class="muted">Imports and compiles locally. R15 never opens or writes to the keyboard.</p>
+          </div>
+          <span id="lcdValidity" class="verification pending">No project</span>
+        </div>
+        <div class="lcd-import-row">
+          <label>Selected media<input id="lcdMediaPath" type="text" placeholder="No file selected" readonly /></label>
+          <label>Video preset<select id="lcdPreset"><option value="smooth">Smooth</option><option value="balanced" selected>Balanced</option><option value="full-duration">Full duration</option></select></label>
+          <label>Framing<select id="lcdFit"><option value="fit">Fit</option><option value="fill">Fill</option></select></label>
+          <button id="lcdImport" class="primary" type="button">Choose media...</button>
+        </div>
+        <div class="protocol-notice">Hard limits: 240 × 135, RGB565 little-endian, 256-byte header, and 141 frames. Frame 142 is invalid with no bypass.</div>
+      </article>
+
+      <div class="lcd-workspace">
+        <article class="card lcd-preview-card">
+          <canvas id="lcdCanvas" width="240" height="135" aria-label="LCD frame editor"></canvas>
+          <div class="lcd-editor-tools">
+            <button id="lcdUndo" class="secondary compact" type="button">Undo</button>
+            <button id="lcdRedo" class="secondary compact" type="button">Redo</button>
+            <label>Tool<select id="lcdTool"><option value="select">Select</option><option value="brush">Brush</option><option value="eraser">Eraser</option></select></label>
+            <label>Color<input id="lcdColor" type="color" value="#21e6e8" /></label>
+            <label>Size<input id="lcdBrushSize" type="number" min="1" max="30" value="3" /></label>
+          </div>
+          <div class="lcd-text-tools">
+            <input id="lcdText" type="text" placeholder="Text overlay" />
+            <label>Scale<input id="lcdTextScale" type="number" min="1" max="12" value="2" /></label>
+            <button id="lcdAddText" class="secondary" type="button">Add text</button>
+          </div>
+        </article>
+
+        <article class="card lcd-properties">
+          <span class="eyebrow">FRAME</span>
+          <h3 id="lcdFrameTitle">No frame selected</h3>
+          <label>Duration (ms)<input id="lcdDuration" type="number" min="20" max="5100" step="20" value="100" /></label>
+          <div class="lcd-frame-actions">
+            <button id="lcdDurationApply" class="secondary" type="button">Set duration</button>
+            <button id="lcdDuplicate" class="secondary" type="button">Duplicate</button>
+            <button id="lcdDelete" class="secondary danger-soft" type="button">Delete</button>
+            <button id="lcdMoveLeft" class="secondary" type="button">Move left</button>
+            <button id="lcdMoveRight" class="secondary" type="button">Move right</button>
+          </div>
+          <hr />
+          <label>Export path<input id="lcdExportPath" type="text" placeholder="f108-lcd.bin" value="f108-lcd.bin" /></label>
+          <button id="lcdExport" class="primary" type="button">Validate & export asset</button>
+          <p id="lcdStatus" class="muted">Import media to begin.</p>
+          <hr />
+          <div data-requires-capability="display">
+            <span class="eyebrow">USB HARDWARE</span>
+            <p class="muted">Uses the dedicated FF68 interrupt interface. The complete asset is revalidated before the first packet.</p>
+            <progress id="lcdUploadProgress" max="1" value="0"></progress>
+            <p id="lcdUploadStatus" class="muted">No transfer.</p>
+            <div class="lcd-frame-actions">
+              <button id="lcdUpload" class="primary" type="button">Upload validated asset</button>
+              <button id="lcdCancelUpload" class="secondary danger-soft" type="button" disabled>Cancel</button>
+            </div>
+          </div>
+          <button id="lcdSyncClock" class="secondary" data-requires-capability="clock" type="button">Sync clock</button>
+        </article>
+      </div>
+
+      <article class="card lcd-timeline-card">
+        <div class="sectiontitle"><div><span class="eyebrow">TIMELINE</span><h3 id="lcdProjectTitle">No project</h3></div><strong id="lcdProjectSummary">0 / 141 frames</strong></div>
+        <div id="lcdTimeline" class="lcd-timeline"></div>
+      </article>
+    </section>
+
+    <section id="page-profiles" class="page">
+      <div class="profiles-grid">
+        <article class="card profile-library">
+          <div class="sectiontitle"><div><span class="eyebrow">PROFILE LIBRARY</span><h3>Desired states</h3></div><span id="activeProfileTag" class="tag">Default</span></div>
+          <select id="profileList" size="9" aria-label="Profiles"></select>
+          <div class="profile-fields">
+            <input id="profileId" type="text" placeholder="profile-id" />
+            <input id="profileName" type="text" placeholder="Profile name" />
+          </div>
+          <div class="profile-actions">
+            <button id="profileCreate" class="primary" type="button">Clone active</button>
+            <button id="profileActivate" class="secondary" type="button">Activate</button>
+            <button id="profileRename" class="secondary" type="button">Rename</button>
+            <button id="profileDelete" class="secondary danger-soft" type="button">Delete</button>
+          </div>
+          <p class="muted">New profiles clone the current mappings, Fn mappings, macros, RGB, settings, host lighting and optional LCD assignment.</p>
+        </article>
+
+        <article class="card profile-associations">
+          <div class="sectiontitle">
+            <div><span class="eyebrow">APPLICATION ASSOCIATION</span><h3>Automatic switching</h3></div>
+            <label class="settings-check"><input id="profileAutoSwitch" type="checkbox" /> Enabled</label>
+          </div>
+          <p>Foreground executable: <strong id="profileForeground">Unavailable</strong></p>
+          <div class="association-fields">
+            <div class="association-app">
+              <input id="rulePattern" type="text" placeholder="Choose an app or enter game*.exe" aria-label="Application executable" />
+              <button id="ruleBrowse" class="secondary" type="button">Browse…</button>
+            </div>
+            <select id="ruleProfile" aria-label="Associated profile"></select>
+            <input id="rulePriority" type="number" value="0" aria-label="Priority" />
+            <button id="ruleAdd" class="primary" type="button">Add rule</button>
+          </div>
+          <p class="muted">Browse to the application's .exe file, choose a profile, then click Add rule.</p>
+          <div id="ruleList" class="rule-list"></div>
+          <hr />
+          <label>Optional validated LCD asset path<input id="profileLcdPath" type="text" placeholder="f108-lcd.bin" /></label>
+          <button id="profileAssignLcd" class="secondary" type="button">Assign to active profile</button>
+        </article>
+      </div>
+
+      <article class="card">
+        <div class="sectiontitle"><div><span class="eyebrow">STATE DIFF</span><h3>Last application</h3></div></div>
+        <pre id="profileApplyReport">No profile has been applied in this session.</pre>
+        <p id="profileStatus" class="muted">Unchanged subsystems are skipped and produce no USB traffic.</p>
+      </article>
     </section>
 
     <section id="page-diagnostics" class="page">
+      <article class="card">
+        <div class="sectiontitle"><div><span class="eyebrow">NATIVE HARDWARE · R18</span><h3>Observed, not assumed</h3></div></div>
+        <p>Connection: <strong id="nativeConnection">Disconnected</strong></p>
+        <p>Battery: <strong id="nativeBattery">Unavailable</strong></p>
+        <p>Charging: <strong id="nativeCharging">Unavailable</strong></p>
+        <p>Firmware: <strong id="nativeFirmware">Unavailable</strong></p>
+        <p>Hardware revision: <strong id="nativeRevision">Unavailable</strong></p>
+        <p id="nativeKnob">Native knob and LCD/menu navigation remain under firmware control.</p>
+        <p id="nativeEvidence" class="muted">No firmware flashing or unknown-command probes.</p>
+      </article>
       <div class="card">
         <div class="sectiontitle">
           <div><span class="eyebrow">DIAGNOSTICS</span><h3>Runtime log</h3></div>
@@ -266,9 +761,34 @@
         <pre id="logView">No log entries yet.</pre>
       </div>
     </section>
+    <section id="page-background" class="page">
+      <article class="card">
+        <div class="sectiontitle"><div><span class="eyebrow">WINDOWS INTEGRATION · R19</span><h3>Keep MechKeyMesh in the background</h3></div></div>
+        <div class="settings-stack">
+          <label class="settings-check"><input id="minimizeToTray" type="checkbox" checked /> Closing or minimizing the window keeps the app in the system tray</label>
+          <label class="settings-check"><input id="startMinimized" type="checkbox" /> Open silently in the system tray</label>
+          <label class="settings-check"><input id="startWithWindows" type="checkbox" /> Start with Windows (optional)</label>
+        </div>
+        <p class="muted">Right-click the tray icon to select a profile, pause or resume effects, reconnect, or exit. Left-click it to reopen the window. Selecting a profile in the tray turns automatic switching off until you enable it again.</p>
+        <button id="saveBackgroundPreferences" class="primary" type="button">Save preferences</button>
+        <button id="pauseEffects" class="secondary" type="button">Pause live effects</button>
+        <p id="backgroundRuntime" class="muted">Loading background status...</p>
+        <p id="backgroundMessage" class="muted">Startup with Windows is disabled unless you choose it.</p>
+        <p class="muted">Sleep cancels hardware I/O and stops streams. Wake redetects the keyboard and reconciles the active profile. A cancelled LCD transfer is never silently resumed or applied.</p>
+      </article>
+    </section>
   </main>
 </div>
 <script src="app.js"></script>
 <script src="keymap.js"></script>
+<script src="perkey.js"></script>
+<script src="macros.js"></script>
+<script src="settings.js"></script>
+<script src="live-rgb.js"></script>
+<script src="music.js"></script>
+<script src="lcd.js"></script>
+<script src="profiles.js"></script>
+<script src="native.js"></script>
+<script src="background.js"></script>
 </body>
 </html>

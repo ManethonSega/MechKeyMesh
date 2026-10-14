@@ -1,0 +1,203 @@
+.perkey-card {
+  margin-top: 22px;
+}
+
+.perkey-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+
+.compact-select {
+  min-width: 110px;
+  padding: 7px 9px;
+  border-radius: 8px;
+}
+
+.perkey-viewport {
+  position: relative;
+  min-height: 360px;
+}
+
+.perkey-viewport.region-mode {
+  cursor: crosshair;
+}
+
+.perkey-key .perkey-led-swatch {
+  stroke: rgba(255, 255, 255, .16);
+  stroke-width: .5;
+  pointer-events: none;
+}
+
+html[data-theme="light"] .perkey-key .perkey-led-swatch {
+  stroke: rgba(8, 19, 39, .22);
+}
+
+.perkey-key.perkey-lit rect:first-of-type {
+  stroke-width: 1.5;
+}
+
+.perkey-region-box {
+  fill: rgba(33, 230, 232, .10);
+  stroke: var(--mesh-cyan);
+  stroke-width: 1;
+  stroke-dasharray: 4 2;
+  pointer-events: none;
+}
+
+#regionSelect.active {
+  color: var(--mesh-cyan);
+  border-color: var(--mesh-cyan);
+  background: rgba(33, 230, 232, .08);
+}
+
+.perkey-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.perkey-control-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+
+.perkey-color-row,
+.perkey-hardware-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.perkey-color-row input[type="color"] {
+  width: 62px;
+  min-width: 62px;
+  height: 39px;
+  grid-column: auto;
+}
+
+.perkey-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.perkey-palette button {
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  border: 2px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--swatch);
+  cursor: pointer;
+}
+
+.perkey-palette button:hover,
+.perkey-palette button:focus-visible {
+  border-color: var(--mesh-cyan);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.gradient-controls {
+  display: flex;
+  align-items: end;
+  gap: 9px;
+}
+
+.gradient-controls label {
+  display: grid;
+  grid-template-columns: 1fr;
+  flex: 1;
+  min-width: 0;
+}
+
+.gradient-controls input[type="color"] {
+  grid-column: auto;
+  height: 38px;
+}
+
+.gradient-controls > span {
+  color: var(--text-muted);
+  padding-bottom: 9px;
+}
+
+.perkey-brightness {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.perkey-brightness input {
+  grid-column: 1;
+}
+
+.perkey-brightness output {
+  grid-column: 2;
+  grid-row: 2;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.perkey-hardware-actions {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.perkey-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 14px;
+  padding: 0 2px;
+}
+
+#perKeyStatus {
+  text-align: right;
+}
+
+#savePerKeyRgb.dirty {
+  box-shadow: 0 0 0 2px rgba(255, 146, 46, .24);
+}
+
+@media (max-width: 1040px) {
+  .perkey-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .perkey-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  #perKeyStatus {
+    text-align: left;
+  }
+}
+
+
+.perkey-key.no-led {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.perkey-key.no-led rect:first-of-type {
+  stroke-dasharray: 3 2;
+}
+
+.perkey-key.no-led .perkey-led-swatch {
+  display: none;
+}

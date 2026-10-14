@@ -11,3 +11,4 @@ path = "src/root.rs"
 [dependencies]
 mechkeymesh-driver-api = { path = "../driver-api" }
 serde.workspace = true
+thiserror.workspace = true

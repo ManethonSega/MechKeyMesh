@@ -256,6 +256,93 @@ pub struct LightingConfig {
     pub colorful: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RgbColor {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+impl RgbColor {
+    pub const BLACK: Self = Self { r: 0, g: 0, b: 0 };
+
+    pub const fn is_black(self) -> bool {
+        self.r == 0 && self.g == 0 && self.b == 0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PerKeyRgbAssignment {
+    pub led_index: u16,
+    pub color: RgbColor,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PerKeyRgbConfig {
+    pub brightness: u8,
+    pub colors: Vec<PerKeyRgbAssignment>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PerKeyRgbReadback {
+    pub colors: Vec<PerKeyRgbAssignment>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveRgbFrame {
+    pub colors: Vec<PerKeyRgbAssignment>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveRgbCapabilities {
+    pub maximum_frames_per_second: u16,
+    pub maximum_leds: usize,
+    pub transport_buffered_frames: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LcdPixelFormat {
+    Rgb565LittleEndian,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LcdUpload {
+    pub width: u32,
+    pub height: u32,
+    pub pixel_format: LcdPixelFormat,
+    pub frame_count: usize,
+    pub header_bytes: usize,
+    pub content_length: usize,
+    pub payload: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceClock {
+    pub year: u16,
+    pub month: u8,
+    pub day: u8,
+    pub hour: u8,
+    pub minute: u8,
+    pub second: u8,
+    pub weekday_sunday_zero: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PerKeyRgbCapabilities {
+    pub brightness_min: u8,
+    pub brightness_max: u8,
+    pub readback_supported: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum KeymapLayer {
@@ -320,6 +407,97 @@ pub struct FnLayerDescriptor {
     pub note: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum HardwareMacroMouseButton {
+    Left,
+    Right,
+    Middle,
+    Button4,
+    Button5,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+pub enum HardwareMacroEvent {
+    KeyDown { usage: u16 },
+    KeyUp { usage: u16 },
+    MouseDown { button: HardwareMacroMouseButton },
+    MouseUp { button: HardwareMacroMouseButton },
+    Delay { milliseconds: u32 },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HardwareMacroProgram {
+    pub id: String,
+    pub slot: u8,
+    pub events: Vec<HardwareMacroEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MacroBankDescriptor {
+    pub slot_count: usize,
+    pub maximum_bank_bytes: usize,
+    pub maximum_events_per_macro: usize,
+    pub minimum_delay_milliseconds: u32,
+    pub maximum_delay_milliseconds: u32,
+    pub minimum_loop_count: u16,
+    pub maximum_loop_count: u16,
+    pub hardware_write_verified: bool,
+    pub note: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SleepTimeout {
+    Never,
+    OneMinute,
+    FiveMinutes,
+    ThirtyMinutes,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceSettings {
+    pub disable_windows_key: bool,
+    pub disable_alt_tab: bool,
+    pub disable_alt_f4: bool,
+    pub fn_mode: FnActivationMode,
+    pub sleep_timeout: SleepTimeout,
+    pub key_response_level: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SleepTimeoutOption {
+    pub timeout: SleepTimeout,
+    pub raw_value: u8,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyResponseLevelOption {
+    pub level: u8,
+    pub raw_value: u8,
+    pub label: String,
+    pub wired_timing: String,
+    pub wireless_timing: String,
+    pub bluetooth_timing: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceSettingsDescriptor {
+    pub sleep_options: Vec<SleepTimeoutOption>,
+    pub fn_modes: Vec<FnActivationModeOption>,
+    pub key_response_levels: Vec<KeyResponseLevelOption>,
+    pub hardware_write_verified: bool,
+    pub note: String,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct CancellationToken {
     cancelled: Arc<AtomicBool>,
@@ -343,6 +521,7 @@ impl CancellationToken {
 pub struct OperationContext {
     deadline: Instant,
     cancellation: CancellationToken,
+    suspend_guard: Option<Arc<AtomicBool>>,
 }
 
 impl OperationContext {
@@ -354,7 +533,13 @@ impl OperationContext {
         Self {
             deadline: Instant::now() + timeout,
             cancellation,
+            suspend_guard: None,
         }
+    }
+
+    pub fn with_suspend_guard(mut self, guard: Arc<AtomicBool>) -> Self {
+        self.suspend_guard = Some(guard);
+        self
     }
 
     pub fn cancellation_token(&self) -> CancellationToken {
@@ -366,7 +551,12 @@ impl OperationContext {
     }
 
     pub fn check(&self) -> Result<(), DriverError> {
-        if self.cancellation.is_cancelled() {
+        if self.cancellation.is_cancelled()
+            || self
+                .suspend_guard
+                .as_ref()
+                .is_some_and(|guard| guard.load(Ordering::Acquire))
+        {
             return Err(DriverError::Cancelled);
         }
         if Instant::now() >= self.deadline {
@@ -424,6 +614,63 @@ pub trait DeviceSession: Send {
         Err(DriverError::UnsupportedCapability("key-remapping"))
     }
 
+    fn set_macros(
+        &mut self,
+        _context: &OperationContext,
+        _programs: &[HardwareMacroProgram],
+    ) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("macros"))
+    }
+
+    fn set_device_settings(
+        &mut self,
+        _context: &OperationContext,
+        _settings: &DeviceSettings,
+    ) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("device-settings"))
+    }
+
+    fn set_per_key_rgb(
+        &mut self,
+        _context: &OperationContext,
+        _config: &PerKeyRgbConfig,
+    ) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("per-key-rgb"))
+    }
+
+    fn read_per_key_rgb(
+        &mut self,
+        _context: &OperationContext,
+        _led_indices: &[u16],
+    ) -> Result<PerKeyRgbReadback, DriverError> {
+        Err(DriverError::UnsupportedCapability("per-key-rgb-readback"))
+    }
+
+    fn send_live_rgb_frame(
+        &mut self,
+        _context: &OperationContext,
+        _frame: &LiveRgbFrame,
+    ) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("live-rgb"))
+    }
+
+    fn upload_lcd(
+        &mut self,
+        _context: &OperationContext,
+        _upload: &LcdUpload,
+        _progress: &mut dyn FnMut(usize, usize),
+    ) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("display"))
+    }
+
+    fn sync_clock(
+        &mut self,
+        _context: &OperationContext,
+        _clock: DeviceClock,
+    ) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("clock"))
+    }
+
     fn close(&mut self) -> Result<(), DriverError> {
         Ok(())
     }
@@ -446,6 +693,30 @@ pub trait KeyboardDriver: Send + Sync {
 
     fn fn_layer_descriptor(&self) -> Option<FnLayerDescriptor> {
         None
+    }
+
+    fn macro_bank_descriptor(&self) -> Option<MacroBankDescriptor> {
+        None
+    }
+
+    fn device_settings_descriptor(&self) -> Option<DeviceSettingsDescriptor> {
+        None
+    }
+
+    fn validate_macro_bank(&self, _programs: &[HardwareMacroProgram]) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("macros"))
+    }
+
+    fn validate_device_settings(&self, _settings: &DeviceSettings) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("device-settings"))
+    }
+
+    fn per_key_rgb_capabilities(&self) -> Option<PerKeyRgbCapabilities> {
+        None
+    }
+
+    fn validate_per_key_rgb(&self, _config: &PerKeyRgbConfig) -> Result<(), DriverError> {
+        Err(DriverError::UnsupportedCapability("per-key-rgb"))
     }
 
     fn validate_keymap(
@@ -497,6 +768,16 @@ mod tests {
     }
 
     #[test]
+    fn suspension_gate_cancels_an_already_created_context() {
+        let gate = Arc::new(AtomicBool::new(false));
+        let context =
+            OperationContext::new(Duration::from_secs(1)).with_suspend_guard(gate.clone());
+        assert!(context.check().is_ok());
+        gate.store(true, Ordering::Release);
+        assert!(matches!(context.check(), Err(DriverError::Cancelled)));
+    }
+
+    #[test]
     fn capability_storage_keys_are_stable() {
         assert_eq!(Capability::HardwareRgb.storage_key(), "hardware-rgb");
         assert_eq!(Capability::Keys.storage_key(), "keys");
@@ -526,6 +807,28 @@ mod tests {
         assert!(json.contains("\"rawValue\":0"));
         assert!(json.contains("\"mode\":\"momentary\""));
         assert!(json.contains("\"rawValue\":1"));
+    }
+
+    #[test]
+    fn per_key_rgb_configuration_round_trips_through_json() {
+        let config = PerKeyRgbConfig {
+            brightness: 5,
+            colors: vec![
+                PerKeyRgbAssignment {
+                    led_index: 1,
+                    color: RgbColor { r: 255, g: 0, b: 0 },
+                },
+                PerKeyRgbAssignment {
+                    led_index: 56,
+                    color: RgbColor { r: 0, g: 255, b: 0 },
+                },
+            ],
+        };
+
+        let json = serde_json::to_string(&config).unwrap();
+        let decoded: PerKeyRgbConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, config);
+        assert!(RgbColor::BLACK.is_black());
     }
 
     #[test]

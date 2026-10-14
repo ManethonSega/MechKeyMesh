@@ -295,9 +295,41 @@ Schema changes are versioned. A newer database is refused by an older MechKeyMes
 schema 1  devices, profiles, lighting, device_settings, application_rules
 schema 2  key_mappings, layer_mappings, macros, macro_events
 schema 3  per_key_lighting, live_lighting, music_presets, lcd_projects
+schema 4  stable macro hardware slots
+schema 5  profile host state and automatic switching metadata
 ```
 
 The tables exist before their higher-level feature editors are implemented so later runs can add functionality without repeatedly redesigning persistence ownership.
+
+### Universal macro engine
+
+R9 defines macros independently from any keyboard packet format:
+
+```text
+MacroProgram
+  id + name
+  playback concept
+  ordered MacroEvent[]
+      KeyDown / KeyUp
+      MouseDown / MouseUp
+      Delay
+```
+
+Macros are stored in the existing schema-2 `macros` and `macro_events` tables. A macro and its complete ordered event list are replaced in one immediate SQLite transaction. The editor can record, insert, delete, reorder, duplicate, copy/paste, rename and import/export events.
+
+Simulation accumulates explicit delay events and returns a timeline marked `hardwareTouched = false`.
+
+R10 adds a generic hardware-macro driver contract while keeping the F108 wire format inside its driver. The F108 serializer builds the complete 100-slot bank before transport is available to the send path. Invalid slots, events, delays, mouse buttons, size scores or packet counts therefore fail with zero packets sent.
+
+Persisted macro IDs receive stable schema-4 hardware slots. Keymap storage remains vendor-neutral and references the macro ID; the desktop resolves that ID to a slot only for the F108 write. Renames and deletion never renumber surviving macro references.
+
+The driver advertises `Macros`, but its descriptor explicitly marks hardware writes unverified because the protocol source states that macro transfer was never tried. Only `Once` is exposed until loop and held/toggle behaviors are physically verified.
+
+### F108 device settings
+
+R11 models Windows/Alt shortcut locks, Fn activation, sleep timeout and key response as one complete desired-state object. This matches the OEM write-only protocol: changing any control transmits the full settings panel rather than an isolated field.
+
+The F108 driver owns the raw conversion and `04 18` / `04 17` / data / `04 02` sequence. Shared UI and persistence use understandable enums and labels. The persisted object is explicitly desired state; ACKs and the absence of a query command are never presented as proof of the current physical setting.
 
 ### Desired lighting behavior
 
@@ -504,3 +536,132 @@ MechKeyMesh intentionally separates safe remap restoration from broader OEM rese
 - Factory Reset: not exposed until its full OEM/hardware scope is verified.
 
 A hardware application failure after persistence does not discard the desired reset state. The database remains authoritative and can be reconciled later.
+
+
+## Stored per-key RGB
+
+R8 keeps the generic product model independent from AULA packet layout:
+
+```text
+Physical key ID
+      |
+      v
+Layout.led_index
+      |
+      v
+generic PerKeyRgbAssignment
+      |
+      v
+device driver translation
+      |
+      v
+AULA 04 23 table
+```
+
+Desired state is stored by stable physical key ID, not by a vendor LED index. This matters because LED numbering is device-specific and may not match matrix position, HID usage, or another vendor's addressing scheme.
+
+### Persistence
+
+The existing schema-3 `per_key_lighting` table stores RGB values by:
+
+```text
+device model + profile + per-key-rgb capability + key ID
+```
+
+Overall per-key brightness is stored transactionally in the generic `device_settings` table under the same `per-key-rgb` capability scope.
+
+Saving a per-key design replaces the complete desired key-color set and brightness in one SQLite transaction. Black/off colors are canonicalized by omitting them from the color table; an absent desired color therefore means off for the complete-table writer.
+
+### F108 stored RGB protocol
+
+Exact analysis of the supplied `DeviceDriver.exe` establishes the table format. The current alpha.4 sender also incorporates the capture-based reference's flash settling behavior:
+
+```text
+brightness/setup preamble
+  04 18              ACK
+  04 13, byte 8=01   ACK
+  data:
+    byte 0  = 80
+    byte 9  = brightness 0..5
+    14..15  = AA 55
+  04 02              ACK
+  04 F0              no readback, then 300 ms settling
+
+stored RGB table
+  04 18              ACK
+  04 23, byte 8=09   ACK
+  576-byte table     matching first/last data echo or existing ACK
+  04 02              ACK
+  04 F0              no readback, then 800 ms settling
+```
+
+RGB table slot for LED index `i`:
+
+```text
+offset i*4 + 0   LED index
+offset i*4 + 1   R
+offset i*4 + 2   G
+offset i*4 + 3   B
+```
+
+The table trailer occupies offsets 574-575.
+
+The exact OEM binary stores uint16 `0x55AA` on little-endian x86, therefore the actual table bytes are:
+
+```text
+AA 55
+```
+
+This is an important correction to community sample code that wrote `55 AA` for this particular table. MechKeyMesh follows the exact OEM package supplied for this project.
+
+### 04 F5 RGB readback
+
+R8 also maps the OEM key-color readback function.
+
+For F108 RGB mode:
+
+```text
+send 04 F5 with byte 8=09
+  |
+  v
+read short ACK
+  OEM requests 9 total HID bytes:
+  report ID + 8 payload bytes
+  ACK payload byte 3 must be 01
+  |
+  v
+read 9 x 64-byte feature payloads
+  = 576-byte RGB table
+  |
+  v
+for each layout LED index i:
+  R = table[i*4+1]
+  G = table[i*4+2]
+  B = table[i*4+3]
+  |
+  v
+04 02 ACK
+```
+
+The OEM UI uses its `light_index` map to locate each physical key's RGB bytes. It does not use `04 F5` as a general source of application configuration.
+
+MechKeyMesh follows the same principle: SQLite desired state remains authoritative. F5 is an optional hardware inspection/import path. Reading hardware colors updates the editor only until the user explicitly saves.
+
+### Editor selection model
+
+The stored RGB editor operates on generic layout data and supports:
+
+- single-key selection
+- Ctrl/Cmd multi-selection
+- source-grid row selection
+- WASD selection by standard HID usage
+- named data-driven layout sections such as `numpad`
+- drag-region selection in layout coordinates
+- color picker and palette
+- multi-key gradient generation
+- color copy/paste
+- clear/off
+- overall stored-RGB brightness
+- optional F5 hardware readback
+
+The first F108 layout now includes data-only section tags (`function`, `main`, `navigation`, `numpad`) so the frontend does not hard-code F108 coordinate regions.

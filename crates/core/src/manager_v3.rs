@@ -1,14 +1,15 @@
 use crate::{DriverRegistry, LogEntry, LogRing};
 use mechkeymesh_driver_api::{
-    CancellationToken, DeviceCandidate, DeviceDescriptor, DeviceSession, DriverError,
-    DriverManifest, ErrorClass, KeyAssignment, KeyboardDriver, KeymapLayer, LightingConfig,
-    OperationContext,
+    CancellationToken, Capability, DeviceCandidate, DeviceClock, DeviceDescriptor, DeviceSession,
+    DeviceSettings, DriverError, DriverManifest, ErrorClass, HardwareMacroProgram, KeyAssignment,
+    KeyboardDriver, KeymapLayer, LcdUpload, LightingConfig, LiveRgbFrame, OperationContext,
+    PerKeyRgbConfig, PerKeyRgbReadback,
 };
 use serde::{Deserialize, Serialize};
 use std::{
     sync::{
         Arc, Mutex, RwLock,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc::{self, Receiver, RecvTimeoutError, Sender},
     },
     thread,
@@ -27,6 +28,7 @@ pub enum DeviceState {
     Recovery,
     Ambiguous,
     Unsupported,
+    Suspended,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,6 +52,38 @@ pub struct DeviceStatus {
     pub reconnect_count: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveRgbTransportStatus {
+    pub active: bool,
+    pub submitted_frames: u64,
+    pub sent_frames: u64,
+    pub coalesced_frames: u64,
+    pub failed_frames: u64,
+    pub buffered_frames: usize,
+    pub last_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LcdTransferStatus {
+    pub active: bool,
+    pub pages_sent: usize,
+    pub total_pages: usize,
+    pub incomplete: bool,
+    pub last_error: Option<String>,
+}
+
+#[derive(Default)]
+struct LiveRgbTelemetry {
+    active: AtomicBool,
+    submitted_frames: AtomicU64,
+    sent_frames: AtomicU64,
+    coalesced_frames: AtomicU64,
+    failed_frames: AtomicU64,
+    last_error: Mutex<Option<String>>,
+}
+
 impl Default for DeviceStatus {
     fn default() -> Self {
         Self {
@@ -66,6 +100,7 @@ impl Default for DeviceStatus {
 
 #[derive(Debug, Clone)]
 pub struct ManagerConfig {
+    pub suspend_guard: Arc<AtomicBool>,
     pub discovery_timeout: Duration,
     pub discovery_interval: Duration,
     pub open_timeout: Duration,
@@ -73,6 +108,8 @@ pub struct ManagerConfig {
     pub health_timeout: Duration,
     pub health_interval: Duration,
     pub command_timeout: Duration,
+    pub macro_upload_timeout: Duration,
+    pub lcd_upload_timeout: Duration,
     pub open_attempts: usize,
     pub retry_delay: Duration,
 }
@@ -80,6 +117,7 @@ pub struct ManagerConfig {
 impl Default for ManagerConfig {
     fn default() -> Self {
         Self {
+            suspend_guard: Arc::new(AtomicBool::new(false)),
             discovery_timeout: Duration::from_secs(2),
             discovery_interval: Duration::from_millis(900),
             open_timeout: Duration::from_secs(2),
@@ -87,6 +125,8 @@ impl Default for ManagerConfig {
             health_timeout: Duration::from_millis(700),
             health_interval: Duration::from_millis(900),
             command_timeout: Duration::from_secs(3),
+            macro_upload_timeout: Duration::from_secs(15),
+            lcd_upload_timeout: Duration::from_secs(20 * 60),
             open_attempts: 2,
             retry_delay: Duration::from_millis(120),
         }
@@ -101,6 +141,8 @@ struct ActiveDevice {
 
 enum Command {
     Reconnect,
+    Suspend,
+    Resume,
     SetLighting {
         id: u64,
         config: LightingConfig,
@@ -116,6 +158,50 @@ enum Command {
         cancellation: CancellationToken,
         reply: Sender<Result<(), String>>,
     },
+    SetMacros {
+        id: u64,
+        programs: Vec<HardwareMacroProgram>,
+        submitted: Instant,
+        cancellation: CancellationToken,
+        reply: Sender<Result<(), String>>,
+    },
+    SetDeviceSettings {
+        id: u64,
+        settings: DeviceSettings,
+        submitted: Instant,
+        cancellation: CancellationToken,
+        reply: Sender<Result<(), String>>,
+    },
+    SetPerKeyRgb {
+        id: u64,
+        config: PerKeyRgbConfig,
+        submitted: Instant,
+        cancellation: CancellationToken,
+        reply: Sender<Result<(), String>>,
+    },
+    ReadPerKeyRgb {
+        id: u64,
+        led_indices: Vec<u16>,
+        submitted: Instant,
+        cancellation: CancellationToken,
+        reply: Sender<Result<PerKeyRgbReadback, String>>,
+    },
+    UploadLcd {
+        id: u64,
+        upload: LcdUpload,
+        submitted: Instant,
+        cancellation: CancellationToken,
+        reply: Sender<Result<(), String>>,
+    },
+    SyncClock {
+        id: u64,
+        clock: DeviceClock,
+        submitted: Instant,
+        cancellation: CancellationToken,
+        reply: Sender<Result<(), String>>,
+    },
+    LiveFrameReady,
+    StopLiveRgb,
     Shutdown,
 }
 
@@ -128,6 +214,12 @@ pub struct DeviceManagerHandle {
     active_cancellation: Arc<Mutex<Option<CancellationToken>>>,
     next_operation_id: Arc<AtomicU64>,
     command_timeout: Duration,
+    macro_upload_timeout: Duration,
+    lcd_upload_timeout: Duration,
+    lcd_transfer: Arc<RwLock<LcdTransferStatus>>,
+    live_frame: Arc<Mutex<Option<LiveRgbFrame>>>,
+    live_telemetry: Arc<LiveRgbTelemetry>,
+    suspended: Arc<AtomicBool>,
 }
 
 impl DeviceManagerHandle {
@@ -148,6 +240,21 @@ impl DeviceManagerHandle {
         let _ = self.tx.send(Command::Reconnect);
     }
 
+    pub fn suspend(&self) {
+        self.suspended.store(true, Ordering::Release);
+        self.cancel_active_operation();
+        self.stop_live_rgb();
+        let _ = self.tx.send(Command::Suspend);
+    }
+
+    pub fn resume(&self) {
+        let _ = self.tx.send(Command::Resume);
+    }
+
+    pub fn is_suspended(&self) -> bool {
+        self.suspended.load(Ordering::Acquire)
+    }
+
     pub fn cancel_active_operation(&self) -> bool {
         let guard = self
             .active_cancellation
@@ -162,6 +269,9 @@ impl DeviceManagerHandle {
     }
 
     pub fn set_lighting(&self, config: LightingConfig) -> Result<(), String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
         let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
         let cancellation = CancellationToken::new();
         let (reply_tx, reply_rx) = mpsc::channel();
@@ -182,6 +292,9 @@ impl DeviceManagerHandle {
         layer: KeymapLayer,
         assignments: Vec<KeyAssignment>,
     ) -> Result<(), String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
         let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
         let cancellation = CancellationToken::new();
         let (reply_tx, reply_rx) = mpsc::channel();
@@ -198,17 +311,234 @@ impl DeviceManagerHandle {
         wait_for_reply(reply_rx, cancellation, self.command_timeout)
     }
 
+    pub fn set_macros(&self, programs: Vec<HardwareMacroProgram>) -> Result<(), String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
+        let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
+        let cancellation = CancellationToken::new();
+        let (reply_tx, reply_rx) = mpsc::channel();
+        self.tx
+            .send(Command::SetMacros {
+                id,
+                programs,
+                submitted: Instant::now(),
+                cancellation: cancellation.clone(),
+                reply: reply_tx,
+            })
+            .map_err(|_| "device manager is not running".to_string())?;
+        wait_for_reply(reply_rx, cancellation, self.macro_upload_timeout)
+    }
+
+    pub fn set_device_settings(&self, settings: DeviceSettings) -> Result<(), String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
+        let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
+        let cancellation = CancellationToken::new();
+        let (reply_tx, reply_rx) = mpsc::channel();
+        self.tx
+            .send(Command::SetDeviceSettings {
+                id,
+                settings,
+                submitted: Instant::now(),
+                cancellation: cancellation.clone(),
+                reply: reply_tx,
+            })
+            .map_err(|_| "device manager is not running".to_string())?;
+        wait_for_reply(reply_rx, cancellation, self.command_timeout)
+    }
+
+    pub fn set_per_key_rgb(&self, config: PerKeyRgbConfig) -> Result<(), String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
+        let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
+        let cancellation = CancellationToken::new();
+        let (reply_tx, reply_rx) = mpsc::channel();
+        self.tx
+            .send(Command::SetPerKeyRgb {
+                id,
+                config,
+                submitted: Instant::now(),
+                cancellation: cancellation.clone(),
+                reply: reply_tx,
+            })
+            .map_err(|_| "device manager is not running".to_string())?;
+        wait_for_reply(reply_rx, cancellation, self.command_timeout)
+    }
+
+    pub fn read_per_key_rgb(&self, led_indices: Vec<u16>) -> Result<PerKeyRgbReadback, String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
+        let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
+        let cancellation = CancellationToken::new();
+        let (reply_tx, reply_rx) = mpsc::channel();
+        self.tx
+            .send(Command::ReadPerKeyRgb {
+                id,
+                led_indices,
+                submitted: Instant::now(),
+                cancellation: cancellation.clone(),
+                reply: reply_tx,
+            })
+            .map_err(|_| "device manager is not running".to_string())?;
+        wait_for_reply(reply_rx, cancellation, self.command_timeout)
+    }
+
+    pub fn upload_lcd(&self, upload: LcdUpload) -> Result<(), String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
+        let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
+        let cancellation = CancellationToken::new();
+        let (reply_tx, reply_rx) = mpsc::channel();
+        self.tx
+            .send(Command::UploadLcd {
+                id,
+                upload,
+                submitted: Instant::now(),
+                cancellation: cancellation.clone(),
+                reply: reply_tx,
+            })
+            .map_err(|_| "device manager is not running".to_string())?;
+        wait_for_reply(reply_rx, cancellation, self.lcd_upload_timeout)
+    }
+
+    pub fn sync_clock(&self, clock: DeviceClock) -> Result<(), String> {
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
+        let id = self.next_operation_id.fetch_add(1, Ordering::Relaxed);
+        let cancellation = CancellationToken::new();
+        let (reply_tx, reply_rx) = mpsc::channel();
+        self.tx
+            .send(Command::SyncClock {
+                id,
+                clock,
+                submitted: Instant::now(),
+                cancellation: cancellation.clone(),
+                reply: reply_tx,
+            })
+            .map_err(|_| "device manager is not running".to_string())?;
+        wait_for_reply(reply_rx, cancellation, self.command_timeout)
+    }
+
+    pub fn lcd_transfer_status(&self) -> LcdTransferStatus {
+        self.lcd_transfer
+            .read()
+            .expect("LCD transfer status lock poisoned")
+            .clone()
+    }
+
+    pub fn submit_live_rgb(&self, frame: LiveRgbFrame) -> Result<(), String> {
+        if let Some(error) = self
+            .live_telemetry
+            .last_error
+            .lock()
+            .expect("live RGB error lock poisoned")
+            .as_ref()
+        {
+            return Err(format!(
+                "Live RGB stopped after a transport failure. Press Start to retry. {error}"
+            ));
+        }
+        if self.is_suspended() {
+            return Err("Keyboard I/O is paused while Windows sleeps.".into());
+        }
+        let status = self.status();
+        let Some(device) = status.device else {
+            return Err("no supported keyboard is ready".into());
+        };
+        // Persistent operations temporarily own the transport. Drop this frame
+        // without terminating its renderer or accumulating a queue.
+        if status.state == DeviceState::Busy {
+            return Ok(());
+        }
+        if status.state != DeviceState::Ready || !device.capabilities.contains(&Capability::LiveRgb)
+        {
+            return Err("live RGB is not available on the active connection".into());
+        }
+
+        self.live_telemetry
+            .submitted_frames
+            .fetch_add(1, Ordering::Relaxed);
+        self.live_telemetry.active.store(true, Ordering::Release);
+        let mut slot = self.live_frame.lock().expect("live frame lock poisoned");
+        let signal = slot.is_none();
+        if !signal {
+            self.live_telemetry
+                .coalesced_frames
+                .fetch_add(1, Ordering::Relaxed);
+        }
+        *slot = Some(frame);
+        drop(slot);
+
+        if signal && self.tx.send(Command::LiveFrameReady).is_err() {
+            self.live_frame
+                .lock()
+                .expect("live frame lock poisoned")
+                .take();
+            return Err("device manager is not running".into());
+        }
+        Ok(())
+    }
+
+    pub fn stop_live_rgb(&self) {
+        self.live_telemetry.active.store(false, Ordering::Release);
+        self.live_frame
+            .lock()
+            .expect("live frame lock poisoned")
+            .take();
+        let _ = self.tx.send(Command::StopLiveRgb);
+    }
+
+    pub fn reset_live_rgb_failure(&self) {
+        *self
+            .live_telemetry
+            .last_error
+            .lock()
+            .expect("live RGB error lock poisoned") = None;
+    }
+
+    pub fn live_rgb_status(&self) -> LiveRgbTransportStatus {
+        LiveRgbTransportStatus {
+            active: self.live_telemetry.active.load(Ordering::Acquire),
+            submitted_frames: self.live_telemetry.submitted_frames.load(Ordering::Relaxed),
+            sent_frames: self.live_telemetry.sent_frames.load(Ordering::Relaxed),
+            coalesced_frames: self.live_telemetry.coalesced_frames.load(Ordering::Relaxed),
+            failed_frames: self.live_telemetry.failed_frames.load(Ordering::Relaxed),
+            last_error: self
+                .live_telemetry
+                .last_error
+                .lock()
+                .expect("live RGB error lock poisoned")
+                .clone(),
+            buffered_frames: if self
+                .live_frame
+                .lock()
+                .expect("live frame lock poisoned")
+                .is_some()
+            {
+                1
+            } else {
+                0
+            },
+        }
+    }
+
     pub fn shutdown(&self) {
         self.cancel_active_operation();
         let _ = self.tx.send(Command::Shutdown);
     }
 }
 
-fn wait_for_reply(
-    receiver: Receiver<Result<(), String>>,
+fn wait_for_reply<T>(
+    receiver: Receiver<Result<T, String>>,
     cancellation: CancellationToken,
     timeout: Duration,
-) -> Result<(), String> {
+) -> Result<T, String> {
     match receiver.recv_timeout(timeout + Duration::from_millis(250)) {
         Ok(result) => result,
         Err(_) => {
@@ -230,6 +560,10 @@ impl DeviceManager {
         let status = Arc::new(RwLock::new(DeviceStatus::default()));
         let log = LogRing::new(600);
         let active_cancellation = Arc::new(Mutex::new(None));
+        let live_frame = Arc::new(Mutex::new(None));
+        let live_telemetry = Arc::new(LiveRgbTelemetry::default());
+        let lcd_transfer = Arc::new(RwLock::new(LcdTransferStatus::default()));
+        let suspended = config.suspend_guard.clone();
 
         let handle = DeviceManagerHandle {
             tx,
@@ -239,22 +573,46 @@ impl DeviceManager {
             active_cancellation: active_cancellation.clone(),
             next_operation_id: Arc::new(AtomicU64::new(1)),
             command_timeout: config.command_timeout,
+            macro_upload_timeout: config.macro_upload_timeout,
+            lcd_upload_timeout: config.lcd_upload_timeout,
+            lcd_transfer: lcd_transfer.clone(),
+            live_frame: live_frame.clone(),
+            live_telemetry: live_telemetry.clone(),
+            suspended: suspended.clone(),
         };
 
         thread::Builder::new()
             .name("mechkeymesh-device-manager".into())
-            .spawn(move || worker(rx, status, log, registry, active_cancellation, config))
+            .spawn(move || {
+                worker(
+                    rx,
+                    status,
+                    log,
+                    registry,
+                    active_cancellation,
+                    live_frame,
+                    live_telemetry,
+                    lcd_transfer,
+                    suspended,
+                    config,
+                )
+            })
             .expect("failed to start device manager");
         handle
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn worker(
     rx: Receiver<Command>,
     status: Arc<RwLock<DeviceStatus>>,
     log: LogRing,
     registry: DriverRegistry,
     active_cancellation: Arc<Mutex<Option<CancellationToken>>>,
+    live_frame: Arc<Mutex<Option<LiveRgbFrame>>>,
+    live_telemetry: Arc<LiveRgbTelemetry>,
+    lcd_transfer: Arc<RwLock<LcdTransferStatus>>,
+    suspended: Arc<AtomicBool>,
     config: ManagerConfig,
 ) {
     log.push("info", "Device Manager 3.0 started");
@@ -262,7 +620,12 @@ fn worker(
     let mut ever_connected = false;
 
     loop {
-        if active.is_none() {
+        if suspended.load(Ordering::Acquire) {
+            close_active(&mut active, &log);
+            live_frame.lock().expect("live frame lock poisoned").take();
+            live_telemetry.active.store(false, Ordering::Release);
+            set_status(&status, DeviceState::Suspended, None, None, None, 0);
+        } else if active.is_none() {
             active = discover_and_open(&registry, &status, &log, &config, &mut ever_connected);
         }
 
@@ -273,12 +636,26 @@ fn worker(
         };
 
         match rx.recv_timeout(wait) {
+            Ok(Command::Suspend) => {
+                close_active(&mut active, &log);
+                log.push(
+                    "info",
+                    "Windows suspend: I/O cancelled and device handles released",
+                );
+            }
+            Ok(Command::Resume) => {
+                suspended.store(false, Ordering::Release);
+                set_status(&status, DeviceState::Disconnected, None, None, None, 0);
+                log.push("info", "Windows resume: rediscovery requested");
+            }
             Ok(Command::Shutdown) => {
                 close_active(&mut active, &log);
                 log.push("info", "device manager stopped");
                 return;
             }
             Ok(Command::Reconnect) => {
+                live_telemetry.active.store(false, Ordering::Release);
+                live_frame.lock().expect("live frame lock poisoned").take();
                 close_active(&mut active, &log);
                 set_status(&status, DeviceState::Disconnected, None, None, None, 0);
                 log.push("info", "manual reconnect requested");
@@ -330,25 +707,262 @@ fn worker(
                 );
                 let _ = reply.send(result);
             }
-            Err(RecvTimeoutError::Timeout) => {
-                if let Some(device) = active.as_mut()
-                    && !active_device_present(device, &log, &config)
+            Ok(Command::SetMacros {
+                id,
+                programs,
+                submitted,
+                cancellation,
+                reply,
+            }) => {
+                let result = execute_operation_with_result(
+                    &mut active,
+                    &status,
+                    &log,
+                    &active_cancellation,
+                    &config,
+                    config.macro_upload_timeout,
+                    id,
+                    "upload hardware macro bank",
+                    submitted,
+                    cancellation,
+                    |session, context| session.set_macros(context, &programs),
+                );
+                let _ = reply.send(result);
+            }
+            Ok(Command::SetDeviceSettings {
+                id,
+                settings,
+                submitted,
+                cancellation,
+                reply,
+            }) => {
+                let result = execute_operation(
+                    &mut active,
+                    &status,
+                    &log,
+                    &active_cancellation,
+                    &config,
+                    id,
+                    "apply device settings",
+                    submitted,
+                    cancellation,
+                    |session, context| session.set_device_settings(context, &settings),
+                );
+                let _ = reply.send(result);
+            }
+            Ok(Command::SetPerKeyRgb {
+                id,
+                config: per_key,
+                submitted,
+                cancellation,
+                reply,
+            }) => {
+                let result = execute_operation(
+                    &mut active,
+                    &status,
+                    &log,
+                    &active_cancellation,
+                    &config,
+                    id,
+                    "apply stored per-key RGB",
+                    submitted,
+                    cancellation,
+                    |session, context| session.set_per_key_rgb(context, &per_key),
+                );
+                let _ = reply.send(result);
+            }
+            Ok(Command::ReadPerKeyRgb {
+                id,
+                led_indices,
+                submitted,
+                cancellation,
+                reply,
+            }) => {
+                let result = execute_operation_with_result(
+                    &mut active,
+                    &status,
+                    &log,
+                    &active_cancellation,
+                    &config,
+                    config.command_timeout,
+                    id,
+                    "read stored per-key RGB",
+                    submitted,
+                    cancellation,
+                    |session, context| session.read_per_key_rgb(context, &led_indices),
+                );
+                let _ = reply.send(result);
+            }
+            Ok(Command::UploadLcd {
+                id,
+                upload,
+                submitted,
+                cancellation,
+                reply,
+            }) => {
+                let total_pages = upload.payload.len() / 4096;
+                *lcd_transfer
+                    .write()
+                    .expect("LCD transfer status lock poisoned") = LcdTransferStatus {
+                    active: true,
+                    pages_sent: 0,
+                    total_pages,
+                    incomplete: false,
+                    last_error: None,
+                };
+                let progress_status = lcd_transfer.clone();
+                let result = execute_operation_with_result(
+                    &mut active,
+                    &status,
+                    &log,
+                    &active_cancellation,
+                    &config,
+                    config.lcd_upload_timeout,
+                    id,
+                    "upload LCD media",
+                    submitted,
+                    cancellation,
+                    |session, context| {
+                        let mut progress = |sent, total| {
+                            let mut transfer = progress_status
+                                .write()
+                                .expect("LCD transfer status lock poisoned");
+                            transfer.pages_sent = sent;
+                            transfer.total_pages = total;
+                        };
+                        session.upload_lcd(context, &upload, &mut progress)
+                    },
+                );
                 {
-                    let descriptor = device.session.descriptor();
-                    set_status(
-                        &status,
-                        DeviceState::Recovery,
-                        Some(descriptor),
-                        Some((ErrorClass::Disconnected, "device removal detected".into())),
-                        None,
-                        0,
-                    );
-                    close_active(&mut active, &log);
+                    let mut transfer = lcd_transfer
+                        .write()
+                        .expect("LCD transfer status lock poisoned");
+                    transfer.active = false;
+                    // Apply can fail after every page was acknowledged, too.
+                    transfer.incomplete = result.is_err();
+                    transfer.last_error = result.as_ref().err().cloned();
+                }
+                let _ = reply.send(result);
+            }
+            Ok(Command::SyncClock {
+                id,
+                clock,
+                submitted,
+                cancellation,
+                reply,
+            }) => {
+                let result = execute_operation(
+                    &mut active,
+                    &status,
+                    &log,
+                    &active_cancellation,
+                    &config,
+                    id,
+                    "sync LCD clock",
+                    submitted,
+                    cancellation,
+                    |session, context| session.sync_clock(context, clock),
+                );
+                let _ = reply.send(result);
+            }
+            Ok(Command::LiveFrameReady) => {
+                if !live_telemetry.active.load(Ordering::Acquire) {
+                    live_frame.lock().expect("live frame lock poisoned").take();
+                    continue;
+                }
+                let frame = live_frame.lock().expect("live frame lock poisoned").take();
+                if let Some(frame) = frame {
+                    send_live_frame(&mut active, &status, &log, &live_telemetry, &config, &frame);
+                }
+            }
+            Ok(Command::StopLiveRgb) => {
+                live_frame.lock().expect("live frame lock poisoned").take();
+                live_telemetry.active.store(false, Ordering::Release);
+            }
+            Err(RecvTimeoutError::Timeout) => {
+                if let Some(device) = active.as_mut() {
+                    if !active_device_present(device, &log, &config) {
+                        let descriptor = device.session.descriptor();
+                        set_status(
+                            &status,
+                            DeviceState::Recovery,
+                            Some(descriptor),
+                            Some((ErrorClass::Disconnected, "device removal detected".into())),
+                            None,
+                            0,
+                        );
+                        close_active(&mut active, &log);
+                    } else {
+                        status.write().expect("status lock poisoned").device =
+                            Some(device.session.descriptor());
+                    }
                 }
             }
             Err(RecvTimeoutError::Disconnected) => {
                 close_active(&mut active, &log);
                 return;
+            }
+        }
+    }
+}
+
+fn send_live_frame(
+    active: &mut Option<ActiveDevice>,
+    status: &Arc<RwLock<DeviceStatus>>,
+    log: &LogRing,
+    telemetry: &LiveRgbTelemetry,
+    config: &ManagerConfig,
+    frame: &LiveRgbFrame,
+) {
+    let Some(device) = active.as_mut() else {
+        telemetry.failed_frames.fetch_add(1, Ordering::Relaxed);
+        return;
+    };
+    if telemetry
+        .last_error
+        .lock()
+        .expect("live RGB error lock poisoned")
+        .is_some()
+    {
+        return;
+    }
+    if !device
+        .session
+        .descriptor()
+        .capabilities
+        .contains(&Capability::LiveRgb)
+    {
+        telemetry.failed_frames.fetch_add(1, Ordering::Relaxed);
+        telemetry.active.store(false, Ordering::Release);
+        return;
+    }
+
+    let timeout = config.command_timeout.min(Duration::from_millis(500));
+    let context = OperationContext::new(timeout).with_suspend_guard(config.suspend_guard.clone());
+    match device.session.send_live_rgb_frame(&context, frame) {
+        Ok(()) => {
+            telemetry.sent_frames.fetch_add(1, Ordering::Relaxed);
+        }
+        Err(error) => {
+            telemetry.failed_frames.fetch_add(1, Ordering::Relaxed);
+            telemetry.active.store(false, Ordering::Release);
+            *telemetry
+                .last_error
+                .lock()
+                .expect("live RGB error lock poisoned") = Some(error.to_string());
+            log.push("warning", format!("live RGB frame failed: {error}"));
+            if error.requires_recovery() {
+                telemetry.active.store(false, Ordering::Release);
+                let descriptor = device.session.descriptor();
+                set_status(
+                    status,
+                    DeviceState::Recovery,
+                    Some(descriptor),
+                    Some((error.class(), error.to_string())),
+                    None,
+                    0,
+                );
+                close_active(active, log);
             }
         }
     }
@@ -370,18 +984,50 @@ fn execute_operation<F>(
 where
     F: FnOnce(&mut dyn DeviceSession, &OperationContext) -> Result<(), DriverError>,
 {
+    execute_operation_with_result(
+        active,
+        status,
+        log,
+        active_cancellation,
+        config,
+        config.command_timeout,
+        id,
+        name,
+        submitted,
+        cancellation,
+        operation,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_operation_with_result<T, F>(
+    active: &mut Option<ActiveDevice>,
+    status: &Arc<RwLock<DeviceStatus>>,
+    log: &LogRing,
+    active_cancellation: &Arc<Mutex<Option<CancellationToken>>>,
+    config: &ManagerConfig,
+    command_timeout: Duration,
+    id: u64,
+    name: &str,
+    submitted: Instant,
+    cancellation: CancellationToken,
+    operation: F,
+) -> Result<T, String>
+where
+    F: FnOnce(&mut dyn DeviceSession, &OperationContext) -> Result<T, DriverError>,
+{
     let Some(device) = active.as_mut() else {
         return Err("no supported keyboard is ready".into());
     };
 
     let elapsed = submitted.elapsed();
-    if elapsed >= config.command_timeout {
+    if elapsed >= command_timeout {
         return Err(format!(
             "operation expired in the queue after {} ms",
             elapsed.as_millis()
         ));
     }
-    let remaining = config.command_timeout - elapsed;
+    let remaining = command_timeout - elapsed;
     let descriptor = device.session.descriptor();
     let active_operation = ActiveOperation {
         id,
@@ -403,17 +1049,18 @@ where
     );
     log.push("info", format!("operation {id} started: {name}"));
 
-    let context = OperationContext::with_token(remaining, cancellation);
+    let context = OperationContext::with_token(remaining, cancellation)
+        .with_suspend_guard(config.suspend_guard.clone());
     let result = operation(device.session.as_mut(), &context);
     *active_cancellation
         .lock()
         .expect("active cancellation lock poisoned") = None;
 
     match result {
-        Ok(()) => {
+        Ok(value) => {
             set_status(status, DeviceState::Ready, Some(descriptor), None, None, 1);
             log.push("info", format!("operation {id} completed: {name}"));
-            Ok(())
+            Ok(value)
         }
         Err(error) => {
             let class = error.class();
@@ -455,7 +1102,8 @@ fn discover_and_open(
     ever_connected: &mut bool,
 ) -> Option<ActiveDevice> {
     set_status(status, DeviceState::Detecting, None, None, None, 0);
-    let discovery_context = OperationContext::new(config.discovery_timeout);
+    let discovery_context = OperationContext::new(config.discovery_timeout)
+        .with_suspend_guard(config.suspend_guard.clone());
     let report = match registry.discover(&discovery_context) {
         Ok(report) => report,
         Err(error) => {
@@ -548,7 +1196,8 @@ fn discover_and_open(
     let mut last_error = None;
 
     for attempt in 1..=attempts {
-        let open_context = OperationContext::new(config.open_timeout);
+        let open_context = OperationContext::new(config.open_timeout)
+            .with_suspend_guard(config.suspend_guard.clone());
         match driver.open(&open_context, &candidate) {
             Ok(mut session) => {
                 let descriptor = session.descriptor();
@@ -560,9 +1209,11 @@ fn discover_and_open(
                     None,
                     1,
                 );
-                let initialization_context = OperationContext::new(config.initialization_timeout);
+                let initialization_context = OperationContext::new(config.initialization_timeout)
+                    .with_suspend_guard(config.suspend_guard.clone());
                 match session.initialize(&initialization_context) {
                     Ok(()) => {
+                        let descriptor = session.descriptor();
                         if *ever_connected {
                             status
                                 .write()
@@ -644,7 +1295,8 @@ fn discover_and_open(
 }
 
 fn active_device_present(active: &mut ActiveDevice, log: &LogRing, config: &ManagerConfig) -> bool {
-    let context = OperationContext::new(config.health_timeout);
+    let context = OperationContext::new(config.health_timeout)
+        .with_suspend_guard(config.suspend_guard.clone());
     match active.driver.is_present(&context, &active.candidate) {
         Ok(false) | Err(DriverError::NotFound) | Err(DriverError::Disconnected(_)) => false,
         Ok(true) => match active.session.health_check(&context) {
@@ -697,7 +1349,8 @@ fn unix_millis() -> u128 {
 mod tests {
     use super::*;
     use mechkeymesh_driver_api::{
-        Capability, Connection, DeviceMatch, DriverManifest, KeyAction, Modifier, TransportKind,
+        Capability, Connection, DeviceMatch, DriverManifest, KeyAction, Modifier,
+        PerKeyRgbAssignment, PerKeyRgbConfig, PerKeyRgbReadback, RgbColor, TransportKind,
         TransportRequirement,
     };
     use std::sync::atomic::{AtomicBool, AtomicUsize};
@@ -708,6 +1361,10 @@ mod tests {
         max_parallel: Arc<AtomicUsize>,
         active_operations: Arc<AtomicUsize>,
         keymap_calls: Arc<AtomicUsize>,
+        per_key_calls: Arc<AtomicUsize>,
+        readback_calls: Arc<AtomicUsize>,
+        live_calls: Arc<AtomicUsize>,
+        live_fail: Arc<AtomicBool>,
         operation_delay: Duration,
     }
 
@@ -716,6 +1373,10 @@ mod tests {
         max_parallel: Arc<AtomicUsize>,
         active_operations: Arc<AtomicUsize>,
         keymap_calls: Arc<AtomicUsize>,
+        per_key_calls: Arc<AtomicUsize>,
+        readback_calls: Arc<AtomicUsize>,
+        live_calls: Arc<AtomicUsize>,
+        live_fail: Arc<AtomicBool>,
         operation_delay: Duration,
     }
 
@@ -727,6 +1388,10 @@ mod tests {
                 max_parallel: Arc::new(AtomicUsize::new(0)),
                 active_operations: Arc::new(AtomicUsize::new(0)),
                 keymap_calls: Arc::new(AtomicUsize::new(0)),
+                per_key_calls: Arc::new(AtomicUsize::new(0)),
+                readback_calls: Arc::new(AtomicUsize::new(0)),
+                live_calls: Arc::new(AtomicUsize::new(0)),
+                live_fail: Arc::new(AtomicBool::new(false)),
                 operation_delay: Duration::from_millis(10),
             }
         }
@@ -740,7 +1405,11 @@ mod tests {
                 vendor: "Fake".into(),
                 device_name: "Fake Keyboard".into(),
                 supported_connections: vec![Connection::Usb],
-                capabilities: vec![Capability::Keys, Capability::HardwareRgb],
+                capabilities: vec![
+                    Capability::Keys,
+                    Capability::HardwareRgb,
+                    Capability::LiveRgb,
+                ],
                 layout_ids: vec![],
                 matchers: vec![DeviceMatch {
                     vendor_id: 0x1234,
@@ -791,6 +1460,10 @@ mod tests {
                 max_parallel: self.max_parallel.clone(),
                 active_operations: self.active_operations.clone(),
                 keymap_calls: self.keymap_calls.clone(),
+                per_key_calls: self.per_key_calls.clone(),
+                readback_calls: self.readback_calls.clone(),
+                live_calls: self.live_calls.clone(),
+                live_fail: self.live_fail.clone(),
                 operation_delay: self.operation_delay,
             }))
         }
@@ -807,7 +1480,11 @@ mod tests {
                 connection: Connection::Usb,
                 vendor_id: self.candidate.vendor_id,
                 product_id: self.candidate.product_id,
-                capabilities: vec![Capability::Keys, Capability::HardwareRgb],
+                capabilities: vec![
+                    Capability::Keys,
+                    Capability::HardwareRgb,
+                    Capability::LiveRgb,
+                ],
                 firmware: None,
                 battery_percent: None,
             }
@@ -826,6 +1503,33 @@ mod tests {
             )
         }
 
+        fn set_macros(
+            &mut self,
+            context: &OperationContext,
+            _programs: &[HardwareMacroProgram],
+        ) -> Result<(), DriverError> {
+            run_fake_operation(
+                context,
+                &self.active_operations,
+                &self.max_parallel,
+                self.operation_delay,
+            )
+        }
+
+        fn send_live_rgb_frame(
+            &mut self,
+            context: &OperationContext,
+            _frame: &LiveRgbFrame,
+        ) -> Result<(), DriverError> {
+            context.check()?;
+            self.live_calls.fetch_add(1, Ordering::AcqRel);
+            if self.live_fail.load(Ordering::Acquire) {
+                Err(DriverError::Protocol("simulated live frame failure".into()))
+            } else {
+                Ok(())
+            }
+        }
+
         fn set_keymap(
             &mut self,
             context: &OperationContext,
@@ -839,6 +1543,48 @@ mod tests {
                 &self.max_parallel,
                 self.operation_delay,
             )
+        }
+
+        fn set_per_key_rgb(
+            &mut self,
+            context: &OperationContext,
+            _config: &PerKeyRgbConfig,
+        ) -> Result<(), DriverError> {
+            self.per_key_calls.fetch_add(1, Ordering::AcqRel);
+            run_fake_operation(
+                context,
+                &self.active_operations,
+                &self.max_parallel,
+                self.operation_delay,
+            )
+        }
+
+        fn read_per_key_rgb(
+            &mut self,
+            context: &OperationContext,
+            led_indices: &[u16],
+        ) -> Result<PerKeyRgbReadback, DriverError> {
+            self.readback_calls.fetch_add(1, Ordering::AcqRel);
+            run_fake_operation(
+                context,
+                &self.active_operations,
+                &self.max_parallel,
+                self.operation_delay,
+            )?;
+            Ok(PerKeyRgbReadback {
+                colors: led_indices
+                    .iter()
+                    .copied()
+                    .map(|led_index| PerKeyRgbAssignment {
+                        led_index,
+                        color: RgbColor {
+                            r: led_index as u8,
+                            g: 2,
+                            b: 3,
+                        },
+                    })
+                    .collect(),
+            })
         }
     }
 
@@ -857,6 +1603,7 @@ mod tests {
 
     fn test_config() -> ManagerConfig {
         ManagerConfig {
+            suspend_guard: Arc::new(AtomicBool::new(false)),
             discovery_timeout: Duration::from_millis(100),
             discovery_interval: Duration::from_millis(15),
             open_timeout: Duration::from_millis(100),
@@ -864,9 +1611,78 @@ mod tests {
             health_timeout: Duration::from_millis(100),
             health_interval: Duration::from_millis(15),
             command_timeout: Duration::from_millis(300),
+            macro_upload_timeout: Duration::from_secs(2),
+            lcd_upload_timeout: Duration::from_secs(2),
             open_attempts: 1,
             retry_delay: Duration::from_millis(2),
         }
+    }
+
+    #[test]
+    fn live_failure_remains_stopped_after_reconnect_until_explicit_restart() {
+        let driver = Arc::new(FakeDriver::new());
+        driver.live_fail.store(true, Ordering::Release);
+        let handle = start_fake(driver.clone());
+        wait_for_state(&handle, DeviceState::Ready);
+        handle
+            .submit_live_rgb(LiveRgbFrame { colors: vec![] })
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while handle.live_rgb_status().last_error.is_none() && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert!(handle.live_rgb_status().last_error.is_some());
+        wait_for_state(&handle, DeviceState::Ready);
+        for _ in 0..10 {
+            assert!(
+                handle
+                    .submit_live_rgb(LiveRgbFrame { colors: vec![] })
+                    .is_err()
+            );
+        }
+        assert_eq!(driver.live_calls.load(Ordering::Acquire), 1);
+        assert!(!handle.live_rgb_status().active);
+        driver.live_fail.store(false, Ordering::Release);
+        handle.reset_live_rgb_failure();
+        handle
+            .submit_live_rgb(LiveRgbFrame { colors: vec![] })
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while handle.live_rgb_status().sent_frames == 0 && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(handle.live_rgb_status().sent_frames, 1);
+        assert_eq!(driver.live_calls.load(Ordering::Acquire), 2);
+        handle.shutdown();
+    }
+
+    #[test]
+    fn macro_upload_uses_its_own_deadline_for_queue_and_execution() {
+        let mut driver = FakeDriver::new();
+        driver.operation_delay = Duration::from_millis(100);
+        let mut registry = DriverRegistry::new();
+        registry.register(Arc::new(driver)).unwrap();
+        let mut config = test_config();
+        config.command_timeout = Duration::from_millis(30);
+        config.macro_upload_timeout = Duration::from_millis(300);
+        let handle = DeviceManager::start(registry, config);
+        wait_for_state(&handle, DeviceState::Ready);
+        handle.set_macros(vec![]).unwrap();
+        assert!(
+            handle
+                .set_lighting(LightingConfig {
+                    mode: 1,
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    brightness: 5,
+                    speed: 0,
+                    direction: 0,
+                    colorful: false
+                })
+                .is_err()
+        );
+        handle.shutdown();
     }
 
     fn start_fake(driver: Arc<FakeDriver>) -> DeviceManagerHandle {
@@ -884,6 +1700,28 @@ mod tests {
             thread::sleep(Duration::from_millis(5));
         }
         panic!("manager did not reach {wanted:?}: {:?}", handle.status());
+    }
+
+    #[test]
+    fn repeated_suspend_resume_blocks_writes_and_reopens() {
+        let driver = Arc::new(FakeDriver::new());
+        let calls = driver.keymap_calls.clone();
+        let handle = start_fake(driver);
+        wait_for_state(&handle, DeviceState::Ready);
+        for _ in 0..20 {
+            handle.suspend();
+            assert!(handle.is_suspended());
+            wait_for_state(&handle, DeviceState::Suspended);
+            let before = calls.load(Ordering::Acquire);
+            assert!(handle.set_keymap(KeymapLayer::Normal, Vec::new()).is_err());
+            thread::sleep(Duration::from_millis(20));
+            assert_eq!(calls.load(Ordering::Acquire), before);
+            assert!(handle.status().device.is_none());
+            handle.resume();
+            wait_for_state(&handle, DeviceState::Ready);
+            assert!(!handle.is_suspended());
+        }
+        handle.shutdown();
     }
 
     #[test]
@@ -925,6 +1763,60 @@ mod tests {
         assert!(keymap.join().unwrap().is_ok());
         assert_eq!(maximum.load(Ordering::Acquire), 1);
         assert_eq!(keymap_calls.load(Ordering::Acquire), 1);
+        handle.shutdown();
+    }
+
+    #[test]
+    fn serializes_per_key_rgb_with_other_hardware_operations() {
+        let driver = Arc::new(FakeDriver::new());
+        let maximum = driver.max_parallel.clone();
+        let per_key_calls = driver.per_key_calls.clone();
+        let handle = start_fake(driver);
+        wait_for_state(&handle, DeviceState::Ready);
+
+        let lighting_handle = handle.clone();
+        let per_key_handle = handle.clone();
+        let lighting = thread::spawn(move || {
+            lighting_handle.set_lighting(LightingConfig {
+                mode: 1,
+                r: 1,
+                g: 2,
+                b: 3,
+                brightness: 5,
+                speed: 0,
+                direction: 0,
+                colorful: false,
+            })
+        });
+        let per_key = thread::spawn(move || {
+            per_key_handle.set_per_key_rgb(PerKeyRgbConfig {
+                brightness: 5,
+                colors: vec![PerKeyRgbAssignment {
+                    led_index: 1,
+                    color: RgbColor { r: 255, g: 0, b: 0 },
+                }],
+            })
+        });
+
+        assert!(lighting.join().unwrap().is_ok());
+        assert!(per_key.join().unwrap().is_ok());
+        assert_eq!(maximum.load(Ordering::Acquire), 1);
+        assert_eq!(per_key_calls.load(Ordering::Acquire), 1);
+        handle.shutdown();
+    }
+
+    #[test]
+    fn returns_per_key_rgb_readback_through_serialized_manager() {
+        let driver = Arc::new(FakeDriver::new());
+        let readback_calls = driver.readback_calls.clone();
+        let handle = start_fake(driver);
+        wait_for_state(&handle, DeviceState::Ready);
+
+        let readback = handle.read_per_key_rgb(vec![1, 56]).unwrap();
+        assert_eq!(readback.colors.len(), 2);
+        assert_eq!(readback.colors[0].led_index, 1);
+        assert_eq!(readback.colors[1].led_index, 56);
+        assert_eq!(readback_calls.load(Ordering::Acquire), 1);
         handle.shutdown();
     }
 

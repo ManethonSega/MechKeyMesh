@@ -10,11 +10,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify original branding
+        run: |
+          python -m pip install Pillow==12.3.0
+          python tools/brand_assets.py --check
       - uses: dtolnay/rust-toolchain@1.90.0
         with:
           components: rustfmt, clippy
+      - name: Frontend JavaScript syntax
+        run: |
+          node --check apps/desktop/frontend/dist/app.js
+          node --check apps/desktop/frontend/dist/keymap.js
+          node --check apps/desktop/frontend/dist/perkey.js
+          node --check apps/desktop/frontend/dist/macros.js
+          node --check apps/desktop/frontend/dist/settings.js
+          node --check apps/desktop/frontend/dist/live-rgb.js
+          node --check apps/desktop/frontend/dist/music.js
+          node --check apps/desktop/frontend/dist/lcd.js
+          node --check apps/desktop/frontend/dist/profiles.js
+          node --check apps/desktop/frontend/dist/native.js
+          node --check apps/desktop/frontend/dist/background.js
       - name: Format check
         run: cargo fmt --all -- --check
+      - name: Macro library browser regression
+        env:
+          MACRO_UI_SCREENSHOT: macro-ui.png
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE="$(command -v google-chrome)" node tools/test_macro_ui.cjs
+      - name: Upload macro UI test screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: MechKeyMesh-Macro-UI
+          path: macro-ui.png
+          retention-days: 14
       - name: Core tests
         run: cargo test --workspace --exclude mechkeymesh-desktop
       - name: Clippy

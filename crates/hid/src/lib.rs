@@ -1,6 +1,9 @@
 use thiserror::Error;
 
 pub const FEATURE_REPORT_SIZE: usize = 64;
+pub const INTERRUPT_REPORT_SIZE: usize = 32;
+pub const LCD_PAGE_SIZE: usize = 4096;
+pub const LCD_ACK_SIZE: usize = 64;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HidDeviceInfo {
@@ -22,6 +25,8 @@ pub enum HidTransportError {
     PermissionDenied(String),
     #[error("device is busy: {0}")]
     Busy(String),
+    #[error("device operation timed out: {0}")]
+    Timeout(String),
     #[error("HID transport is not supported on this platform")]
     UnsupportedPlatform,
     #[error("{0}")]
@@ -35,6 +40,39 @@ pub trait FeatureTransport: Send {
     ) -> Result<(), HidTransportError>;
 
     fn get_feature_report(&self) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError>;
+
+    fn get_feature_report_prefix(
+        &self,
+        payload_length: usize,
+    ) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
+        if payload_length == 0 || payload_length > FEATURE_REPORT_SIZE {
+            return Err(HidTransportError::Backend(format!(
+                "feature-report prefix length {payload_length} is outside 1..={FEATURE_REPORT_SIZE}"
+            )));
+        }
+        self.get_feature_report()
+    }
+}
+
+pub trait InterruptTransport: Send {
+    fn write_output_report(
+        &self,
+        report: &[u8; INTERRUPT_REPORT_SIZE],
+    ) -> Result<(), HidTransportError>;
+
+    fn read_input_report(
+        &self,
+        timeout: std::time::Duration,
+    ) -> Result<Option<[u8; INTERRUPT_REPORT_SIZE]>, HidTransportError>;
+}
+
+pub trait LcdTransport: Send {
+    fn write_page(&self, page: &[u8; LCD_PAGE_SIZE]) -> Result<(), HidTransportError>;
+
+    fn read_ack(
+        &self,
+        timeout: std::time::Duration,
+    ) -> Result<Option<[u8; LCD_ACK_SIZE]>, HidTransportError>;
 }
 
 pub fn classify_backend_error(message: impl Into<String>) -> HidTransportError {
@@ -55,25 +93,59 @@ pub fn classify_backend_error(message: impl Into<String>) -> HidTransportError {
         HidTransportError::Disconnected(message)
     } else if lower.contains("device is busy")
         || lower.contains("resource busy")
+        || lower.contains("sharing violation")
         || lower.contains("being used")
         || lower.contains("cannot access the file because it is being used")
     {
         HidTransportError::Busy(message)
+    } else if lower.contains("timed out") || lower.contains("timeout") {
+        HidTransportError::Timeout(message)
     } else {
         HidTransportError::Backend(message)
     }
+}
+
+#[cfg(any(windows, test))]
+fn decode_feature_report(
+    buffer: &[u8],
+    read: usize,
+) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
+    if read != buffer.len() {
+        return Err(HidTransportError::Backend(format!(
+            "short HID feature read: {read} of {} bytes",
+            buffer.len()
+        )));
+    }
+    if buffer.first() != Some(&0) || !(2..=FEATURE_REPORT_SIZE + 1).contains(&buffer.len()) {
+        return Err(HidTransportError::Backend(
+            "unexpected HID feature report ID or length".into(),
+        ));
+    }
+    let mut report = [0u8; FEATURE_REPORT_SIZE];
+    report[..buffer.len() - 1].copy_from_slice(&buffer[1..]);
+    Ok(report)
 }
 
 #[cfg(windows)]
 mod windows {
     use super::{
         FEATURE_REPORT_SIZE, FeatureTransport, HidDeviceInfo, HidTransportError,
-        classify_backend_error,
+        INTERRUPT_REPORT_SIZE, InterruptTransport, LCD_ACK_SIZE, LCD_PAGE_SIZE, LcdTransport,
+        classify_backend_error, decode_feature_report,
     };
     use hidapi::{HidApi, HidDevice};
     use std::ffi::CString;
+    use std::time::Duration;
 
     pub struct WindowsFeatureTransport {
+        device: HidDevice,
+    }
+
+    pub struct WindowsInterruptTransport {
+        device: HidDevice,
+    }
+
+    pub struct WindowsLcdTransport {
         device: HidDevice,
     }
 
@@ -92,14 +164,136 @@ mod windows {
 
         fn get_feature_report(&self) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
             let mut buffer = [0u8; FEATURE_REPORT_SIZE + 1];
-            self.device
+            let read = self
+                .device
                 .get_feature_report(&mut buffer)
                 .map_err(|error| classify_backend_error(error.to_string()))?;
-
-            let mut report = [0u8; FEATURE_REPORT_SIZE];
-            report.copy_from_slice(&buffer[1..]);
-            Ok(report)
+            decode_feature_report(&buffer, read)
         }
+
+        fn get_feature_report_prefix(
+            &self,
+            payload_length: usize,
+        ) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
+            if payload_length == 0 || payload_length > FEATURE_REPORT_SIZE {
+                return Err(HidTransportError::Backend(format!(
+                    "feature-report prefix length {payload_length} is outside 1..={FEATURE_REPORT_SIZE}"
+                )));
+            }
+
+            // HIDAPI includes the report-ID byte in the buffer length.
+            // The F108 OEM 04 F5 reader requests a 9-byte total report for
+            // its initial ACK, which is report ID + 8 payload bytes.
+            let mut buffer = vec![0u8; payload_length + 1];
+            let read = self
+                .device
+                .get_feature_report(&mut buffer)
+                .map_err(|error| classify_backend_error(error.to_string()))?;
+            decode_feature_report(&buffer, read)
+        }
+    }
+
+    impl InterruptTransport for WindowsInterruptTransport {
+        fn write_output_report(
+            &self,
+            report: &[u8; INTERRUPT_REPORT_SIZE],
+        ) -> Result<(), HidTransportError> {
+            let mut buffer = [0u8; INTERRUPT_REPORT_SIZE + 1];
+            buffer[1..].copy_from_slice(report);
+            let written = self
+                .device
+                .write(&buffer)
+                .map_err(|error| classify_backend_error(error.to_string()))?;
+            if written != buffer.len() {
+                return Err(HidTransportError::Backend(format!(
+                    "short HID output write: {written} of {} bytes",
+                    buffer.len()
+                )));
+            }
+            Ok(())
+        }
+
+        fn read_input_report(
+            &self,
+            timeout: Duration,
+        ) -> Result<Option<[u8; INTERRUPT_REPORT_SIZE]>, HidTransportError> {
+            let timeout_millis = timeout.as_millis().min(i32::MAX as u128) as i32;
+            let mut buffer = [0u8; INTERRUPT_REPORT_SIZE + 1];
+            let read = self
+                .device
+                .read_timeout(&mut buffer, timeout_millis)
+                .map_err(|error| classify_backend_error(error.to_string()))?;
+            if read == 0 {
+                return Ok(None);
+            }
+
+            normalize_interrupt_input(&buffer, read).map(Some)
+        }
+    }
+
+    impl LcdTransport for WindowsLcdTransport {
+        fn write_page(&self, page: &[u8; LCD_PAGE_SIZE]) -> Result<(), HidTransportError> {
+            let mut buffer = vec![0u8; LCD_PAGE_SIZE + 1];
+            buffer[1..].copy_from_slice(page);
+            let written = self
+                .device
+                .write(&buffer)
+                .map_err(|error| classify_backend_error(error.to_string()))?;
+            if written != buffer.len() {
+                return Err(HidTransportError::Backend(format!(
+                    "short LCD interrupt write: {written} of {} bytes",
+                    buffer.len()
+                )));
+            }
+            Ok(())
+        }
+
+        fn read_ack(
+            &self,
+            timeout: Duration,
+        ) -> Result<Option<[u8; LCD_ACK_SIZE]>, HidTransportError> {
+            let timeout_millis = timeout.as_millis().min(i32::MAX as u128) as i32;
+            let mut buffer = [0u8; LCD_ACK_SIZE + 1];
+            let read = self
+                .device
+                .read_timeout(&mut buffer, timeout_millis)
+                .map_err(|error| classify_backend_error(error.to_string()))?;
+            if read == 0 {
+                return Ok(None);
+            }
+            let mut ack = [0u8; LCD_ACK_SIZE];
+            match read {
+                LCD_ACK_SIZE => ack.copy_from_slice(&buffer[..LCD_ACK_SIZE]),
+                size if size == LCD_ACK_SIZE + 1 && buffer[0] == 0 => {
+                    ack.copy_from_slice(&buffer[1..]);
+                }
+                _ => {
+                    return Err(HidTransportError::Backend(format!(
+                        "unexpected LCD ACK length {read}; expected {LCD_ACK_SIZE} bytes"
+                    )));
+                }
+            }
+            Ok(Some(ack))
+        }
+    }
+
+    fn normalize_interrupt_input(
+        buffer: &[u8; INTERRUPT_REPORT_SIZE + 1],
+        read: usize,
+    ) -> Result<[u8; INTERRUPT_REPORT_SIZE], HidTransportError> {
+        let mut report = [0u8; INTERRUPT_REPORT_SIZE];
+        match read {
+            INTERRUPT_REPORT_SIZE => report.copy_from_slice(&buffer[..INTERRUPT_REPORT_SIZE]),
+            size if size == INTERRUPT_REPORT_SIZE + 1 && buffer[0] == 0 => {
+                report.copy_from_slice(&buffer[1..])
+            }
+            _ => {
+                return Err(HidTransportError::Backend(format!(
+                    "unexpected HID input report length {read}; expected {INTERRUPT_REPORT_SIZE} bytes"
+                )));
+            }
+        }
+        Ok(report)
     }
 
     pub fn enumerate_feature_devices(
@@ -129,6 +323,32 @@ mod windows {
         Ok(devices)
     }
 
+    pub fn enumerate_interrupt_devices(
+        vendor_id: u16,
+        product_id: u16,
+        usage_page: u16,
+        interface_number: i32,
+    ) -> Result<Vec<HidDeviceInfo>, HidTransportError> {
+        let api = HidApi::new().map_err(|error| classify_backend_error(error.to_string()))?;
+        Ok(api
+            .device_list()
+            .filter(|device| {
+                device.vendor_id() == vendor_id
+                    && device.product_id() == product_id
+                    && device.usage_page() == usage_page
+                    && device.interface_number() == interface_number
+            })
+            .map(|device| HidDeviceInfo {
+                path: device.path().to_string_lossy().into_owned(),
+                vendor_id: device.vendor_id(),
+                product_id: device.product_id(),
+                usage_page: device.usage_page(),
+                interface_number: device.interface_number(),
+                serial_number: device.serial_number().map(ToOwned::to_owned),
+            })
+            .collect())
+    }
+
     pub fn open_feature_path(path: &str) -> Result<Box<dyn FeatureTransport>, HidTransportError> {
         let api = HidApi::new().map_err(|error| classify_backend_error(error.to_string()))?;
         let path = CString::new(path)
@@ -139,10 +359,35 @@ mod windows {
 
         Ok(Box::new(WindowsFeatureTransport { device }))
     }
+
+    pub fn open_interrupt_path(
+        path: &str,
+    ) -> Result<Box<dyn InterruptTransport>, HidTransportError> {
+        let api = HidApi::new().map_err(|error| classify_backend_error(error.to_string()))?;
+        let path = CString::new(path)
+            .map_err(|_| HidTransportError::Backend("HID path contains an interior NUL".into()))?;
+        let device = api
+            .open_path(&path)
+            .map_err(|error| classify_backend_error(error.to_string()))?;
+        Ok(Box::new(WindowsInterruptTransport { device }))
+    }
+
+    pub fn open_lcd_path(path: &str) -> Result<Box<dyn LcdTransport>, HidTransportError> {
+        let api = HidApi::new().map_err(|error| classify_backend_error(error.to_string()))?;
+        let path = CString::new(path)
+            .map_err(|_| HidTransportError::Backend("HID path contains an interior NUL".into()))?;
+        let device = api
+            .open_path(&path)
+            .map_err(|error| classify_backend_error(error.to_string()))?;
+        Ok(Box::new(WindowsLcdTransport { device }))
+    }
 }
 
 #[cfg(windows)]
-pub use windows::{enumerate_feature_devices, open_feature_path};
+pub use windows::{
+    enumerate_feature_devices, enumerate_interrupt_devices, open_feature_path, open_interrupt_path,
+    open_lcd_path,
+};
 
 #[cfg(not(windows))]
 pub fn enumerate_feature_devices(
@@ -158,9 +403,79 @@ pub fn open_feature_path(_path: &str) -> Result<Box<dyn FeatureTransport>, HidTr
     Err(HidTransportError::UnsupportedPlatform)
 }
 
+#[cfg(not(windows))]
+pub fn enumerate_interrupt_devices(
+    _vendor_id: u16,
+    _product_id: u16,
+    _usage_page: u16,
+    _interface_number: i32,
+) -> Result<Vec<HidDeviceInfo>, HidTransportError> {
+    Err(HidTransportError::UnsupportedPlatform)
+}
+
+#[cfg(not(windows))]
+pub fn open_interrupt_path(_path: &str) -> Result<Box<dyn InterruptTransport>, HidTransportError> {
+    Err(HidTransportError::UnsupportedPlatform)
+}
+
+#[cfg(not(windows))]
+pub fn open_lcd_path(_path: &str) -> Result<Box<dyn LcdTransport>, HidTransportError> {
+    Err(HidTransportError::UnsupportedPlatform)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn feature_read_strips_report_id_and_preserves_clock_year() {
+        let mut buffer = [0u8; FEATURE_REPORT_SIZE + 1];
+        buffer[1..5].copy_from_slice(&[0, 1, 0x5a, 0x1a]);
+        let report = decode_feature_report(&buffer, buffer.len()).unwrap();
+        assert_eq!(&report[..4], &[0, 1, 0x5a, 0x1a]);
+        let prefix = [0, 4, 0xf5, 0, 1, 0, 0, 0, 0];
+        let report = decode_feature_report(&prefix, prefix.len()).unwrap();
+        assert_eq!(&report[..4], &[4, 0xf5, 0, 1]);
+    }
+
+    #[test]
+    fn feature_read_rejects_short_or_unexpected_reports() {
+        let buffer = [0u8; FEATURE_REPORT_SIZE + 1];
+        assert!(decode_feature_report(&buffer, 5).is_err());
+        assert!(decode_feature_report(&buffer, 0).is_err());
+        assert!(decode_feature_report(&[1, 4, 0x18, 0, 1], 5).is_err());
+        assert!(decode_feature_report(&[], 0).is_err());
+        assert!(
+            decode_feature_report(&[0; FEATURE_REPORT_SIZE + 2], FEATURE_REPORT_SIZE + 2).is_err()
+        );
+    }
+
+    #[test]
+    fn feature_report_prefix_rejects_invalid_lengths_by_default() {
+        struct Fake;
+
+        impl FeatureTransport for Fake {
+            fn set_feature_report(
+                &self,
+                _report: &[u8; FEATURE_REPORT_SIZE],
+            ) -> Result<(), HidTransportError> {
+                Ok(())
+            }
+
+            fn get_feature_report(&self) -> Result<[u8; FEATURE_REPORT_SIZE], HidTransportError> {
+                Ok([0u8; FEATURE_REPORT_SIZE])
+            }
+        }
+
+        let fake = Fake;
+        assert!(fake.get_feature_report_prefix(1).is_ok());
+        assert!(fake.get_feature_report_prefix(FEATURE_REPORT_SIZE).is_ok());
+        assert!(fake.get_feature_report_prefix(0).is_err());
+        assert!(
+            fake.get_feature_report_prefix(FEATURE_REPORT_SIZE + 1)
+                .is_err()
+        );
+    }
 
     #[test]
     fn classifies_common_windows_errors() {
@@ -175,6 +490,10 @@ mod tests {
         assert!(matches!(
             classify_backend_error("The device is busy"),
             HidTransportError::Busy(_)
+        ));
+        assert!(matches!(
+            classify_backend_error("operation timed out"),
+            HidTransportError::Timeout(_)
         ));
         assert!(matches!(
             classify_backend_error("unexpected HID failure"),
