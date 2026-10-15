@@ -6,6 +6,7 @@ const { chromium } = require('playwright');
 async function runChecks(page, frontend, section) {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
+    page.on('dialog', dialog => dialog.accept());
     await page.setContent('<html data-theme="dark"><body>' + section + '</body></html>');
     const stylesheetPaths = [...fs.readFileSync(path.join(frontend, 'index.html'), 'utf8').matchAll(/href="([^"]+\.css)"/g)].map(match => match[1]);
     await page.addStyleTag({ content: stylesheetPaths.map(name => fs.readFileSync(path.join(frontend, name), 'utf8')).join('\n') + '.page {display:block!important}' });
@@ -90,3 +91,4 @@ if (require.main === module) (async () => {
     await browser.close();
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });
+

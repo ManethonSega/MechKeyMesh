@@ -1,8 +1,10 @@
 # Current validation status
 
-Current test version: **0.20.0-alpha.5**. This update adds native-hardware reporting and closes R18 as a bounded investigation with explicitly unavailable capabilities. Development continues from `main` after [branch consolidation](CONSOLIDATION-2026-10-14.md). Repository cleanup does not close physical acceptance gates.
+Current test version: **0.20.0-alpha.6**. This update revises the desktop UI: grouped navigation, task-focused overview, theme-aware controls, progressive disclosure and explicit draft/save/send feedback. The original transparent logo, native file pickers and hardware protocols are preserved. See [UI revision](UI-2026-10-15.md). R18 remains closed as a bounded investigation with explicitly unavailable capabilities. Development continues from `main` after [branch consolidation](CONSOLIDATION-2026-10-14.md). Repository cleanup does not close physical acceptance gates.
 
 ## Automated evidence
+
+Alpha.6 validation is pending the current CI run. The prior alpha.5 evidence below remains historical until the new build is checked.
 
 [CI run 166](https://github.com/ManethonSega/MechKeyMesh/actions/runs/38641628120) passed for alpha.5 at `4feb896a8b10f6ddc1a36b6532a584a79adff2a9`, including Linux core tests/Clippy, Windows workspace tests/Clippy, the Chrome macro-library regression, branding/format/frontend-syntax checks and the Windows release build. The desktop-build job produced the executable and its SHA-256 sidecar.
 
@@ -31,3 +33,4 @@ This establishes a checked software build. Charging detection and other explicit
 | R19 Windows integration | Tray, startup preferences, single instance and power lifecycle implemented | Interactive Windows behavior and 72-hour background test pending | No |
 
 See each `R*.md` run record for its detailed exit criterion, and [alpha.4 feedback](F108-2026-10-13-ALPHA4.md) for the latest failures/fixes. Historical run records describe their original scope; this page and the current architecture describe the consolidated version. Unknown observations remain unknown. Successful builds, ACKs and completed transport logs do not establish physical functionality.
+

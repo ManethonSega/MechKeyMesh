@@ -7,32 +7,39 @@ let activeDriverId = null;
 let activeConnection = null;
 let activeCapabilities = new Set();
 let lightingEffects = [];
+let lightingSavedSnapshot = null;
+let lightingSaving = false;
+let lightingConnectionState = "disconnected";
 const selectedKeyIds = new Set();
 
 const pages = {
-  home: ["Home", "Device overview and connection health"],
-  keys: ["Keys", "Data-driven physical layout and universal key actions"],
-  macros: ["Macros", "Create, edit, persist and safely simulate universal macros"],
-  lighting: ["Lighting", "Onboard effects and persistent per-key RGB"],
-  "live-rgb": ["Live RGB", "Host-rendered layers over the volatile USB streaming path"],
-  music: ["Music Lighting", "Windows output-loopback analysis driving live RGB"],
-  lcd: ["LCD Media", "Safe 240 × 135 RGB565 asset editor with a hard 141-frame limit"],
-  knob: ["Knob", "Physical knob actions and firmware mode switching"],
-  profiles: ["Profiles", "Application-aware desired states with subsystem-level diffing"],
-  settings: ["Device Settings", "Locks, Fn behavior, sleep and key response"],
-  diagnostics: ["Diagnostics", "Connection, command and recovery log"],
-  background: ["Background", "Windows tray, startup and live-effect pause controls"]
+  home: ["Overview", "Your keyboard at a glance"],
+  keys: ["Key assignments", "Choose a key, set its action, then save your layer"],
+  macros: ["Macros", "Create and preview sequences before uploading to your keyboard"],
+  lighting: ["Onboard lighting", "Effects and key colors that stay on your keyboard"],
+  "live-rgb": ["Live effects", "Mix lighting layers while MechKeyMesh runs"],
+  music: ["Music lighting", "Make your keyboard follow your Windows audio"],
+  lcd: ["LCD media", "Personalize your screen with photos, animations and video"],
+  knob: ["Knob", "Native screen navigation and volume controls"],
+  profiles: ["Profiles", "Save a setup and switch automatically with your apps"],
+  settings: ["Keyboard settings", "Key locks, Fn behavior, sleep and response"],
+  diagnostics: ["Diagnostics", "Device information and connection troubleshooting"],
+  background: ["App settings", "Theme, Windows startup and background controls"]
 };
 
 function showPage(name) {
   document.querySelectorAll(".page").forEach((page) => page.classList.remove("active"));
   document.querySelectorAll("#nav button").forEach((button) => {
     button.classList.toggle("active", button.dataset.page === name);
+    if (button.dataset.page === name) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
   });
   document.querySelector("#page-" + name)?.classList.add("active");
   $("#pageTitle").textContent = pages[name]?.[0] || name;
   $("#pageSubtitle").textContent = pages[name]?.[1] || "";
 
+  $("main").scrollTop = 0;
+  $("#pageTitle").focus({ preventScroll: true });
   if (name === "diagnostics") refreshLogs();
   if (name === "keys" && activeLayout) renderKeyboard(activeLayout);
 }
@@ -51,6 +58,7 @@ function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem("mechkeymesh-theme", theme);
   $("#themeToggle").textContent = theme === "dark" ? "Light mode" : "Dark mode";
+  $("#themeToggle").setAttribute("aria-label", `Switch to ${theme === "dark" ? "light" : "dark"} mode`);
   document.querySelector('meta[name="theme-color"]')
     ?.setAttribute("content", theme === "dark" ? "#081327" : "#EDF2F7");
 }
@@ -71,7 +79,7 @@ $("#lightingMode").addEventListener("change", updateLightingControls);
 async function loadLightingEffects() {
   lightingEffects = await invoke("get_lighting_effects");
   $("#lightingMode").innerHTML = lightingEffects
-    .map((effect) => `<option value="${effect.mode}">${effect.mode}. ${effect.name}</option>`)
+    .map((effect) => `<option value="${effect.mode}">${effect.name}</option>`)
     .join("");
   updateLightingControls();
 }
@@ -115,7 +123,7 @@ function updateLightingControls() {
   if (effect.direction === "left-right") params.push("left/right direction");
   if (effect.direction === "up-down") params.push("up/down direction");
 
-  $("#lightingEffectTitle").textContent = `Mode ${effect.mode} · ${effect.name}`;
+  $("#lightingEffectTitle").textContent = effect.name;
   $("#lightingEffectParams").textContent =
     params.length ? "Controls: " + params.join(", ") : "No adjustable parameters.";
 }
@@ -130,19 +138,20 @@ function stateClass(state) {
 
 function updateStatus(status) {
   const state = status?.state || "disconnected";
+  lightingConnectionState = state;
   const device = status?.device || null;
   const nextDriverId = device?.driverId || null;
   const nextConnection = device?.connection || null;
   activeCapabilities = new Set(device?.capabilities || []);
   const pill = $("#connectionPill");
-  pill.textContent = state;
+  pill.textContent = state === "ready" ? "Connected" : state.replace(/-/g, " ");
   pill.className = "pill " + stateClass(state);
 
   $("#deviceName").textContent = device?.name || "AULA F108 Pro";
   $("#deviceDetail").textContent =
     status?.lastError ||
-    (state === "ready" ? "Configuration interface ready" : "Waiting for a supported keyboard...");
-  $("#connectionType").textContent = device?.connection || "—";
+    (state === "ready" ? "Ready to personalize" : "Waiting for a supported keyboard...");
+  $("#connectionType").textContent = device?.connection === "wireless24-g" ? "2.4 GHz" : device?.connection === "usb" ? "USB" : device?.connection || "—";
   $("#driverId").textContent = device?.driverId || "aula.f108pro";
   $("#stateText").textContent = state;
   $("#candidateCount").textContent = String(status?.candidateCount ?? 0);
@@ -167,9 +176,7 @@ function updateStatus(status) {
 
   updateCapabilityVisibility(Boolean(device));
 
-  $("#applyLighting").disabled = state === "busy";
-  $("#applyLighting").textContent =
-    state === "ready" ? "Save & apply to keyboard" : "Save desired state";
+  updateLightingSaveButton();
 
   if (nextDriverId !== activeDriverId) {
     activeDriverId = nextDriverId;
@@ -245,10 +252,11 @@ async function loadDesiredLighting() {
   $("#brightnessOut").value = String(config.brightness);
   $("#speed").value = String(config.speed);
   $("#speedOut").value = String(config.speed);
+  updateLightingControls();
   $("#direction").value = String(config.direction);
   $("#colorful").checked = Boolean(config.colorful);
   $("#desiredProfile").textContent = desired.scope.profileId;
-  updateLightingControls();
+  lightingSavedSnapshot = lightingSnapshot();
 }
 
 function layoutKindLabel(kind) {
@@ -319,7 +327,7 @@ function renderKeyboard(layout) {
   $("#layoutKind").textContent = layoutKindLabel(layout.kind);
   $("#layoutKeyCount").textContent = `${layout.keys.length} keys`;
   $("#layoutSummary").textContent =
-    `${layout.id} · schema ${layout.schemaVersion} · ${layout.coordinateSpace.width} × ${layout.coordinateSpace.height}`;
+    "Select a key to edit its action. Hold Ctrl and click to select several keys.";
 
   const viewport = $("#keyboardViewport");
   viewport.innerHTML = "";
@@ -464,41 +472,63 @@ async function loadPrimaryLayout() {
   }
 }
 
-$("#applyLighting").addEventListener("click", async () => {
+function lightingConfig() {
   const [r, g, b] = hexRgb($("#lightingColor").value);
-  const config = {
-    mode: Number($("#lightingMode").value),
-    r,
-    g,
-    b,
+  return {
+    mode: Number($("#lightingMode").value), r, g, b,
     brightness: Number($("#brightness").value),
     speed: Number($("#speed").value),
     direction: Number($("#direction").value),
     colorful: $("#colorful").checked
   };
-
-  $("#lightingResult").textContent = "Applying...";
-  $("#applyLighting").disabled = true;
-
+}
+function lightingSnapshot() { return JSON.stringify(lightingConfig()); }
+function updateLightingSaveButton() {
+  $("#applyLighting").disabled = lightingSaving || lightingConnectionState === "busy";
+  $("#applyLighting").textContent = lightingSaving ? "Saving…" : lightingConnectionState === "ready" ? "Save & apply to keyboard" : "Save in app";
+}
+$("#lightingFields").addEventListener("input", () => {
+  if (lightingSaving) return;
+  const dirty = lightingSnapshot() !== lightingSavedSnapshot;
+  window.mkmSetSaveState("lightingSaveState", dirty ? "dirty" : "saved", dirty ? "Unsaved changes" : "Saved in app");
+  $("#lightingResult").textContent = dirty ? "Your changes have not been sent to the keyboard." : "Matches the values saved in the app.";
+});
+$("#applyLighting").addEventListener("click", async () => {
+  if (lightingSaving) return;
+  const config = lightingConfig();
+  lightingSaving = true;
+  $("#lightingFields").disabled = true;
+  updateLightingSaveButton();
+  $("#lightingResult").classList.remove("error-text");
+  $("#lightingResult").textContent = "Saving lighting…";
   try {
     const result = await invoke("apply_lighting", { config });
-    if (result.applied) {
-      $("#lightingResult").textContent = "Desired state saved and applied.";
-    } else {
-      $("#lightingResult").textContent =
-        "Desired state saved. Keyboard not applied: " + (result.message || "not ready");
-    }
-    await loadPersistence();
-    await loadDesiredLighting();
+    lightingSavedSnapshot = JSON.stringify(config);
+    window.mkmSetSaveState("lightingSaveState", result.applied ? "sent" : "pending", result.applied ? "Sent to keyboard" : "Saved in app");
+    $("#lightingResult").textContent = result.applied
+      ? "Saved and sent. Check the effect on your keyboard."
+      : "Saved in the app. Not applied to the keyboard: " + (result.message || "connect your keyboard and try again.");
+    // Persistence diagnostics must not turn a successful save into a false failure.
+    void loadPersistence().catch(() => {});
   } catch (error) {
-    $("#lightingResult").textContent = "Could not save desired state: " + error;
+    window.mkmSetSaveState("lightingSaveState", "error", "Save failed");
+    $("#lightingResult").classList.add("error-text");
+    $("#lightingResult").textContent = "Could not save lighting. Your edits are still here. " + String(error);
+  } finally {
+    lightingSaving = false;
+    $("#lightingFields").disabled = false;
+    updateLightingSaveButton();
+    await pollStatus();
   }
-  await pollStatus();
 });
 
 $("#reconnectButton").addEventListener("click", async () => {
-  await invoke("reconnect");
-  setTimeout(pollStatus, 250);
+  const button = $("#reconnectButton");
+  button.disabled = true;
+  button.textContent = "Reconnecting…";
+  try { await invoke("reconnect"); await pollStatus(); }
+  catch (error) { $("#deviceDetail").textContent = "Could not reconnect. " + String(error); }
+  finally { button.disabled = false; button.textContent = "Reconnect"; }
 });
 
 async function refreshLogs() {
@@ -542,18 +572,19 @@ $("#refreshLogs").addEventListener("click", refreshLogs);
 
 (async function boot() {
   applyTheme(initialTheme());
-  await Promise.all([
-    loadLightingEffects(),
-    loadPersistence(),
-    loadDesiredLighting(),
-    loadPrimaryLayout()
-  ]);
-  await pollStatus();
-
-  setTimeout(() => {
+  try {
+    // Mode options must exist before restoring the saved selection.
+    await loadLightingEffects();
+    const results = await Promise.allSettled([loadPersistence(), loadDesiredLighting(), loadPrimaryLayout()]);
+    const failed = results.filter((result) => result.status === "rejected");
+    if (failed.length) throw new Error(failed.map((result) => String(result.reason)).join("; "));
+  } catch (error) {
+    $("#bootNotice").textContent = "Some saved controls could not be loaded. Reopen the app to retry. " + String(error);
+    $("#bootNotice").classList.remove("hidden-control");
+  } finally {
+    await pollStatus();
     $("#splash").classList.add("hidden");
     $("#app").classList.remove("hidden");
-  }, 850);
-
-  setInterval(pollStatus, 1200);
+    setInterval(pollStatus, 1200);
+  }
 })();

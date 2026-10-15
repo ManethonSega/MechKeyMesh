@@ -39,6 +39,9 @@ Current Rust implementation:
 - SQLite desired-state database with versioned migrations
 - stable device-model/profile/capability configuration scope
 - universal data-driven keyboard layout and KeyAction engine
+- task-focused desktop navigation and overview, accessible dark/light controls and smaller-window layouts
+- explicit unsaved, saved-in-app and sent-to-keyboard feedback for lighting and settings
+- cancellable deletion of saved macros, profiles and application rules
 - brand-consistent dark and light application themes
 - hardware-risk features gated until their protocol safety tests exist
 
@@ -125,3 +128,4 @@ The F108 Pro implementation builds on our OEM analysis and MIT-licensed communit
 - https://github.com/Punkster81/AULA-F108-Driver
 
 See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+

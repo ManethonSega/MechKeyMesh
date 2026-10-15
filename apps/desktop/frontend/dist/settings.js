@@ -2,11 +2,13 @@ const settingsInvoke = (command, args = {}) => window.__TAURI__.core.invoke(comm
 const settingsQ = (selector) => document.querySelector(selector);
 
 let settingsDescriptor = null;
+let settingsSavedSnapshot = null;
+let settingsSaving = false;
 
 function settingsStatus(message, isError = false) {
   const element = settingsQ("#deviceSettingsStatus");
   element.textContent = message;
-  element.style.color = isError ? "#ff718c" : "";
+  element.classList.toggle("error-text", isError);
 }
 
 function option(value, label) {
@@ -87,7 +89,7 @@ async function loadDeviceSettings() {
     populateSettingsDescriptor(descriptor);
     if (desired) {
       renderSettings(desired);
-      settingsStatus("Loaded the last desired settings. Hardware state is write-only and was not queried.");
+      settingsStatus("Showing settings saved in the app. Keyboard menu changes are not read back.");
     } else {
       renderSettings({
         disableWindowsKey: false,
@@ -97,8 +99,9 @@ async function loadDeviceSettings() {
         sleepTimeout: "five-minutes",
         keyResponseLevel: 3
       });
-      settingsStatus("No desired settings are saved yet. Review every value before applying.");
+      settingsStatus("No settings saved yet. Review these values before applying.");
     }
+    settingsSavedSnapshot = JSON.stringify(settingsFromEditor());
   } catch (error) {
     settingsStatus(String(error), true);
     settingsQ("#applyDeviceSettings").disabled = true;
@@ -106,25 +109,42 @@ async function loadDeviceSettings() {
 }
 
 async function applyDeviceSettings() {
-  if (!settingsDescriptor) return;
+  if (!settingsDescriptor || settingsSaving) return;
+  const settings = settingsFromEditor();
+  settingsSaving = true;
+  settingsQ("#deviceSettingsFields").disabled = true;
   const button = settingsQ("#applyDeviceSettings");
   button.disabled = true;
+  button.textContent = "Saving…";
   settingsStatus("Saving and applying the complete settings block...");
   try {
     const result = await settingsInvoke("save_device_settings", {
-      settings: settingsFromEditor()
+      settings
     });
+    settingsSavedSnapshot = JSON.stringify(settings);
+    window.mkmSetSaveState("settingsSaveState", result.applied ? "sent" : "pending", result.applied ? "Sent to keyboard" : "Saved in app");
     if (result.applied) {
-      settingsStatus("Desired settings saved and sent. Physical change/verify/restore testing remains pending.");
+      settingsStatus("Saved and sent. Check the behavior on your keyboard; physical verification is still pending.");
     } else {
-      settingsStatus(`Desired settings saved, but hardware apply failed: ${result.message}`, true);
+      settingsStatus(`Saved in the app. Not applied to the keyboard: ${result.message}`, true);
     }
   } catch (error) {
-    settingsStatus(String(error), true);
+    window.mkmSetSaveState("settingsSaveState", "error", "Save failed");
+    settingsStatus("Could not save settings. Your edits are still here. " + String(error), true);
   } finally {
+    settingsSaving = false;
+    settingsQ("#deviceSettingsFields").disabled = false;
     button.disabled = false;
+    button.textContent = "Save & apply all settings";
   }
 }
 
+settingsQ("#deviceSettingsFields").addEventListener("input", () => {
+  if (!settingsDescriptor || settingsSaving) return;
+  const dirty = JSON.stringify(settingsFromEditor()) !== settingsSavedSnapshot;
+  window.mkmSetSaveState("settingsSaveState", dirty ? "dirty" : "saved", dirty ? "Unsaved changes" : "Saved in app");
+  settingsStatus(dirty ? "Your changes have not been sent to the keyboard." : "Matches the settings saved in the app.");
+});
 settingsQ("#applyDeviceSettings").addEventListener("click", applyDeviceSettings);
 void loadDeviceSettings();
+

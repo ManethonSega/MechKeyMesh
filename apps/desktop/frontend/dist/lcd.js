@@ -11,7 +11,7 @@
   function setStatus(message, error = false) {
     const status = element("#lcdStatus");
     status.textContent = String(message);
-    status.style.color = error ? "#ff806b" : "";
+    status.classList.toggle("error-text", error);
   }
 
   function colorRgba() {
@@ -228,3 +228,4 @@
 
   invoke("get_lcd_editor_state").then((state) => state && renderState(state)).catch(() => {});
 })();
+

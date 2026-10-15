@@ -3,7 +3,7 @@
   const byId = (id) => document.getElementById(id);
   function message(value, error = false) {
     byId("backgroundMessage").textContent = String(value);
-    byId("backgroundMessage").style.color = error ? "#ff806b" : "";
+    byId("backgroundMessage").classList.toggle("error-text", error);
   }
   let paused = false;
   async function refresh(loadPreferences = false) {
@@ -36,3 +36,4 @@
   void refresh(true);
   setInterval(refresh, 2000);
 })();
+

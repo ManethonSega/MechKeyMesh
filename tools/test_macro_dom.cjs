@@ -12,10 +12,11 @@ const { runChecks } = require('./test_macro_ui.cjs');
   const errors = [];
   const evaluate = (fn, arg) => dom.window.eval('(' + fn.toString() + ')(' + (arg === undefined ? '' : JSON.stringify(arg)) + ')');
   const page = {
-    on: (_event, listener) => errors.push(listener),
+    on: (event, listener) => { if (event === "pageerror") errors.push(listener); },
     setContent: async content => {
       dom = new JSDOM(content, { runScripts: 'outside-only', url: 'https://macro.test' });
       dom.window.structuredClone = structuredClone;
+      dom.window.confirm = () => true;
       dom.window.addEventListener('error', e => errors.forEach(listener => listener(e.error)));
     },
     addStyleTag: async () => {},
@@ -44,3 +45,4 @@ const { runChecks } = require('./test_macro_ui.cjs');
   try { await runChecks(page, frontend, section); }
   finally { dom?.window.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
+

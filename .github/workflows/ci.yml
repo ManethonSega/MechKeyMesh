@@ -22,6 +22,7 @@ jobs:
           components: rustfmt, clippy
       - name: Frontend JavaScript syntax
         run: |
+          node --check apps/desktop/frontend/dist/studio.js
           node --check apps/desktop/frontend/dist/app.js
           node --check apps/desktop/frontend/dist/keymap.js
           node --check apps/desktop/frontend/dist/perkey.js
@@ -46,6 +47,16 @@ jobs:
         with:
           name: MechKeyMesh-Macro-UI
           path: macro-ui.png
+          retention-days: 14
+      - name: Desktop studio UI regression
+        run: PLAYWRIGHT_CHROMIUM_EXECUTABLE="$(command -v google-chrome)" node tools/test_studio_ui.cjs
+      - name: Upload desktop UI review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MechKeyMesh-UI-review
+          path: ui-review/
+          if-no-files-found: warn
           retention-days: 14
       - name: Core tests
         run: cargo test --workspace --exclude mechkeymesh-desktop
@@ -90,3 +101,4 @@ jobs:
             target/release/MechKeyMesh.exe.sha256
           if-no-files-found: error
           retention-days: 14
+

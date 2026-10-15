@@ -193,13 +193,13 @@
 }
 
 .danger-soft {
-  border-color: rgba(255, 146, 46, .42) !important;
-  color: var(--accent-orange) !important;
+  border-color: var(--line-strong);
+  color: var(--danger);
 }
 
 .danger-soft:hover {
-  border-color: rgba(255, 146, 46, .72) !important;
-  background: rgba(255, 146, 46, .08) !important;
+  border-color: var(--danger);
+  background: var(--danger-surface);
 }
 
 @media (max-width: 900px) {
@@ -208,3 +208,4 @@
     flex-direction: column;
   }
 }
+

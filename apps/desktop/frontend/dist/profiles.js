@@ -6,7 +6,7 @@
 
   function status(message, error = false) {
     $("#profileStatus").textContent = String(message);
-    $("#profileStatus").style.color = error ? "#ff806b" : "";
+    $("#profileStatus").classList.toggle("error-text", error);
   }
 
   async function refreshProfiles() {
@@ -26,6 +26,12 @@
     rules = await invoke("get_application_rules");
     const list = $("#ruleList");
     list.replaceChildren();
+    if (!rules.length) {
+      const empty = document.createElement("p");
+      empty.className = "empty-state";
+      empty.textContent = "No apps linked yet. Browse for an application above to add your first rule.";
+      list.append(empty);
+    }
     for (const rule of rules) {
       const row = document.createElement("div");
       row.className = "rule-row";
@@ -35,15 +41,20 @@
       const profileName = document.createElement("span");
       profileName.textContent = profile?.name || rule.profileId;
       const priority = document.createElement("span");
-      priority.textContent = `P${rule.priority}`;
+      priority.textContent = `Priority ${rule.priority}`;
       const remove = document.createElement("button");
       remove.className = "secondary compact danger-soft";
       remove.type = "button";
       remove.textContent = "Delete";
+      remove.setAttribute("aria-label", `Delete rule for ${rule.executablePattern}`);
       row.replaceChildren(pattern, profileName, priority, remove);
       row.querySelector("button").addEventListener("click", async () => {
-        await invoke("delete_application_rule", { profileId: rule.profileId, id: rule.id });
-        await refreshRules();
+        if (!await window.mkmConfirmDelete("Delete application rule?", `Automatic switching for “${rule.executablePattern}” will stop. The profile will be kept.`)) return;
+        try {
+          await invoke("delete_application_rule", { profileId: rule.profileId, id: rule.id });
+          await refreshRules();
+          status("Application rule deleted.");
+        } catch (error) { status(error, true); }
       });
       list.append(row);
     }
@@ -70,12 +81,19 @@
     } catch (error) { status(error, true); }
   });
   $("#profileDelete").addEventListener("click", async () => {
+    const profileId = $("#profileList").value;
+    if (!profileId) return;
+    const profile = profiles.find((item) => item.id === profileId);
+    if (!await window.mkmConfirmDelete("Delete profile?", `“${profile?.name || profileId}” and its application rules will be removed.`)) return;
     try {
-      await invoke("delete_profile", { profileId: $("#profileList").value });
+      await invoke("delete_profile", { profileId });
       await refreshProfiles();
     } catch (error) { status(error, true); }
   });
-  $("#profileAutoSwitch").addEventListener("change", () => invoke("set_profile_auto_switch", { enabled: $("#profileAutoSwitch").checked }));
+  $("#profileAutoSwitch").addEventListener("change", async () => {
+    try { await invoke("set_profile_auto_switch", { enabled: $("#profileAutoSwitch").checked }); }
+    catch (error) { status(error, true); await pollRuntime(); }
+  });
   $("#ruleBrowse").addEventListener("click", async () => {
     const button = $("#ruleBrowse");
     if (button.disabled) return;
@@ -139,3 +157,4 @@
   refreshProfiles().then(pollRuntime).catch((error) => status(error, true));
   setInterval(pollRuntime, 750);
 })();
+

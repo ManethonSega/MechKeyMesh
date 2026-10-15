@@ -552,14 +552,8 @@ function updateFnLayerInfo() {
     return;
   }
 
-  const modes = (fnLayerDescriptor.modes || [])
-    .map((option) => `${titleCase(option.mode)} = raw ${option.rawValue}`)
-    .join(", ");
-  const current = fnLayerDescriptor.currentMode
-    ? titleCase(fnLayerDescriptor.currentMode)
-    : "unavailable";
   keymapQ("#fnModeSummary").textContent =
-    `OEM enum: ${modes}. Current device value: ${current}. ${fnLayerDescriptor.note}`;
+    "Choose hold or toggle behavior in Keyboard settings. The keyboard does not report its current Fn mode.";
 }
 
 function switchLayer(layer) {
@@ -573,7 +567,7 @@ function switchLayer(layer) {
   });
 
   keymapQ("#actionEditorTitle").textContent = `${layerLabel()}-layer action`;
-  keymapQ("#saveKeymap").textContent = `Save desired ${layerLabel()} layer`;
+  keymapQ("#saveKeymap").textContent = `Save & apply ${layerLabel()} layer`;
 
   populateCapabilityTargets();
   updateFnLayerInfo();
@@ -700,3 +694,4 @@ if (document.readyState === "loading") {
 } else {
   initializeKeymapEditor();
 }
+

@@ -27,11 +27,11 @@ function newMacroProgram(name = "New macro") {
 function macroSetStatus(message, isError = false) {
   const status = macroQ("#macroStatus");
   status.textContent = message;
-  status.style.color = isError ? "#ff718c" : "";
+  status.classList.toggle("error-text", isError);
   const libraryStatus = macroQ("#macroLibraryStatus");
   if (libraryStatus) {
     libraryStatus.textContent = message;
-    libraryStatus.style.color = isError ? "#ff718c" : "";
+    libraryStatus.classList.toggle("error-text", isError);
   }
 }
 
@@ -368,6 +368,10 @@ async function macroNew() {
 
 async function macroDelete() {
   if (!macroDraft || macroBusy || !macroPrograms.some(p => p.id === macroDraft.id)) return;
+  const confirmed = window.mkmConfirmDelete
+    ? await window.mkmConfirmDelete("Delete macro?", `“${macroDraft.name}” will be removed from your saved macros. Key assignments that use it may need updating.`)
+    : window.confirm("Delete this saved macro?");
+  if (!confirmed) return;
   macroBusy = true;
   macroUpdateControls();
   try {
@@ -547,3 +551,4 @@ function macroBind() {
 
 macroBind();
 void macroLoadLibrary();
+
