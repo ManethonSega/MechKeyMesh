@@ -4,13 +4,13 @@ Current test version: **0.20.0-alpha.6**. This update revises the desktop UI: gr
 
 ## Automated evidence
 
-Alpha.6 validation is pending the current CI run. The prior alpha.5 evidence below remains historical until the new build is checked.
+[CI run 170](https://github.com/ManethonSega/MechKeyMesh/actions/runs/38724089072) passed for alpha.6 at `b4504e03f933d7d638c9c4ced6663d723c181aad`. This includes 144 Linux core tests, 149 Windows workspace tests, Clippy on both platforms, formatting, frontend syntax, transparent-original branding checks, the existing macro-library regression and the full desktop UI regression.
 
-[CI run 166](https://github.com/ManethonSega/MechKeyMesh/actions/runs/38641628120) passed for alpha.5 at `4feb896a8b10f6ddc1a36b6532a584a79adff2a9`, including Linux core tests/Clippy, Windows workspace tests/Clippy, the Chrome macro-library regression, branding/format/frontend-syntax checks and the Windows release build. The desktop-build job produced the executable and its SHA-256 sidecar.
+The UI regression checked all 12 pages in both themes at 1320×840, eight editor/overview pages in both themes at the 1040×680 minimum window, visible control labels, larger text, draft preservation, save/failure/retry states, in-flight save locking, delete cancellation/confirmation, native-picker commands, keyboard layer tabs, reduced motion, startup recovery and USB/2.4 GHz capability changes. Tauri/hardware commands were mocked. It captured 43 screenshots; representative pages, both themes and compact layouts were visually reviewed. The [UI screenshot artifact](https://github.com/ManethonSega/MechKeyMesh/actions/runs/38724089072/artifacts/11966364626) records the final render batch.
 
-Windows download: [MechKeyMesh-Windows-test artifact](https://github.com/ManethonSega/MechKeyMesh/actions/runs/38641628120/artifacts/11930572093), containing `MechKeyMesh.exe` and `MechKeyMesh.exe.sha256`. The downloaded ZIP hash matches the GitHub artifact digest, and the executable hash matches its sidecar: `6de1cacf7d7a7189cac3d795ebe7981c84f0b0df3f0569927725a929bdf2d6dd`.
+Windows download: [MechKeyMesh-Windows-test artifact](https://github.com/ManethonSega/MechKeyMesh/actions/runs/38724089072/artifacts/11967401926), containing `MechKeyMesh.exe` and `MechKeyMesh.exe.sha256`. The downloaded ZIP matches the GitHub artifact digest, `7fe7f51f5f44b99e3338db3e402077f68d0d749d8cdf8859fd2c5538b34cefd9`. The executable matches its sidecar: `6e8dd7a2fc739b321792ec1e0f35366f193f9db30e73fcb77dfb3601b42a196e`.
 
-This establishes a checked software build. Charging detection and other explicitly unavailable native readbacks are not claimed as functional. Physical acceptance gates for other runs remain independent of R18 closure.
+The alpha.6 UI revision is **complete as a software change**. Interactive Windows acceptance and physical F108 testing remain separate. Charging detection and other unavailable native readbacks are not claimed as functional. The hardware acceptance gates below are unchanged. Earlier alpha.5 build evidence is retained in the repository history.
 
 ## Acceptance gates
 
