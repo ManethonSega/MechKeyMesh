@@ -42,7 +42,7 @@ def verify(master):
             assert actual.tobytes() == square_icon(master, size).tobytes(), f"Wrong ICO: {size}"
     frontend = ROOT / "apps/desktop/frontend/dist"
     html = (frontend / "index.html").read_text()
-    assert html.count('src="assets/logo.png"') == 2, "Splash/sidebar logo binding"
+    assert html.count('src="assets/logo.png"') == 3, "Splash/sidebar/overview logo binding"
     assert 'href="assets/logo.png"' in html, "Favicon binding"
     assert not (frontend / "assets/logo.svg").exists(), "Obsolete logo remains"
     config = json.loads((ROOT / "apps/desktop/src-tauri/tauri.conf.json").read_text())
@@ -73,3 +73,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

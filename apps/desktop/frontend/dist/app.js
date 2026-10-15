@@ -9,6 +9,8 @@ let activeCapabilities = new Set();
 let lightingEffects = [];
 let lightingSavedSnapshot = null;
 let lightingSaving = false;
+let lightingLoaded = false;
+let lightingHasSavedState = false;
 let lightingConnectionState = "disconnected";
 const selectedKeyIds = new Set();
 
@@ -243,8 +245,14 @@ async function loadPersistence() {
 
 async function loadDesiredLighting() {
   const desired = await invoke("get_desired_lighting");
-  if (!desired) return;
-
+  if (!desired) {
+    lightingSavedSnapshot = lightingSnapshot();
+    lightingLoaded = true;
+    window.mkmSetSaveState("lightingSaveState", "pending", "Not saved");
+    $("#lightingResult").textContent = "No lighting saved yet. Review the effect before saving.";
+    return;
+  }
+  lightingHasSavedState = true;
   const config = desired.config;
   $("#lightingMode").value = String(config.mode);
   $("#lightingColor").value = rgbHex(config.r, config.g, config.b);
@@ -257,6 +265,7 @@ async function loadDesiredLighting() {
   $("#colorful").checked = Boolean(config.colorful);
   $("#desiredProfile").textContent = desired.scope.profileId;
   lightingSavedSnapshot = lightingSnapshot();
+  lightingLoaded = true;
 }
 
 function layoutKindLabel(kind) {
@@ -484,15 +493,17 @@ function lightingConfig() {
 }
 function lightingSnapshot() { return JSON.stringify(lightingConfig()); }
 function updateLightingSaveButton() {
-  $("#applyLighting").disabled = lightingSaving || lightingConnectionState === "busy";
+  $("#applyLighting").disabled = !lightingLoaded || lightingSaving || lightingConnectionState === "busy";
   $("#applyLighting").textContent = lightingSaving ? "Saving…" : lightingConnectionState === "ready" ? "Save & apply to keyboard" : "Save in app";
 }
-$("#lightingFields").addEventListener("input", () => {
+function lightingDraftChanged() {
   if (lightingSaving) return;
   const dirty = lightingSnapshot() !== lightingSavedSnapshot;
-  window.mkmSetSaveState("lightingSaveState", dirty ? "dirty" : "saved", dirty ? "Unsaved changes" : "Saved in app");
-  $("#lightingResult").textContent = dirty ? "Your changes have not been sent to the keyboard." : "Matches the values saved in the app.";
-});
+  window.mkmSetSaveState("lightingSaveState", dirty ? "dirty" : lightingHasSavedState ? "saved" : "pending", dirty ? "Unsaved changes" : lightingHasSavedState ? "Saved in app" : "Not saved");
+  $("#lightingResult").textContent = dirty ? "Your changes have not been sent to the keyboard." : lightingHasSavedState ? "Matches the values saved in the app." : "No lighting saved yet. Review the effect before saving.";
+}
+$("#lightingFields").addEventListener("input", lightingDraftChanged);
+$("#lightingFields").addEventListener("change", lightingDraftChanged);
 $("#applyLighting").addEventListener("click", async () => {
   if (lightingSaving) return;
   const config = lightingConfig();
@@ -504,6 +515,7 @@ $("#applyLighting").addEventListener("click", async () => {
   try {
     const result = await invoke("apply_lighting", { config });
     lightingSavedSnapshot = JSON.stringify(config);
+    lightingHasSavedState = true;
     window.mkmSetSaveState("lightingSaveState", result.applied ? "sent" : "pending", result.applied ? "Sent to keyboard" : "Saved in app");
     $("#lightingResult").textContent = result.applied
       ? "Saved and sent. Check the effect on your keyboard."

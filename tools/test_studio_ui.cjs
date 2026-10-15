@@ -199,9 +199,9 @@ async function screenshot(page, name) { await page.screenshot({ path: path.join(
       await page.evaluate(theme => applyTheme(theme), theme);
       for (const name of ['home','keys','macros','lighting','lcd','profiles','settings','live-rgb']) { await navigate(page,name); await checkLayout(page,`${name}-small-${theme}`); await screenshot(page,`${name}-small-${theme}`); }
     }
-    await page.evaluate(() => document.documentElement.style.fontSize = '20px');
+    const largerText = await page.addStyleTag({ content: '.page.active p,.page.active label,#nav button,button,input,select,textarea {font-size:18px!important}' });
     for (const name of ['home','profiles','settings']) { await navigate(page,name); await checkLayout(page,`${name}-larger-text`); }
-    await page.evaluate(() => document.documentElement.style.fontSize = '');
+    await largerText.evaluate(el => el.remove());
     await page.emulateMedia({ reducedMotion:'reduce' });
     assert.equal(await page.locator('#themeToggle').evaluate(el => getComputedStyle(el).transitionDuration), '0s');
     // Wireless capability changes hide unsupported destinations and return to Overview.

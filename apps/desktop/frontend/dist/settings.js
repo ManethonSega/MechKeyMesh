@@ -4,6 +4,7 @@ const settingsQ = (selector) => document.querySelector(selector);
 let settingsDescriptor = null;
 let settingsSavedSnapshot = null;
 let settingsSaving = false;
+let settingsHasSavedState = false;
 
 function settingsStatus(message, isError = false) {
   const element = settingsQ("#deviceSettingsStatus");
@@ -88,6 +89,7 @@ async function loadDeviceSettings() {
     ]);
     populateSettingsDescriptor(descriptor);
     if (desired) {
+      settingsHasSavedState = true;
       renderSettings(desired);
       settingsStatus("Showing settings saved in the app. Keyboard menu changes are not read back.");
     } else {
@@ -100,6 +102,7 @@ async function loadDeviceSettings() {
         keyResponseLevel: 3
       });
       settingsStatus("No settings saved yet. Review these values before applying.");
+      window.mkmSetSaveState("settingsSaveState", "pending", "Not saved");
     }
     settingsSavedSnapshot = JSON.stringify(settingsFromEditor());
   } catch (error) {
@@ -122,6 +125,7 @@ async function applyDeviceSettings() {
       settings
     });
     settingsSavedSnapshot = JSON.stringify(settings);
+    settingsHasSavedState = true;
     window.mkmSetSaveState("settingsSaveState", result.applied ? "sent" : "pending", result.applied ? "Sent to keyboard" : "Saved in app");
     if (result.applied) {
       settingsStatus("Saved and sent. Check the behavior on your keyboard; physical verification is still pending.");
@@ -142,7 +146,7 @@ async function applyDeviceSettings() {
 settingsQ("#deviceSettingsFields").addEventListener("input", () => {
   if (!settingsDescriptor || settingsSaving) return;
   const dirty = JSON.stringify(settingsFromEditor()) !== settingsSavedSnapshot;
-  window.mkmSetSaveState("settingsSaveState", dirty ? "dirty" : "saved", dirty ? "Unsaved changes" : "Saved in app");
+  window.mkmSetSaveState("settingsSaveState", dirty ? "dirty" : settingsHasSavedState ? "saved" : "pending", dirty ? "Unsaved changes" : settingsHasSavedState ? "Saved in app" : "Not saved");
   settingsStatus(dirty ? "Your changes have not been sent to the keyboard." : "Matches the settings saved in the app.");
 });
 settingsQ("#applyDeviceSettings").addEventListener("click", applyDeviceSettings);
