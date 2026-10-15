@@ -259,7 +259,7 @@
             <div><h2>Saved macros</h2></div>
             <span class="verification pending">Hardware verification pending</span>
           </div>
-          <p id="macroLibraryStatus" class="layout-note" role="status" aria-live="polite">Loading macro library...</p>
+          <p id="macroLibraryStatus" class="layout-note">Loading macro library...</p>
           <select id="macroLibrary" size="10" aria-label="Saved macros"></select>
           <div class="macro-library-actions">
             <button id="newMacro" class="primary compact" type="button">New</button>
@@ -650,7 +650,7 @@
 
       <div class="lcd-workspace">
         <article class="card lcd-preview-card">
-          <canvas id="lcdCanvas" width="240" height="135" aria-label="LCD frame editor"></canvas>
+          <div class="lcd-canvas-stage"><canvas id="lcdCanvas" width="240" height="135" aria-label="LCD frame editor"></canvas><div id="lcdEmptyState" class="lcd-empty-state"><strong>Your screen preview</strong><span>Choose media above to start editing.</span></div></div>
           <div class="lcd-editor-tools">
             <button id="lcdUndo" class="secondary compact" type="button">Undo</button>
             <button id="lcdRedo" class="secondary compact" type="button">Redo</button>

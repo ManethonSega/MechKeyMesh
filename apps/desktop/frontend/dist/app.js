@@ -146,7 +146,8 @@ function updateStatus(status) {
   const nextConnection = device?.connection || null;
   activeCapabilities = new Set(device?.capabilities || []);
   const pill = $("#connectionPill");
-  pill.textContent = state === "ready" ? "Connected" : state.replace(/-/g, " ");
+  const connectionLabel = state === "ready" ? "Connected" : state.replace(/-/g, " ");
+  if (pill.textContent !== connectionLabel) pill.textContent = connectionLabel;
   pill.className = "pill " + stateClass(state);
 
   $("#deviceName").textContent = device?.name || "AULA F108 Pro";

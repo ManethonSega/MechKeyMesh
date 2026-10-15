@@ -102,8 +102,8 @@ function renderLiveRgbLayers() {
         <span class="muted">Blank selects all keys.</span>
       </div>
       <div class="live-rgb-order">
-        <button class="secondary compact move-layer-up" type="button" title="Move up">↑</button>
-        <button class="secondary compact move-layer-down" type="button" title="Move down">↓</button>
+        <button class="secondary compact move-layer-up" type="button" title="Move up" aria-label="Move layer up">↑</button>
+        <button class="secondary compact move-layer-down" type="button" title="Move down" aria-label="Move layer down">↓</button>
         <button class="secondary compact duplicate-layer" type="button">Duplicate</button>
         <button class="secondary compact delete-layer" type="button">Delete</button>
       </div>
@@ -238,3 +238,4 @@ async function pollLiveRgbStatus() {
 
 void loadLiveRgb();
 setInterval(pollLiveRgbStatus, 1000);
+

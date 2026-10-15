@@ -57,7 +57,9 @@ async function installMock(page, failBoot = false) {
         case 'get_logs': return [];
         case 'get_driver_registry': return [];
         case 'reconnect': return true;
-        case 'select_lcd_media_file': return null;
+        case 'select_lcd_media_file': return state.mediaChoice || null;
+        case 'import_lcd_media': return { project: { name:'Preview sample', frameCount:1, totalDurationMs:100, valid:true }, durationsMs:[100], canUndo:false, canRedo:false };
+        case 'get_lcd_frame_preview': { const canvas = document.createElement('canvas'); canvas.width=240; canvas.height=135; const ctx=canvas.getContext('2d'); ctx.fillStyle='#17343e'; ctx.fillRect(0,0,240,135); ctx.fillStyle='#67e5e6'; ctx.font='16px sans-serif'; ctx.textAlign='center'; ctx.fillText('Preview sample',120,72); return canvas.toDataURL('image/png'); }
         case 'select_profile_application_file': return 'C:\\Program Files\\Example\\Example.exe';
         case 'save_application_rule': state.rules.push(args.rule); return true;
         case 'delete_application_rule': state.rules = state.rules.filter(item => item.id !== args.id); return true;
@@ -84,10 +86,10 @@ async function checkLayout(page, name) {
     return { extraWidth: main.scrollWidth-main.clientWidth, navBottom: nav.getBoundingClientRect().bottom, versionTop: version.top, versionBottom: version.bottom, height: innerHeight, unlabeled };
   });
   assert(dimensions.extraWidth <= 2, `${name}: horizontal overflow ${JSON.stringify(dimensions)}`);
-  assert(dimensions.navBottom <= dimensions.versionTop + 2 && dimensions.versionBottom <= dimensions.height, `${name}: sidebar clipped`);
+  assert(dimensions.navBottom <= dimensions.versionTop + 2 && dimensions.versionBottom <= dimensions.height, `${name}: sidebar clipped ${JSON.stringify(dimensions)}`);
   assert.deepEqual(dimensions.unlabeled, [], `${name}: controls need names`);
 }
-async function screenshot(page, name) { await page.screenshot({ path: path.join(output, `${name}.png`) }); }
+async function screenshot(page, name) { await page.screenshot({ path: path.join(output, `${name}.png`), animations:'disabled', caret:'hide' }); }
 
 (async () => {
   fs.mkdirSync(output, { recursive: true });
@@ -122,10 +124,20 @@ async function screenshot(page, name) { await page.screenshot({ path: path.join(
     }
     // Both native pickers remain wired to the desktop commands, and cancellation is harmless.
     await navigate(page, 'lcd');
+    assert.equal(await page.locator('#lcdDurationApply').isDisabled(), true);
+    assert.equal(await page.locator('#lcdUpload').isDisabled(), true);
     await page.locator('#lcdImport').click();
     await page.waitForFunction(() => document.querySelector('#lcdStatus').textContent === 'No media file selected.');
     assert.equal(await page.locator('#lcdMediaPath').getAttribute('readonly'), '');
     assert.equal(await page.evaluate(() => mock.calls.some(call => call.command === 'import_lcd_media')), false);
+    await page.evaluate(() => mock.mediaChoice='C:\\Users\\Test\\Pictures\\photo.png');
+    await page.locator('#lcdImport').click();
+    await page.waitForFunction(() => document.querySelector('#lcdValidity').textContent === 'Valid F108 project' && !document.querySelector('#lcdImport').disabled);
+    assert.equal(await page.locator('#lcdDurationApply').isDisabled(), false);
+    assert.equal(await page.locator('#lcdUpload').isDisabled(), false);
+    assert.equal(await page.locator('#lcdEmptyState').isVisible(), false);
+    assert.equal(await page.evaluate(() => mock.calls.some(call => call.command === 'upload_lcd_asset')), false, 'import remains local');
+    await screenshot(page,'lcd-imported-light');
     await navigate(page, 'profiles');
     assert.match(await page.locator('#ruleList').textContent(), /No apps linked yet/);
     await page.locator('#ruleBrowse').click();

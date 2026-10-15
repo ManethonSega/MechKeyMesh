@@ -94,7 +94,7 @@ function macroRenderLibrary() {
   }
   if (!macroPrograms.length) {
     const option = document.createElement("option");
-    option.textContent = "No saved macros. Click New.";
+    option.textContent = "No saved macros";
     option.disabled = true;
     select.appendChild(option);
   }

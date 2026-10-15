@@ -147,7 +147,7 @@ settingsQ("#deviceSettingsFields").addEventListener("input", () => {
   if (!settingsDescriptor || settingsSaving) return;
   const dirty = JSON.stringify(settingsFromEditor()) !== settingsSavedSnapshot;
   window.mkmSetSaveState("settingsSaveState", dirty ? "dirty" : settingsHasSavedState ? "saved" : "pending", dirty ? "Unsaved changes" : settingsHasSavedState ? "Saved in app" : "Not saved");
-  settingsStatus(dirty ? "Your changes have not been sent to the keyboard." : "Matches the settings saved in the app.");
+  settingsStatus(dirty ? "Your changes have not been sent to the keyboard." : settingsHasSavedState ? "Matches the settings saved in the app." : "No settings saved yet. Review these values before applying.");
 });
 settingsQ("#applyDeviceSettings").addEventListener("click", applyDeviceSettings);
 void loadDeviceSettings();

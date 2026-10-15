@@ -7,6 +7,10 @@
   let selectedFrame = 0;
   let drawing = false;
   let points = [];
+  const projectControls = ["lcdTool", "lcdColor", "lcdBrushSize", "lcdText", "lcdTextScale", "lcdAddText", "lcdDuration", "lcdDurationApply", "lcdDuplicate", "lcdDelete", "lcdMoveLeft", "lcdMoveRight", "lcdExport", "lcdUpload"];
+  projectControls.forEach(id => { element("#" + id).disabled = true; });
+  element("#lcdUndo").disabled = true;
+  element("#lcdRedo").disabled = true;
 
   function setStatus(message, error = false) {
     const status = element("#lcdStatus");
@@ -34,6 +38,11 @@
 
   async function renderState(state, rebuildTimeline = true) {
     editorState = state;
+    const hasProject = state.project.frameCount > 0;
+    projectControls.forEach(id => { element("#" + id).disabled = !hasProject; });
+    element("#lcdExport").disabled = !hasProject || !state.project.valid;
+    element("#lcdUpload").disabled = !hasProject || !state.project.valid;
+    element("#lcdEmptyState").classList.toggle("hidden-control", hasProject);
     selectedFrame = Math.min(selectedFrame, state.project.frameCount - 1);
     element("#lcdValidity").textContent = state.project.valid ? "Valid F108 project" : "Invalid";
     element("#lcdValidity").className = "verification " + (state.project.valid ? "verified" : "pending");
@@ -78,6 +87,9 @@
   }
 
   element("#lcdImport").addEventListener("click", async () => {
+    const button = element("#lcdImport");
+    button.disabled = true;
+    button.textContent = "Opening media…";
     try {
       setStatus("Opening the media browser...");
       const path = await invoke("select_lcd_media_file");
@@ -96,6 +108,7 @@
     } catch (error) {
       setStatus(error, true);
     }
+    finally { button.disabled = false; button.textContent = "Choose media…"; }
   });
 
   element("#lcdDurationApply").addEventListener("click", () => run("set_lcd_frame_duration", {

@@ -51,7 +51,7 @@ aside { padding: 20px 12px 12px; min-height: 0; }
 .brand img { width: 46px; height: 46px; }
 .brand strong { font-size: 17px; letter-spacing: -.3px; }
 .brand span { font-size: 11px; text-transform: none; letter-spacing: 0; }
-#nav { overflow-y: auto; min-height: 0; gap: 16px; padding: 4px; margin: -4px; scrollbar-width: thin; }
+#nav { overflow-y: auto; min-height: 0; gap: 16px; padding: 4px; margin: 0; scrollbar-width: thin; }
 .nav-group { display: grid; gap: 2px; }
 .nav-group-label { margin: 0 10px 5px; font-size: 11px; color: var(--text-muted); font-weight: 600; }
 #nav button { gap: 11px; justify-content: flex-start; align-items: center; min-height: 37px; padding: 8px 10px; border-radius: 6px; font-size: 13px; font-weight: 500; }
@@ -256,3 +256,23 @@ dialog p { color: var(--text-muted); margin: 0 0 24px; }
 .fn-layer-info { background: var(--surface-2); border-color: var(--line); }
 .rainbow-only { background: var(--surface-2); border-color: var(--line-strong); }
 #regionSelect.active { color: var(--accent); border-color: var(--accent); background: var(--accent-surface); }
+
+/* Review corrections: dense editors keep labels and feedback together. */
+.music-controls { align-content: start; grid-auto-rows: min-content; gap: 22px 16px; }
+.music-controls label, .music-eq label { grid-template-columns: minmax(0,1fr) auto; font-size: 13px; font-weight: 500; }
+.music-controls input[type="range"], .music-eq input[type="range"] { grid-column: 1 / -1; grid-row: 2; }
+.music-controls output, .music-eq output { grid-column: 2; grid-row: 1; font-size: 12px; }
+.music-eq { align-content: start; }
+.music-palette input { grid-column: auto; }
+.live-rgb-toolbar label, .live-rgb-preview label, .live-rgb-layer label { font-size: 13px; font-weight: 500; letter-spacing: 0; }
+.live-rgb-layer { align-items: start; }
+.live-rgb-layer label.live-rgb-layer-inline { display: flex; justify-content: flex-start; gap: 8px; }
+.live-rgb-layer .layer-mask + .muted { font-size: 12px; }
+.settings-grid .sectiontitle { flex-wrap: wrap; }
+.settings-grid .sectiontitle > .verification { max-width: 100%; }
+.profile-associations hr { width: 100%; border: 0; border-top: 1px solid var(--line); }
+.lcd-canvas-stage { position: relative; width: 100%; }
+.lcd-canvas-stage canvas { display: block; width: 100%; }
+.lcd-empty-state { position: absolute; inset: 0; display: grid; place-content: center; padding: 24px; text-align: center; pointer-events: none; }
+.lcd-empty-state strong { color: #edf2f7; font-size: 16px; font-weight: 500; }
+.lcd-empty-state span { margin-top: 8px; color: #a4b3c9; font-size: 13px; }

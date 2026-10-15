@@ -147,7 +147,7 @@
     try {
       const runtime = await invoke("get_profile_runtime_status");
       $("#activeProfileTag").textContent = profiles.find((profile) => profile.id === runtime.activeProfileId)?.name || runtime.activeProfileId;
-      $("#desiredProfile").textContent = runtime.activeProfileId;
+      $("#desiredProfile").textContent = $("#activeProfileTag").textContent;
       $("#profileAutoSwitch").checked = runtime.autoSwitch;
       $("#profileForeground").textContent = runtime.foregroundExecutable || "Unavailable";
       renderReport(runtime.lastReport);
